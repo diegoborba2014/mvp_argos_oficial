@@ -100,11 +100,6 @@
     }
     #boot-seq.fade-out { opacity: 0; pointer-events: none; }
 
-    .boot-logo {
-      width: 56px; height: 56px;
-      margin-bottom: 28px;
-      opacity: .7;
-    }
     .boot-lines {
       font-family: 'Share Tech Mono', monospace;
       font-size: .82rem;
@@ -155,14 +150,22 @@
       text-align: center;
     }
     .system-title {
-      color: #fff;
       font-size: 2rem;
       font-weight: 800;
       letter-spacing: 7px;
       margin-bottom: 4px;
       text-align: center;
       position: relative;
-      text-shadow: 0 0 24px rgba(0,200,220,.25);
+      background: linear-gradient(180deg, #ffffff 0%, #00c8dc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      filter: drop-shadow(0 0 8px rgba(0,200,220,.7)) drop-shadow(0 0 24px rgba(0,200,220,.4));
+      animation: title-pulse 3s ease-in-out infinite;
+    }
+    @keyframes title-pulse {
+      0%,100% { filter: drop-shadow(0 0 8px rgba(0,200,220,.7)) drop-shadow(0 0 24px rgba(0,200,220,.4)); }
+      50%      { filter: drop-shadow(0 0 14px rgba(0,200,220,1)) drop-shadow(0 0 40px rgba(0,200,220,.6)); }
     }
     /* Glitch */
     .glitch::before,
@@ -171,6 +174,8 @@
       position: absolute;
       left: 0; right: 0; top: 0;
       pointer-events: none;
+      background: none;
+      -webkit-text-fill-color: initial;
     }
     .glitch::before {
       color: #c0392b;
@@ -178,7 +183,7 @@
       animation: glitch-r .9s steps(1) .4s 1;
     }
     .glitch::after {
-      color: #00c8dc;
+      color: #00eeff;
       clip-path: polygon(0 60%, 100% 60%, 100% 80%, 0 80%);
       animation: glitch-b .9s steps(1) .4s 1;
     }
@@ -341,6 +346,7 @@
     body:not(.anims-go) .scanline,
     body:not(.anims-go) .status-dot,
     body:not(.anims-go) .cursor,
+    body:not(.anims-go) .system-title,
     body:not(.anims-go) .glitch::before,
     body:not(.anims-go) .glitch::after {
       animation-play-state: paused;
@@ -369,7 +375,6 @@
 
 <!-- ════════════════════ BOOT SEQUENCE ════════════════════ -->
 <div id="boot-seq">
-  <img class="boot-logo" src="{{ url_for('static', filename='image_desktop.png') }}" alt="ARGOS">
   <div class="boot-lines" id="boot-lines"></div>
   <p class="boot-skip">[ CLIQUE OU PRESSIONE QUALQUER TECLA PARA PULAR ]</p>
 </div>
