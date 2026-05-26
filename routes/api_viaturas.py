@@ -65,17 +65,10 @@ def obter_config(viatura_id):
     err = _admin_required_json()
     if err:
         return err
-
-    base_url = os.getenv("VIATURA_BASE_URL", "")
-    if not base_url:
-        return jsonify({"aviso": "VIATURA_BASE_URL não configurada — retornando config padrão",
-                        "config": {}}), 200
-
-    try:
-        resp = requests.get(f"{base_url}/api/config", headers=_headers_pi(), timeout=10)
-        return jsonify(resp.json()), 200
-    except requests.exceptions.RequestException as e:
-        return jsonify({"erro": str(e)}), 502
+    viatura = Viatura.query.filter_by(viatura_id=viatura_id).first()
+    if not viatura:
+        return jsonify({"erro": "viatura não encontrada"}), 404
+    return jsonify(viatura.get_config()), 200
 
 
 @api_viaturas_bp.route("/api/viaturas/<viatura_id>/config", methods=["POST"])
@@ -84,18 +77,39 @@ def salvar_config(viatura_id):
     err = _admin_required_json()
     if err:
         return err
-
     config = request.get_json(force=True, silent=True) or {}
+    viatura = Viatura.query.filter_by(viatura_id=viatura_id).first()
+    if not viatura:
+        return jsonify({"erro": "viatura não encontrada"}), 404
+    viatura.set_config(config)
+    db.session.commit()
+    return jsonify({"status": "salvo", "pendente": True}), 200
+
+
+@api_viaturas_bp.route("/api/viaturas/<viatura_id>/config/sync", methods=["POST"])
+@login_required
+def sincronizar_config(viatura_id):
+    err = _admin_required_json()
+    if err:
+        return err
+    viatura = Viatura.query.filter_by(viatura_id=viatura_id).first()
+    if not viatura:
+        return jsonify({"erro": "viatura não encontrada"}), 404
+    config = viatura.get_config()
+    if not config:
+        return jsonify({"erro": "nenhuma configuração salva para sincronizar"}), 400
     base_url = os.getenv("VIATURA_BASE_URL", "")
-
     if not base_url:
-        return jsonify({"aviso": "VIATURA_BASE_URL não configurada — config simulada", "config": config}), 200
-
+        return jsonify({"aviso": "VIATURA_BASE_URL não configurada — sincronizacao pendente para Sprint Pi-B", "pendente": True}), 200
     try:
         resp = requests.post(f"{base_url}/api/config", json=config, headers=_headers_pi(), timeout=10)
-        return jsonify({"status": "aplicado", "resposta": resp.status_code}), 200
+        if resp.ok:
+            viatura.config_pendente = False
+            db.session.commit()
+            return jsonify({"status": "sincronizado"}), 200
+        return jsonify({"erro": f"Pi retornou {resp.status_code}"}), 502
     except requests.exceptions.RequestException as e:
-        return jsonify({"erro": str(e)}), 502
+        return jsonify({"erro": f"Pi inacessivel: {str(e)}", "pendente": True}), 502
 
 
 @api_viaturas_bp.route("/api/hotlist/sync/<viatura_id>", methods=["POST"])

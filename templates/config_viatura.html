@@ -42,21 +42,32 @@
   </div>
 </div>
 
+<!-- Parâmetros LPR -->
 <div class="row justify-content-center">
   <div class="col-md-8">
     <div class="card shadow-sm">
-      <div class="card-header py-2" style="background:#1a1d23;color:#fff;">
-        <h3 class="card-title">
+      <div class="card-header py-2 d-flex justify-content-between align-items-center" style="background:#1a1d23;color:#fff;">
+        <h3 class="card-title mb-0">
           <i class="fas fa-cog mr-1"></i>Parâmetros LPR — {{ viatura_id }}
         </h3>
-        <div class="card-tools">
-          <span id="cfg-status" class="badge badge-secondary">Carregando...</span>
-        </div>
+        <span id="cfg-status" class="badge badge-{{ 'warning' if viatura.config_pendente else ('success' if cfg else 'secondary') }}">
+          {% if viatura.config_pendente %}
+            <i class="fas fa-clock mr-1"></i>Pendente de Sincronização
+          {% elif cfg %}
+            <i class="fas fa-check mr-1"></i>Sincronizado
+          {% else %}
+            Sem config salva
+          {% endif %}
+        </span>
       </div>
       <div class="card-body">
-        <div class="callout callout-warning">
-          <h6>Atenção</h6>
-          Salvar a configuração reinicia o container LPR automaticamente (~5s de interrupção na leitura).
+        <div class="callout callout-warning mb-3">
+          <h6><i class="fas fa-info-circle mr-1"></i>Como funciona</h6>
+          <small>
+            <strong>Salvar</strong> armazena a configuração no banco do QG.<br>
+            <strong>Sincronizar</strong> envia para o equipamento e reinicia o container LPR (~5s de interrupção).<br>
+            Se o equipamento estiver offline, a config fica <em>pendente</em> e será aplicada quando a Sprint Pi-B for implementada.
+          </small>
         </div>
 
         <form id="form-config">
@@ -64,51 +75,56 @@
             <div class="col-md-6">
               <div class="form-group">
                 <label>sample <small class="text-muted">(1=todos os frames, 2=1 de cada 2)</small></label>
-                <input type="number" id="cfg-sample" name="sample" class="form-control form-control-sm" min="1" max="5">
+                <input type="number" id="cfg-sample" name="sample" class="form-control form-control-sm"
+                       min="1" max="5" value="{{ cfg.get('sample', '') }}">
               </div>
               <div class="form-group">
                 <label>min_score <small class="text-muted">(0.0–1.0)</small></label>
                 <input type="number" id="cfg-min-score" name="min_score" class="form-control form-control-sm"
-                       min="0" max="1" step="0.05">
+                       min="0" max="1" step="0.05" value="{{ cfg.get('min_score', '') }}">
               </div>
               <div class="form-group">
-                <label>memory_decay <small class="text-muted">(segundos)</small></label>
-                <input type="number" id="cfg-memory-decay" name="memory_decay" class="form-control form-control-sm" min="0">
+                <label>memory_decay <small class="text-muted">(segundos entre leituras do mesmo veículo)</small></label>
+                <input type="number" id="cfg-memory-decay" name="memory_decay" class="form-control form-control-sm"
+                       min="0" value="{{ cfg.get('memory_decay', '') }}">
               </div>
               <div class="form-group">
                 <label>max_dwell_delay <small class="text-muted">(ms)</small></label>
-                <input type="number" id="cfg-max-dwell" name="max_dwell_delay" class="form-control form-control-sm" min="0">
+                <input type="number" id="cfg-max-dwell" name="max_dwell_delay" class="form-control form-control-sm"
+                       min="0" value="{{ cfg.get('max_dwell_delay', '') }}">
               </div>
             </div>
             <div class="col-md-6">
               <div class="form-group">
                 <label>roi <small class="text-muted">(null = desativado, ex: 0,0.25,1,0.85)</small></label>
                 <input type="text" id="cfg-roi" name="roi" class="form-control form-control-sm"
-                       placeholder="null">
+                       placeholder="null" value="{{ cfg.get('roi', '') or 'null' }}">
               </div>
               <div class="form-group">
                 <label class="d-block">trajectory</label>
                 <div class="custom-control custom-switch">
-                  <input type="checkbox" class="custom-control-input" id="cfg-trajectory" name="trajectory">
+                  <input type="checkbox" class="custom-control-input" id="cfg-trajectory" name="trajectory"
+                         {{ 'checked' if cfg.get('trajectory', False) }}>
                   <label class="custom-control-label" for="cfg-trajectory">Rastrear velocidade e direção</label>
                 </div>
               </div>
               <div class="form-group">
                 <label class="d-block">report_static</label>
                 <div class="custom-control custom-switch">
-                  <input type="checkbox" class="custom-control-input" id="cfg-report-static" name="report_static">
+                  <input type="checkbox" class="custom-control-input" id="cfg-report-static" name="report_static"
+                         {{ 'checked' if cfg.get('report_static', False) }}>
                   <label class="custom-control-label" for="cfg-report-static">Reportar placas estáticas</label>
                 </div>
               </div>
             </div>
           </div>
 
-          <div class="mt-2">
-            <button type="submit" class="btn btn-danger">
-              <i class="fas fa-save mr-1"></i>Salvar e Aplicar
+          <div class="mt-3 d-flex flex-wrap" style="gap:.5rem;">
+            <button type="submit" class="btn btn-primary">
+              <i class="fas fa-save mr-1"></i>Salvar no QG
             </button>
-            <button type="button" class="btn btn-outline-secondary ml-2" onclick="carregarConfig()">
-              <i class="fas fa-sync mr-1"></i>Recarregar da Viatura
+            <button type="button" id="btn-sync" class="btn btn-danger" onclick="sincronizar()">
+              <i class="fas fa-sync mr-1"></i>Sincronizar com Equipamento
             </button>
           </div>
         </form>
@@ -124,32 +140,22 @@
 <script>
 const VIATURA_ID = '{{ viatura_id }}';
 
-function carregarConfig() {
-  document.getElementById('cfg-status').textContent = 'Carregando...';
-  document.getElementById('cfg-status').className = 'badge badge-secondary';
+function mostrarResultado(tipo, msg) {
+  const el = document.getElementById('cfg-resultado');
+  el.style.display = '';
+  el.className = 'alert alert-' + tipo;
+  el.innerHTML = msg;
+}
 
-  fetch(`/api/viaturas/${VIATURA_ID}/config`)
-    .then(r => r.json())
-    .then(cfg => {
-      if (cfg.aviso) {
-        document.getElementById('cfg-status').textContent = 'Simulado';
-        document.getElementById('cfg-status').className = 'badge badge-warning';
-        return;
-      }
-      document.getElementById('cfg-sample').value = cfg.sample ?? '';
-      document.getElementById('cfg-min-score').value = cfg.min_score ?? '';
-      document.getElementById('cfg-memory-decay').value = cfg.memory_decay ?? '';
-      document.getElementById('cfg-max-dwell').value = cfg.max_dwell_delay ?? '';
-      document.getElementById('cfg-roi').value = cfg.roi ?? 'null';
-      document.getElementById('cfg-trajectory').checked = !!cfg.trajectory;
-      document.getElementById('cfg-report-static').checked = !!cfg.report_static;
-      document.getElementById('cfg-status').textContent = 'Config carregada';
-      document.getElementById('cfg-status').className = 'badge badge-success';
-    })
-    .catch(() => {
-      document.getElementById('cfg-status').textContent = 'Erro ao conectar';
-      document.getElementById('cfg-status').className = 'badge badge-danger';
-    });
+function atualizarBadge(pendente, temConfig) {
+  const badge = document.getElementById('cfg-status');
+  if (pendente) {
+    badge.className = 'badge badge-warning';
+    badge.innerHTML = '<i class="fas fa-clock mr-1"></i>Pendente de Sincronização';
+  } else if (temConfig) {
+    badge.className = 'badge badge-success';
+    badge.innerHTML = '<i class="fas fa-check mr-1"></i>Sincronizado';
+  }
 }
 
 document.getElementById('form-config').addEventListener('submit', function (e) {
@@ -164,8 +170,6 @@ document.getElementById('form-config').addEventListener('submit', function (e) {
     trajectory: document.getElementById('cfg-trajectory').checked,
     report_static: document.getElementById('cfg-report-static').checked,
   };
-
-  // Remove nulls
   Object.keys(config).forEach(k => config[k] === null && delete config[k]);
 
   fetch(`/api/viaturas/${VIATURA_ID}/config`, {
@@ -175,18 +179,40 @@ document.getElementById('form-config').addEventListener('submit', function (e) {
   })
   .then(r => r.json())
   .then(d => {
-    const el = document.getElementById('cfg-resultado');
-    el.style.display = '';
-    if (d.status === 'aplicado' || d.aviso) {
-      el.className = 'alert alert-success';
-      el.textContent = d.aviso || 'Configuração aplicada. Container LPR reiniciando...';
+    if (d.status === 'salvo') {
+      atualizarBadge(true, true);
+      mostrarResultado('success', '<i class="fas fa-check mr-1"></i>Configuração salva no QG. Clique em <strong>Sincronizar com Equipamento</strong> para aplicar.');
     } else {
-      el.className = 'alert alert-danger';
-      el.textContent = d.erro || JSON.stringify(d);
+      mostrarResultado('danger', d.erro || JSON.stringify(d));
     }
-  });
+  })
+  .catch(() => mostrarResultado('danger', 'Erro de comunicação com o servidor.'));
 });
 
-carregarConfig();
+function sincronizar() {
+  const btn = document.getElementById('btn-sync');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Sincronizando...';
+
+  fetch(`/api/viaturas/${VIATURA_ID}/config/sync`, { method: 'POST' })
+    .then(r => r.json())
+    .then(d => {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-sync mr-1"></i>Sincronizar com Equipamento';
+      if (d.status === 'sincronizado') {
+        atualizarBadge(false, true);
+        mostrarResultado('success', '<i class="fas fa-check mr-1"></i>Configuração sincronizada! Container LPR reiniciando (~5s).');
+      } else if (d.aviso) {
+        mostrarResultado('warning', '<i class="fas fa-clock mr-1"></i>' + d.aviso);
+      } else {
+        mostrarResultado('danger', '<i class="fas fa-times mr-1"></i>' + (d.erro || JSON.stringify(d)));
+      }
+    })
+    .catch(() => {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-sync mr-1"></i>Sincronizar com Equipamento';
+      mostrarResultado('danger', 'Erro de comunicação com o servidor.');
+    });
+}
 </script>
 {% endblock %}

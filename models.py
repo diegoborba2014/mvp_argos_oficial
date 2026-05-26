@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timedelta, timezone
 
 from flask_login import UserMixin
@@ -20,10 +21,24 @@ class Viatura(db.Model):
     ativa = db.Column(db.Boolean, default=True)
     # "hibrido": Pi OU QG fazem match | "nuvem": apenas QG | "local": apenas Pi
     hotlist_mode = db.Column(db.String(16), default="hibrido")
+    config_json = db.Column(db.Text, nullable=True)
+    config_pendente = db.Column(db.Boolean, default=False)
     criado_em = db.Column(db.DateTime, default=_utcnow)
 
     deteccoes = db.relationship("Deteccao", backref="viatura_ref", lazy="dynamic")
     heartbeats = db.relationship("Heartbeat", backref="viatura_ref", lazy="dynamic")
+
+    def get_config(self):
+        if self.config_json:
+            try:
+                return json.loads(self.config_json)
+            except Exception:
+                return {}
+        return {}
+
+    def set_config(self, config_dict):
+        self.config_json = json.dumps(config_dict, ensure_ascii=False)
+        self.config_pendente = True
 
     def ultimo_heartbeat(self):
         return self.heartbeats.order_by(Heartbeat.recebido_em.desc()).first()

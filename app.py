@@ -78,6 +78,8 @@ def _migrar_schema():
     from sqlalchemy import text
     migrations = [
         "ALTER TABLE viaturas ADD COLUMN hotlist_mode VARCHAR(16) DEFAULT 'hibrido'",
+        "ALTER TABLE viaturas ADD COLUMN config_json TEXT",
+        "ALTER TABLE viaturas ADD COLUMN config_pendente BOOLEAN DEFAULT 0",
     ]
     with db.engine.connect() as conn:
         for sql in migrations:
