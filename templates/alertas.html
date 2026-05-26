@@ -75,7 +75,7 @@
               <small style="color:var(--text-dim);margin-left:4px;">{{ '%.0f%%' | format((d.score or 0) * 100) }}</small>
             </td>
             <td>
-              {% if d.latitude %}
+              {% if d.latitude and d.longitude %}
               <a href="https://maps.google.com/?q={{ d.latitude }},{{ d.longitude }}" target="_blank"
                  class="gps-link" title="{{ '%.5f, %.5f' | format(d.latitude, d.longitude) }}">
                 <i class="fas fa-map-marker-alt"></i> GPS
