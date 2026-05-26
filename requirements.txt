@@ -6,3 +6,4 @@ gunicorn
 werkzeug
 requests
 gevent
+psycopg2-binary
