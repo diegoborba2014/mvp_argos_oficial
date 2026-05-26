@@ -21,6 +21,11 @@
     <div class="code">500</div>
     <div class="msg">Erro interno do servidor — tente novamente em instantes</div>
     <a href="/">Voltar ao Dashboard</a>
+    {% if error %}
+    <pre style="margin-top:2rem;text-align:left;background:#111;padding:1rem;border-radius:4px;font-size:.7rem;color:#ff6b6b;max-width:900px;overflow-x:auto;white-space:pre-wrap;">{{ error }}
+
+{{ traceback }}</pre>
+    {% endif %}
   </div>
 </body>
 </html>

@@ -62,8 +62,10 @@ def create_app():
 
     @app.errorhandler(500)
     def server_error(e):
-        app.logger.error(f"Erro 500: {e}")
-        return render_template("errors/500.html"), 500
+        import traceback
+        tb = traceback.format_exc()
+        app.logger.error(f"Erro 500: {e}\n{tb}")
+        return render_template("errors/500.html", error=str(e), traceback=tb), 500
 
     with app.app_context():
         db.create_all()
