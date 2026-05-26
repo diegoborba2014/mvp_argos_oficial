@@ -67,9 +67,24 @@ def create_app():
 
     with app.app_context():
         db.create_all()
+        _migrar_schema()
         _seed_usuarios()
 
     return app
+
+
+def _migrar_schema():
+    from sqlalchemy import text
+    migrations = [
+        "ALTER TABLE viaturas ADD COLUMN hotlist_mode VARCHAR(16) DEFAULT 'hibrido'",
+    ]
+    with db.engine.connect() as conn:
+        for sql in migrations:
+            try:
+                conn.execute(text(sql))
+                conn.commit()
+            except Exception:
+                pass
 
 
 def _seed_usuarios():

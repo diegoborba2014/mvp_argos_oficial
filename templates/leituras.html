@@ -67,13 +67,13 @@
               <span class="placa-badge {{ 'bg-danger' if d.alerta_tatico else '' }}">{{ d.placa }}</span>
             </td>
             <td><small>{{ d.marca }} {{ d.modelo }} <span style="color:var(--text-dim)">{{ d.cor }}</span></small></td>
-            <td><small>{{ '%.0f km/h' | format(d.velocidade | default(0)) }}</small></td>
+            <td><small>{{ '%.0f km/h' | format(d.velocidade or 0) }}</small></td>
             <td>
-              <span class="score-bar" title="{{ '%.0f%%' | format((d.score | default(0)) * 100) }}">
-                <span class="score-bar-fill {{ 'high' if (d.score | default(0)) >= 0.8 else ('medium' if (d.score | default(0)) >= 0.6 else 'low') }}"
-                      style="width:{{ ((d.score | default(0)) * 100) | int }}%"></span>
+              <span class="score-bar" title="{{ '%.0f%%' | format((d.score or 0) * 100) }}">
+                <span class="score-bar-fill {{ 'high' if (d.score or 0) >= 0.8 else ('medium' if (d.score or 0) >= 0.6 else 'low') }}"
+                      style="width:{{ ((d.score or 0) * 100) | int }}%"></span>
               </span>
-              <small style="color:var(--text-dim);margin-left:4px;">{{ '%.0f%%' | format((d.score | default(0)) * 100) }}</small>
+              <small style="color:var(--text-dim);margin-left:4px;">{{ '%.0f%%' | format((d.score or 0) * 100) }}</small>
             </td>
             <td>
               {% if d.alerta_tatico %}
