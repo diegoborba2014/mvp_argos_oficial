@@ -10,28 +10,24 @@
 
 <!-- Modo Hotlist -->
 <div class="row justify-content-center mb-3">
-  <div class="col-md-8">
+  <div class="col-md-10">
     <div class="card shadow-sm">
       <div class="card-header py-2" style="background:#1a1d23;color:#fff;">
         <h3 class="card-title"><i class="fas fa-list-ul mr-1"></i>Modo Hotlist — {{ viatura_id }}</h3>
       </div>
       <div class="card-body">
-        <p class="text-muted" style="font-size:.85rem;">
-          Define como o alerta de placa monitorada é gerado para esta viatura.
-        </p>
         <form method="POST" action="{{ url_for('dashboard.salvar_hotlist_mode', viatura_id=viatura_id) }}">
-          <div class="form-group">
-            <select name="hotlist_mode" class="form-control form-control-sm" style="max-width:320px;">
-              <option value="hibrido" {{ 'selected' if viatura.hotlist_mode == 'hibrido' }}>
-                Híbrido — Pi OU QG fazem o match (recomendado)
-              </option>
-              <option value="nuvem" {{ 'selected' if viatura.hotlist_mode == 'nuvem' }}>
-                Nuvem — apenas QG verifica a hotlist
-              </option>
-              <option value="local" {{ 'selected' if viatura.hotlist_mode == 'local' }}>
-                Local — apenas Pi verifica (hotlist sincronizada)
-              </option>
+          <div class="form-group mb-2">
+            <select name="hotlist_mode" class="form-control form-control-sm" style="max-width:420px;">
+              <option value="hibrido" {{ 'selected' if viatura.hotlist_mode == 'hibrido' }}>Híbrido — Pi OU QG fazem o match (recomendado)</option>
+              <option value="nuvem"   {{ 'selected' if viatura.hotlist_mode == 'nuvem'   }}>Nuvem — apenas QG verifica a hotlist</option>
+              <option value="local"   {{ 'selected' if viatura.hotlist_mode == 'local'   }}>Local — apenas Pi verifica (hotlist sincronizada)</option>
             </select>
+            <small class="form-text text-muted">
+              <strong>Híbrido:</strong> alerta se o Pi <em>ou</em> o QG encontrar a placa — máxima cobertura.<br>
+              <strong>Nuvem:</strong> apenas o servidor verifica — útil se a hotlist do Pi estiver desatualizada.<br>
+              <strong>Local:</strong> apenas o Pi decide — menor latência, mas exige hotlist sincronizada no equipamento.
+            </small>
           </div>
           <button type="submit" class="btn btn-sm btn-outline-info">
             <i class="fas fa-save mr-1"></i>Salvar modo
@@ -44,7 +40,7 @@
 
 <!-- Parâmetros LPR -->
 <div class="row justify-content-center">
-  <div class="col-md-8">
+  <div class="col-md-10">
     <div class="card shadow-sm">
       <div class="card-header py-2 d-flex justify-content-between align-items-center" style="background:#1a1d23;color:#fff;">
         <h3 class="card-title mb-0">
@@ -61,65 +57,566 @@
         </span>
       </div>
       <div class="card-body">
+
         <div class="callout callout-warning mb-3">
           <h6><i class="fas fa-info-circle mr-1"></i>Como funciona</h6>
           <small>
-            <strong>Salvar</strong> armazena a configuração no banco do QG.<br>
-            <strong>Sincronizar</strong> envia para o equipamento e reinicia o container LPR (~5s de interrupção).<br>
-            Se o equipamento estiver offline, a config fica <em>pendente</em> e será aplicada quando a Sprint Pi-B for implementada.
+            <strong>Salvar no QG</strong> armazena a configuração no banco do servidor.<br>
+            <strong>Sincronizar com Equipamento</strong> envia ao Pi e reinicia o container LPR (~5 s de interrupção).<br>
+            Se o equipamento estiver offline, a config fica <em>pendente</em> e será aplicada automaticamente quando a Sprint Pi-B for implementada.
           </small>
         </div>
 
         <form id="form-config">
-          <div class="row">
-            <div class="col-md-6">
-              <div class="form-group">
-                <label>sample <small class="text-muted">(1=todos os frames, 2=1 de cada 2)</small></label>
-                <input type="number" id="cfg-sample" name="sample" class="form-control form-control-sm"
-                       min="1" max="5" value="{{ cfg.get('sample', '') }}">
-              </div>
-              <div class="form-group">
-                <label>min_score <small class="text-muted">(0.0–1.0)</small></label>
-                <input type="number" id="cfg-min-score" name="min_score" class="form-control form-control-sm"
-                       min="0" max="1" step="0.05" value="{{ cfg.get('min_score', '') }}">
-              </div>
-              <div class="form-group">
-                <label>memory_decay <small class="text-muted">(segundos entre leituras do mesmo veículo)</small></label>
-                <input type="number" id="cfg-memory-decay" name="memory_decay" class="form-control form-control-sm"
-                       min="0" value="{{ cfg.get('memory_decay', '') }}">
-              </div>
-              <div class="form-group">
-                <label>max_dwell_delay <small class="text-muted">(ms)</small></label>
-                <input type="number" id="cfg-max-dwell" name="max_dwell_delay" class="form-control form-control-sm"
-                       min="0" value="{{ cfg.get('max_dwell_delay', '') }}">
-              </div>
-            </div>
-            <div class="col-md-6">
-              <div class="form-group">
-                <label>roi <small class="text-muted">(null = desativado, ex: 0,0.25,1,0.85)</small></label>
-                <input type="text" id="cfg-roi" name="roi" class="form-control form-control-sm"
-                       placeholder="null" value="{{ cfg.get('roi', '') or 'null' }}">
-              </div>
-              <div class="form-group">
-                <label class="d-block">trajectory</label>
-                <div class="custom-control custom-switch">
-                  <input type="checkbox" class="custom-control-input" id="cfg-trajectory" name="trajectory"
-                         {{ 'checked' if cfg.get('trajectory', False) }}>
-                  <label class="custom-control-label" for="cfg-trajectory">Rastrear velocidade e direção</label>
-                </div>
-              </div>
-              <div class="form-group">
-                <label class="d-block">report_static</label>
-                <div class="custom-control custom-switch">
-                  <input type="checkbox" class="custom-control-input" id="cfg-report-static" name="report_static"
-                         {{ 'checked' if cfg.get('report_static', False) }}>
-                  <label class="custom-control-label" for="cfg-report-static">Reportar placas estáticas</label>
-                </div>
-              </div>
-            </div>
-          </div>
 
-          <div class="mt-3 d-flex flex-wrap" style="gap:.5rem;">
+          <!-- ── Tabs ── -->
+          <ul class="nav nav-tabs" id="cfgTabs" role="tablist">
+            <li class="nav-item">
+              <a class="nav-link active" data-toggle="tab" href="#pane-reconhecimento" role="tab">
+                <i class="fas fa-search mr-1"></i>Reconhecimento
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" data-toggle="tab" href="#pane-deteccao" role="tab">
+                <i class="fas fa-car mr-1"></i>Detecção
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" data-toggle="tab" href="#pane-saida" role="tab">
+                <i class="fas fa-satellite-dish mr-1"></i>Saída &amp; Webhook
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" data-toggle="tab" href="#pane-sistema" role="tab">
+                <i class="fas fa-server mr-1"></i>Sistema
+              </a>
+            </li>
+          </ul>
+
+          <div class="tab-content pt-3" id="cfgTabsContent">
+
+            <!-- ════════════════════════════════════════
+                 TAB 1 — RECONHECIMENTO
+                 ════════════════════════════════════════ -->
+            <div class="tab-pane fade show active" id="pane-reconhecimento" role="tabpanel">
+              <div class="row">
+                <div class="col-md-6">
+
+                  <div class="form-group">
+                    <label><strong>regions</strong></label>
+                    <input type="text" name="regions" class="form-control form-control-sm"
+                           placeholder="ex: br" value="{{ cfg.get('regions', '') }}">
+                    <small class="form-text text-muted">
+                      Código(s) do país ou estado para otimizar o reconhecimento de placas.
+                      Use <code>br</code> para o Brasil. Separe múltiplos com vírgula: <code>br,ar</code>.
+                      Deixe vazio para detecção global (menos preciso).
+                    </small>
+                  </div>
+
+                  <div class="form-group">
+                    <label><strong>min_score</strong></label>
+                    <input type="number" name="min_score" class="form-control form-control-sm"
+                           min="0" max="1" step="0.05"
+                           placeholder="ex: 0.75" value="{{ cfg.get('min_score', '') }}">
+                    <small class="form-text text-muted">
+                      Confiança mínima para aceitar uma leitura (0.0–1.0).
+                      Valores altos reduzem falsos positivos, mas podem perder placas parcialmente visíveis.
+                      Recomendado: <code>0.70</code>–<code>0.85</code>.
+                    </small>
+                  </div>
+
+                  <div class="form-group">
+                    <label><strong>detection_rule</strong></label>
+                    <select name="detection_rule" class="form-control form-control-sm">
+                      <option value=""       {{ 'selected' if not cfg.get('detection_rule') }}>(padrão do sistema)</option>
+                      <option value="strict" {{ 'selected' if cfg.get('detection_rule') == 'strict' }}>strict — exige veículo detectado junto da placa</option>
+                      <option value="normal" {{ 'selected' if cfg.get('detection_rule') == 'normal' }}>normal — aceita placa sem veículo identificado</option>
+                    </select>
+                    <small class="form-text text-muted">
+                      <strong>strict:</strong> só reporta quando um veículo é detectado junto — menos ruído, mais confiável.<br>
+                      <strong>normal:</strong> reporta qualquer placa detectada, mesmo sem veículo confirmado — maior sensibilidade.
+                    </small>
+                  </div>
+
+                </div>
+                <div class="col-md-6">
+
+                  <div class="form-group">
+                    <label><strong>region_config</strong></label>
+                    <select name="region_config" class="form-control form-control-sm">
+                      <option value=""       {{ 'selected' if not cfg.get('region_config') }}>(padrão — sem restrição de formato)</option>
+                      <option value="strict" {{ 'selected' if cfg.get('region_config') == 'strict' }}>strict — só aceita formatos de placa cadastrados</option>
+                    </select>
+                    <small class="form-text text-muted">
+                      Com <code>strict</code>, apenas placas que correspondam exatamente a um formato de região cadastrado são aceitas.
+                      Eficaz em ambientes com muito ruído visual (paredes, faixas, placas publicitárias).
+                    </small>
+                  </div>
+
+                  <div class="form-group">
+                    <label><strong>text_formats</strong></label>
+                    <input type="text" name="text_formats" class="form-control form-control-sm"
+                           placeholder="ex: [A-Z]{3}[0-9][A-Z][0-9]{2}"
+                           value="{{ cfg.get('text_formats', '') }}">
+                    <small class="form-text text-muted">
+                      Expressão(ões) regular(es) para restringir o reconhecimento ao formato esperado.
+                      Mercosul: <code>[A-Z]{3}[0-9][A-Z][0-9]{2}</code> &nbsp;|&nbsp;
+                      Antigo: <code>[A-Z]{3}[0-9]{4}</code>.
+                      Separe múltiplas com vírgula.
+                    </small>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            <!-- ════════════════════════════════════════
+                 TAB 2 — DETECÇÃO
+                 ════════════════════════════════════════ -->
+            <div class="tab-pane fade" id="pane-deteccao" role="tabpanel">
+              <div class="row">
+                <div class="col-md-6">
+
+                  <div class="form-group">
+                    <label><strong>sample</strong></label>
+                    <input type="number" name="sample" class="form-control form-control-sm"
+                           min="1" max="10"
+                           placeholder="padrão: 2" value="{{ cfg.get('sample', '') }}">
+                    <small class="form-text text-muted">
+                      Analisa 1 de cada N frames do vídeo.
+                      <code>1</code> = todos os frames (máxima sensibilidade, maior CPU).
+                      <code>2</code> = 1 em cada 2 (padrão). Para alta velocidade (&gt;80 km/h), use <code>1</code>.
+                    </small>
+                  </div>
+
+                  <div class="form-group">
+                    <label><strong>max_prediction_delay</strong></label>
+                    <input type="number" name="max_prediction_delay" class="form-control form-control-sm"
+                           min="1"
+                           placeholder="padrão: 6" value="{{ cfg.get('max_prediction_delay', '') }}">
+                    <small class="form-text text-muted">
+                      Tempo máximo em segundos aguardando confirmação da placa antes de reportar o evento.
+                      Para veículos em alta velocidade, use <code>2</code>–<code>3</code> s.
+                      Para câmeras fixas, valores maiores dão mais tempo para o sistema confirmar a leitura.
+                    </small>
+                  </div>
+
+                  <div class="form-group">
+                    <label><strong>memory_decay</strong></label>
+                    <input type="number" name="memory_decay" class="form-control form-control-sm"
+                           min="0"
+                           placeholder="padrão: 300" value="{{ cfg.get('memory_decay', '') }}">
+                    <small class="form-text text-muted">
+                      Intervalo mínimo em segundos entre duas leituras do mesmo veículo na mesma câmera.
+                      Evita alertas repetidos do mesmo carro. Padrão: <code>300</code> s (5 min).
+                      Para rondas móveis, <code>60</code> s pode ser mais adequado.
+                    </small>
+                  </div>
+
+                  <div class="form-group">
+                    <label><strong>detection_mode</strong></label>
+                    <select name="detection_mode" class="form-control form-control-sm">
+                      <option value=""        {{ 'selected' if not cfg.get('detection_mode') }}>(padrão do sistema)</option>
+                      <option value="plate"   {{ 'selected' if cfg.get('detection_mode') == 'plate'   }}>plate — output focado em dados de placa</option>
+                      <option value="vehicle" {{ 'selected' if cfg.get('detection_mode') == 'vehicle' }}>vehicle — output focado em dados do veículo</option>
+                    </select>
+                    <small class="form-text text-muted">
+                      <strong>plate:</strong> retorno otimizado para dados de placa — padrão para ARGOS.<br>
+                      <strong>vehicle:</strong> retorno otimizado para dados do veículo — use junto com MMC ativado.
+                    </small>
+                  </div>
+
+                  <div class="form-group">
+                    <label><strong>plates_per_vehicle</strong></label>
+                    <input type="number" name="plates_per_vehicle" class="form-control form-control-sm"
+                           min="-1"
+                           placeholder="padrão: 1" value="{{ cfg.get('plates_per_vehicle', '') }}">
+                    <small class="form-text text-muted">
+                      Número máximo de placas reportadas por veículo por passagem.
+                      <code>1</code> = apenas a melhor leitura (recomendado). <code>-1</code> = ilimitado.
+                    </small>
+                  </div>
+
+                  <div class="form-group">
+                    <label><strong>roi</strong> <small class="text-muted">(Região de Interesse)</small></label>
+                    <input type="text" name="roi" class="form-control form-control-sm"
+                           placeholder="vazio = frame inteiro"
+                           value="{{ cfg.get('roi', '') or '' }}">
+                    <small class="form-text text-muted">
+                      Restringe a detecção a uma área do frame: <code>x_min,y_min,x_max,y_max</code> em proporção (0.0–1.0).
+                      Exemplo: <code>0,0.25,1,0.85</code> ignora céu e capô. Deixe vazio para usar o frame completo.
+                    </small>
+                  </div>
+
+                </div>
+                <div class="col-md-6">
+
+                  <div class="form-group">
+                    <label class="d-block"><strong>mmc</strong> — Make, Model &amp; Color</label>
+                    <div class="custom-control custom-switch">
+                      <input type="checkbox" class="custom-control-input" id="cfg-mmc" name="mmc"
+                             {{ 'checked' if cfg.get('mmc', False) }}>
+                      <label class="custom-control-label" for="cfg-mmc">Identificar marca, modelo e cor do veículo</label>
+                    </div>
+                    <small class="form-text text-muted">
+                      Ativa o módulo MMC. Necessário para o parâmetro <strong>speed</strong>.
+                      Aumenta uso de CPU — avalie o impacto em hardware limitado como Raspberry Pi.
+                    </small>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="d-block"><strong>report_static</strong></label>
+                    <div class="custom-control custom-switch">
+                      <input type="checkbox" class="custom-control-input" id="cfg-report-static" name="report_static"
+                             {{ 'checked' if cfg.get('report_static', False) }}>
+                      <label class="custom-control-label" for="cfg-report-static">Reportar veículos parados</label>
+                    </div>
+                    <small class="form-text text-muted">
+                      Quando ativado, veículos estacionados também geram leituras.
+                      Útil em câmeras fixas. Para viaturas em movimento, deixe desativado.
+                    </small>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="d-block"><strong>speed</strong></label>
+                    <div class="custom-control custom-switch">
+                      <input type="checkbox" class="custom-control-input" id="cfg-speed" name="speed"
+                             {{ 'checked' if cfg.get('speed', False) }}>
+                      <label class="custom-control-label" for="cfg-speed">Estimar velocidade do veículo (km/h)</label>
+                    </div>
+                    <small class="form-text text-muted">
+                      Calcula a velocidade estimada. <strong>Requer MMC ativado.</strong>
+                      Funcionalidade beta — valores são aproximados.
+                    </small>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="d-block"><strong>trajectory</strong></label>
+                    <div class="custom-control custom-switch">
+                      <input type="checkbox" class="custom-control-input" id="cfg-trajectory" name="trajectory"
+                             {{ 'checked' if cfg.get('trajectory', False) }}>
+                      <label class="custom-control-label" for="cfg-trajectory">Rastrear trajetória e direção de movimento</label>
+                    </div>
+                    <small class="form-text text-muted">
+                      Inclui dados de trajetória no evento de dwell. <strong>Requer dwell_time ativado.</strong>
+                    </small>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="d-block"><strong>dwell_time</strong></label>
+                    <div class="custom-control custom-switch">
+                      <input type="checkbox" class="custom-control-input" id="cfg-dwell-time" name="dwell_time"
+                             {{ 'checked' if cfg.get('dwell_time', False) }}>
+                      <label class="custom-control-label" for="cfg-dwell-time">Estimar tempo do veículo na cena</label>
+                    </div>
+                    <small class="form-text text-muted">
+                      Envia um webhook separado com o tempo total que o veículo ficou visível.
+                      Mais útil em câmeras fixas (cancelas, guaritas).
+                    </small>
+                  </div>
+
+                  <div class="form-group">
+                    <label><strong>max_dwell_delay</strong></label>
+                    <input type="number" name="max_dwell_delay" class="form-control form-control-sm"
+                           min="0"
+                           placeholder="padrão: 15" value="{{ cfg.get('max_dwell_delay', '') }}">
+                    <small class="form-text text-muted">
+                      Segundos que o sistema aguarda após o veículo sair da cena antes de disparar o evento de dwell.
+                      Evita disparos prematuros quando o veículo some por frações de segundo.
+                    </small>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            <!-- ════════════════════════════════════════
+                 TAB 3 — SAÍDA & WEBHOOK
+                 ════════════════════════════════════════ -->
+            <div class="tab-pane fade" id="pane-saida" role="tabpanel">
+              <div class="row">
+                <div class="col-md-6">
+
+                  <h6 class="text-info border-bottom pb-1 mb-3"><i class="fas fa-camera mr-1"></i>Imagens no Webhook</h6>
+
+                  <div class="form-group">
+                    <label><strong>image</strong></label>
+                    <select name="image" class="form-control form-control-sm">
+                      <option value=""             {{ 'selected' if not cfg.get('image') }}>(padrão do sistema)</option>
+                      <option value="vehicle"      {{ 'selected' if cfg.get('image') == 'vehicle'      }}>vehicle — recorte do veículo (recomendado)</option>
+                      <option value="plate"        {{ 'selected' if cfg.get('image') == 'plate'        }}>plate — recorte da placa</option>
+                      <option value="padded_plate" {{ 'selected' if cfg.get('image') == 'padded_plate' }}>padded_plate — placa com margem extra</option>
+                      <option value="original"     {{ 'selected' if cfg.get('image') == 'original'     }}>original — frame completo</option>
+                      <option value="yes"          {{ 'selected' if cfg.get('image') == 'yes'          }}>yes — todas as imagens disponíveis</option>
+                      <option value="no"           {{ 'selected' if cfg.get('image') == 'no'           }}>no — sem imagens (menor uso de banda)</option>
+                    </select>
+                    <small class="form-text text-muted">
+                      Tipo de imagem incluída no payload do webhook.
+                      <code>vehicle</code> é recomendado para ARGOS (recorte focado no veículo).
+                      <code>no</code> elimina imagens e reduz consumo de dados 4G.
+                    </small>
+                  </div>
+
+                  <div class="form-group">
+                    <label><strong>image_quality</strong></label>
+                    <input type="number" name="image_quality" class="form-control form-control-sm"
+                           min="1" max="100"
+                           placeholder="padrão: 80" value="{{ cfg.get('image_quality', '') }}">
+                    <small class="form-text text-muted">
+                      Qualidade JPEG das imagens enviadas (1–100). Menor = arquivo menor = menos dados.
+                      Para 4G, <code>60</code>–<code>75</code> é um bom equilíbrio entre qualidade e banda.
+                    </small>
+                  </div>
+
+                  <h6 class="text-info border-bottom pb-1 mb-3 mt-4"><i class="fas fa-heartbeat mr-1"></i>Heartbeat de Câmera</h6>
+
+                  <div class="form-group">
+                    <label class="d-block"><strong>heartbeat</strong></label>
+                    <div class="custom-control custom-switch">
+                      <input type="checkbox" class="custom-control-input" id="cfg-heartbeat" name="heartbeat"
+                             {{ 'checked' if cfg.get('heartbeat', False) }}>
+                      <label class="custom-control-label" for="cfg-heartbeat">Enviar heartbeat periódico de câmera</label>
+                    </div>
+                    <small class="form-text text-muted">
+                      Envia estatísticas de saúde da câmera periodicamente via webhook.
+                      Diferente do heartbeat do ARGOS — este é específico do módulo LPR.
+                    </small>
+                  </div>
+
+                  <div class="form-group">
+                    <label><strong>heartbeat_interval</strong></label>
+                    <input type="number" name="heartbeat_interval" class="form-control form-control-sm"
+                           min="1"
+                           placeholder="padrão: 30" value="{{ cfg.get('heartbeat_interval', '') }}">
+                    <small class="form-text text-muted">
+                      Intervalo em segundos entre envios do heartbeat de câmera via webhook.
+                    </small>
+                  </div>
+
+                  <h6 class="text-info border-bottom pb-1 mb-3 mt-4"><i class="fas fa-wifi mr-1"></i>Confiabilidade</h6>
+
+                  <div class="form-group">
+                    <label class="d-block"><strong>caching</strong></label>
+                    <div class="custom-control custom-switch">
+                      <input type="checkbox" class="custom-control-input" id="cfg-caching" name="caching"
+                             {{ 'checked' if cfg.get('caching', True) }}>
+                      <label class="custom-control-label" for="cfg-caching">Cache de falhas no disco (recomendado)</label>
+                    </div>
+                    <small class="form-text text-muted">
+                      Quando ativado, webhooks que falharem são guardados em disco e reenviados assim que a conexão
+                      for restaurada. Essencial para redes 4G instáveis — mantenha ativado.
+                    </small>
+                  </div>
+
+                  <div class="form-group">
+                    <label><strong>request_timeout</strong></label>
+                    <input type="number" name="request_timeout" class="form-control form-control-sm"
+                           min="1"
+                           placeholder="padrão: 30" value="{{ cfg.get('request_timeout', '') }}">
+                    <small class="form-text text-muted">
+                      Timeout em segundos para cada requisição ao webhook.
+                      Reduza para detectar falhas de rede mais rapidamente em 4G instável (ex: <code>10</code>–<code>15</code> s).
+                    </small>
+                  </div>
+
+                </div>
+                <div class="col-md-6">
+
+                  <h6 class="text-info border-bottom pb-1 mb-3"><i class="fas fa-file-alt mr-1"></i>Saída para Arquivo Local</h6>
+
+                  <div class="form-group">
+                    <label><strong>image_format</strong></label>
+                    <input type="text" name="image_format" class="form-control form-control-sm"
+                           placeholder="ex: /data/imgs/%Y%m%d_%H%M%S.jpg"
+                           value="{{ cfg.get('image_format', '') }}">
+                    <small class="form-text text-muted">
+                      Padrão de nome de arquivo para salvar imagens das detecções no disco do Pi.
+                      Usa formatação <code>strftime</code> para datas. Deixe vazio para não salvar localmente.
+                    </small>
+                  </div>
+
+                  <div class="form-group">
+                    <label><strong>csv_file</strong></label>
+                    <input type="text" name="csv_file" class="form-control form-control-sm"
+                           placeholder="ex: /data/logs/%Y%m%d.csv"
+                           value="{{ cfg.get('csv_file', '') }}">
+                    <small class="form-text text-muted">
+                      Salva um log CSV das detecções no disco. Útil como backup local quando o webhook estiver offline.
+                      Suporta <code>strftime</code> no nome do arquivo.
+                    </small>
+                  </div>
+
+                  <div class="form-group">
+                    <label><strong>jsonlines_file</strong></label>
+                    <input type="text" name="jsonlines_file" class="form-control form-control-sm"
+                           placeholder="ex: /data/logs/%Y%m%d.jsonl"
+                           value="{{ cfg.get('jsonlines_file', '') }}">
+                    <small class="form-text text-muted">
+                      Salva detecções em formato JSONL (uma por linha) no disco.
+                      Compatível com ferramentas de análise como pandas, jq, etc.
+                    </small>
+                  </div>
+
+                  <h6 class="text-info border-bottom pb-1 mb-3 mt-4"><i class="fas fa-film mr-1"></i>Gravação de Vídeo</h6>
+
+                  <div class="form-group">
+                    <label><strong>video_format</strong></label>
+                    <input type="text" name="video_format" class="form-control form-control-sm"
+                           placeholder="ex: /data/videos/%Y%m%d_%H%M%S.mp4"
+                           value="{{ cfg.get('video_format', '') }}">
+                    <small class="form-text text-muted">
+                      Grava um clipe de vídeo para cada detecção. Requer espaço em disco no Pi.
+                      Deixe vazio para desativar a gravação de vídeo.
+                    </small>
+                  </div>
+
+                  <div class="form-group">
+                    <div class="row">
+                      <div class="col-6">
+                        <label><strong>video_before</strong> <small class="text-muted">(s)</small></label>
+                        <input type="number" name="video_before" class="form-control form-control-sm"
+                               min="0" placeholder="padrão: 5" value="{{ cfg.get('video_before', '') }}">
+                        <small class="form-text text-muted">Segundos gravados <em>antes</em> da detecção.</small>
+                      </div>
+                      <div class="col-6">
+                        <label><strong>video_after</strong> <small class="text-muted">(s)</small></label>
+                        <input type="number" name="video_after" class="form-control form-control-sm"
+                               min="0" placeholder="padrão: 5" value="{{ cfg.get('video_after', '') }}">
+                        <small class="form-text text-muted">Segundos gravados <em>após</em> a detecção.</small>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label><strong>video_fps</strong></label>
+                    <select name="video_fps" class="form-control form-control-sm">
+                      <option value=""       {{ 'selected' if not cfg.get('video_fps') }}>(padrão do sistema)</option>
+                      <option value="native" {{ 'selected' if cfg.get('video_fps') == 'native' }}>native — FPS original da câmera</option>
+                      <option value="sample" {{ 'selected' if cfg.get('video_fps') == 'sample' }}>sample — FPS conforme parâmetro sample</option>
+                    </select>
+                    <small class="form-text text-muted">Taxa de frames do vídeo gravado.</small>
+                  </div>
+
+                  <div class="form-group">
+                    <label><strong>video_codec</strong></label>
+                    <select name="video_codec" class="form-control form-control-sm">
+                      <option value=""     {{ 'selected' if not cfg.get('video_codec') }}>(padrão do sistema)</option>
+                      <option value="mp4v" {{ 'selected' if cfg.get('video_codec') == 'mp4v' }}>mp4v — compatibilidade ampla</option>
+                      <option value="h264" {{ 'selected' if cfg.get('video_codec') == 'h264' }}>h264 — menor tamanho de arquivo</option>
+                    </select>
+                    <small class="form-text text-muted">
+                      <code>h264</code> gera arquivos menores mas exige suporte de hardware no Pi.
+                    </small>
+                  </div>
+
+                  <div class="form-group">
+                    <label><strong>video_overlay</strong></label>
+                    <input type="text" name="video_overlay" class="form-control form-control-sm"
+                           placeholder="ex: boxes,timestamp,mmc"
+                           value="{{ cfg.get('video_overlay', '') }}">
+                    <small class="form-text text-muted">
+                      Informações sobrepostas no vídeo gravado, separadas por vírgula. Opções disponíveis:<br>
+                      <code>all, boxes, trace, vehicle_type, dscores, confirmed, mmc, dwell_time, health_score, timestamp, position_sec, detection_zone</code>
+                    </small>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            <!-- ════════════════════════════════════════
+                 TAB 4 — SISTEMA
+                 ════════════════════════════════════════ -->
+            <div class="tab-pane fade" id="pane-sistema" role="tabpanel">
+              <div class="row">
+                <div class="col-md-6">
+
+                  <div class="form-group">
+                    <label><strong>timezone</strong></label>
+                    <input type="text" name="timezone" class="form-control form-control-sm"
+                           placeholder="ex: America/Sao_Paulo"
+                           value="{{ cfg.get('timezone', '') }}">
+                    <small class="form-text text-muted">
+                      Fuso horário usado nos timestamps do CSV e dos webhooks do LPR.
+                      Para Brasil: <code>America/Sao_Paulo</code>. Usa nomes do banco TZ (IANA).
+                    </small>
+                  </div>
+
+                  <div class="form-group">
+                    <label><strong>heartbeat_refresh_interval</strong></label>
+                    <input type="number" name="heartbeat_refresh_interval" class="form-control form-control-sm"
+                           min="1"
+                           placeholder="padrão: 10" value="{{ cfg.get('heartbeat_refresh_interval', '') }}">
+                    <small class="form-text text-muted">
+                      Intervalo em segundos de atualização das estatísticas de saúde na API interna do Stream.
+                      Não confundir com <code>heartbeat_interval</code> (webhook externo).
+                    </small>
+                  </div>
+
+                  <div class="form-group">
+                    <label><strong>max_reconnection_delay</strong></label>
+                    <input type="number" name="max_reconnection_delay" class="form-control form-control-sm"
+                           min="1"
+                           placeholder="padrão: 600" value="{{ cfg.get('max_reconnection_delay', '') }}">
+                    <small class="form-text text-muted">
+                      Tempo máximo em segundos entre tentativas de reconexão ao stream da câmera.
+                      Em redes 4G instáveis, reduza para <code>60</code> s para recuperação mais rápida.
+                    </small>
+                  </div>
+
+                  <div class="form-group">
+                    <label>
+                      <strong>merge_buffer</strong>
+                      <span class="badge badge-secondary ml-1" style="font-size:.7rem;">descontinuado v1.44+</span>
+                    </label>
+                    <select name="merge_buffer" class="form-control form-control-sm">
+                      <option value=""  {{ 'selected' if cfg.get('merge_buffer') in (None, '', 'None') }}>(padrão — automático)</option>
+                      <option value="-1" {{ 'selected' if cfg.get('merge_buffer')|string == '-1' }}>-1 — automático</option>
+                      <option value="1"  {{ 'selected' if cfg.get('merge_buffer')|string == '1'  }}>1 — compensação de vibração de câmera</option>
+                    </select>
+                    <small class="form-text text-muted">
+                      Compensação de vibração de câmera. Deprecado a partir da versão 1.44.0 —
+                      não configure em instalações novas.
+                    </small>
+                  </div>
+
+                </div>
+                <div class="col-md-6">
+
+                  <div class="form-group">
+                    <label class="d-block"><strong>active</strong></label>
+                    <div class="custom-control custom-switch">
+                      <input type="checkbox" class="custom-control-input" id="cfg-active" name="active"
+                             {{ 'checked' if cfg.get('active', True) }}>
+                      <label class="custom-control-label" for="cfg-active">Câmera ativa (processar stream)</label>
+                    </div>
+                    <small class="form-text text-muted">
+                      Desativar pausa o processamento do stream sem desligar o serviço LPR.
+                      Útil para manutenção sem reiniciar o container.
+                    </small>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="d-block"><strong>config_change_restart</strong></label>
+                    <div class="custom-control custom-switch">
+                      <input type="checkbox" class="custom-control-input" id="cfg-config-restart" name="config_change_restart"
+                             {{ 'checked' if cfg.get('config_change_restart', False) }}>
+                      <label class="custom-control-label" for="cfg-config-restart">Reiniciar automaticamente ao detectar mudança na config</label>
+                    </div>
+                    <small class="form-text text-muted">
+                      Quando ativado, o Stream reinicia se detectar alterações pela interface gráfica do Pi.
+                      Não recomendado em produção — use o botão <strong>Sincronizar</strong> do QG para controlar reinicializações.
+                    </small>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+          </div><!-- /tab-content -->
+
+          <hr class="mt-2">
+          <div class="d-flex flex-wrap" style="gap:.5rem;">
             <button type="submit" class="btn btn-primary">
               <i class="fas fa-save mr-1"></i>Salvar no QG
             </button>
@@ -127,6 +624,7 @@
               <i class="fas fa-sync mr-1"></i>Sincronizar com Equipamento
             </button>
           </div>
+
         </form>
 
         <div id="cfg-resultado" class="mt-3" style="display:none;"></div>
@@ -145,6 +643,7 @@ function mostrarResultado(tipo, msg) {
   el.style.display = '';
   el.className = 'alert alert-' + tipo;
   el.innerHTML = msg;
+  el.scrollIntoView({behavior: 'smooth', block: 'nearest'});
 }
 
 function atualizarBadge(pendente, temConfig) {
@@ -158,23 +657,53 @@ function atualizarBadge(pendente, temConfig) {
   }
 }
 
-document.getElementById('form-config').addEventListener('submit', function (e) {
+function coletarConfig() {
+  const config = {};
+  const form = document.getElementById('form-config');
+
+  // Inputs numéricos — pula vazios
+  form.querySelectorAll('input[type=number]').forEach(el => {
+    if (!el.name || el.value.trim() === '') return;
+    const step = parseFloat(el.step) || 1;
+    config[el.name] = step < 1 ? parseFloat(el.value) : parseInt(el.value);
+  });
+
+  // Inputs de texto — pula vazios
+  form.querySelectorAll('input[type=text]').forEach(el => {
+    if (!el.name || el.value.trim() === '') return;
+    config[el.name] = el.value.trim();
+  });
+
+  // Checkboxes — sempre incluídos como boolean
+  form.querySelectorAll('input[type=checkbox]').forEach(el => {
+    if (!el.name) return;
+    config[el.name] = el.checked;
+  });
+
+  // Selects — ignora opção vazia (padrão do sistema)
+  form.querySelectorAll('select').forEach(el => {
+    if (!el.name || el.value === '') return;
+    config[el.name] = el.value;
+  });
+
+  // roi vazio → remove do config
+  if (!config.roi || config.roi === 'null') delete config.roi;
+
+  // merge_buffer → converte para número se presente
+  if (config.merge_buffer !== undefined) {
+    config.merge_buffer = parseInt(config.merge_buffer);
+  }
+
+  return config;
+}
+
+document.getElementById('form-config').addEventListener('submit', function(e) {
   e.preventDefault();
-  const roi = document.getElementById('cfg-roi').value.trim();
-  const config = {
-    sample: parseInt(document.getElementById('cfg-sample').value) || null,
-    min_score: parseFloat(document.getElementById('cfg-min-score').value) || null,
-    memory_decay: parseInt(document.getElementById('cfg-memory-decay').value) || null,
-    max_dwell_delay: parseInt(document.getElementById('cfg-max-dwell').value) || null,
-    roi: roi === 'null' || roi === '' ? null : roi,
-    trajectory: document.getElementById('cfg-trajectory').checked,
-    report_static: document.getElementById('cfg-report-static').checked,
-  };
-  Object.keys(config).forEach(k => config[k] === null && delete config[k]);
+  const config = coletarConfig();
 
   fetch(`/api/viaturas/${VIATURA_ID}/config`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(config),
   })
   .then(r => r.json())
@@ -194,14 +723,14 @@ function sincronizar() {
   btn.disabled = true;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Sincronizando...';
 
-  fetch(`/api/viaturas/${VIATURA_ID}/config/sync`, { method: 'POST' })
+  fetch(`/api/viaturas/${VIATURA_ID}/config/sync`, {method: 'POST'})
     .then(r => r.json())
     .then(d => {
       btn.disabled = false;
       btn.innerHTML = '<i class="fas fa-sync mr-1"></i>Sincronizar com Equipamento';
       if (d.status === 'sincronizado') {
         atualizarBadge(false, true);
-        mostrarResultado('success', '<i class="fas fa-check mr-1"></i>Configuração sincronizada! Container LPR reiniciando (~5s).');
+        mostrarResultado('success', '<i class="fas fa-check mr-1"></i>Configuração sincronizada! Container LPR reiniciando (~5 s).');
       } else if (d.aviso) {
         mostrarResultado('warning', '<i class="fas fa-clock mr-1"></i>' + d.aviso);
       } else {
