@@ -5,7 +5,7 @@ from datetime import datetime, timezone, timedelta
 
 from flask import Blueprint, request, jsonify, Response, current_app
 
-from models import db, Viatura, Deteccao, Heartbeat
+from models import db, Viatura, Deteccao, Heartbeat, Hotlist
 
 # Eventos gerados há mais de 2 horas são aceitos (200 OK, Pi remove do buffer)
 # mas descartados silenciosamente — não salvos no banco.
@@ -31,8 +31,7 @@ def _broadcast(event: str, data: dict):
             _sse_listeners.remove(q)
 
 
-def _garantir_viatura(viatura_id: str):
-    """Cria registro de viatura automaticamente na primeira vez que aparece."""
+def _garantir_viatura(viatura_id: str) -> Viatura:
     v = Viatura.query.filter_by(viatura_id=viatura_id).first()
     if not v:
         v = Viatura(viatura_id=viatura_id)
@@ -90,8 +89,6 @@ def receber_telemetria():
     viatura_id = payload.get("viatura_id", "desconhecido")
     tipo = payload.get("tipo", "deteccao")
 
-    # Descarta eventos antigos do buffer offline — responde 200 para o Pi limpar a fila,
-    # mas não salva no banco (evita inundação de dados históricos acumulados offline).
     if _evento_antigo(payload):
         current_app.logger.debug(
             f"[BUFFER] Evento antigo descartado — {viatura_id} | "
@@ -99,41 +96,60 @@ def receber_telemetria():
         )
         return jsonify({"status": "ok", "descartado": True}), 200
 
-    _garantir_viatura(viatura_id)
+    # Deduplicação: ignora detecções com mesmo viatura_id+timestamp já salvas
+    if tipo != "heartbeat":
+        ts = payload.get("timestamp")
+        if ts is not None:
+            try:
+                ts_float = float(ts)
+                if Deteccao.query.filter_by(viatura_id=viatura_id, timestamp=ts_float).first():
+                    return jsonify({"status": "ok", "duplicado": True}), 200
+            except (ValueError, TypeError):
+                pass
+
+    viatura = _garantir_viatura(viatura_id)
 
     if tipo == "heartbeat":
         _salvar_heartbeat(viatura_id, payload)
     else:
-        deteccao = _salvar_deteccao(viatura_id, payload)
-        db.session.flush()  # garante que recebido_em seja populado antes do broadcast
+        deteccao = _salvar_deteccao(viatura_id, payload, viatura)
+        db.session.flush()
         _broadcast("new_detection", deteccao.to_dict())
 
     db.session.commit()
 
-    # 200 obrigatório — remove o evento do buffer offline do Pi
     return jsonify({"status": "ok"}), 200
 
 
-def _salvar_deteccao(viatura_id: str, p: dict) -> Deteccao:
+def _salvar_deteccao(viatura_id: str, p: dict, viatura: Viatura) -> Deteccao:
+    placa = (p.get("placa") or "").upper().strip()
+    pi_alerta = bool(p.get("alerta_tatico", False))
+
+    # Hotlist match: verifica no QG quando modo é híbrido ou nuvem
+    alerta = pi_alerta
+    if viatura.hotlist_mode in ("hibrido", "nuvem"):
+        hotlist_placas = {h.placa for h in Hotlist.query.filter_by(ativa=True).all()}
+        alerta = pi_alerta or (placa in hotlist_placas)
+
     d = Deteccao(
         viatura_id=viatura_id,
-        placa=p.get("placa", ""),
-        score=p.get("score", 0.0),
-        dscore=p.get("dscore", 0.0),
-        marca=p.get("marca", ""),
-        modelo=p.get("modelo", ""),
-        cor=p.get("cor", ""),
-        tipo_veiculo=p.get("tipo_veiculo", ""),
-        velocidade=p.get("velocidade", 0.0),
-        direcao=p.get("direcao", 0.0),
-        regiao=p.get("regiao", ""),
-        alerta_tatico=bool(p.get("alerta_tatico", False)),
-        camera_id=p.get("camera_id", ""),
+        placa=placa,
+        score=p.get("score") or 0.0,
+        dscore=p.get("dscore") or 0.0,
+        marca=p.get("marca") or "",
+        modelo=p.get("modelo") or "",
+        cor=p.get("cor") or "",
+        tipo_veiculo=p.get("tipo_veiculo") or "",
+        velocidade=p.get("velocidade") or 0.0,
+        direcao=p.get("direcao") or 0.0,
+        regiao=p.get("regiao") or "",
+        alerta_tatico=alerta,
+        camera_id=p.get("camera_id") or "",
         latitude=p.get("latitude"),
         longitude=p.get("longitude"),
         altitude=p.get("altitude"),
         gps_satellites=p.get("gps_satellites"),
-        gps_status=p.get("gps_status", ""),
+        gps_status=p.get("gps_status") or "",
         timestamp=float(p["timestamp"]) if p.get("timestamp") else None,
     )
     db.session.add(d)

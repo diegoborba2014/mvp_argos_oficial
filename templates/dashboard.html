@@ -134,23 +134,23 @@
                 <th>Veículo</th>
                 <th>Velocidade</th>
                 <th>Confiança</th>
-                <th>Status</th>
+                <th>Situação</th>
               </tr>
             </thead>
             <tbody id="feed-body">
               {% for d in ultimas_deteccoes %}
               <tr class="{{ 'item-placa-alerta' if d.alerta_tatico else '' }}">
-                <td><small>{{ d.recebido_em.strftime('%d/%m %H:%M:%S') }}</small></td>
+                <td><small>{{ d.recebido_em | brt }}</small></td>
                 <td><small>{{ d.viatura_id }}</small></td>
                 <td><span class="placa-badge {{ 'bg-danger' if d.alerta_tatico else '' }}">{{ d.placa }}</span></td>
                 <td><small>{{ d.marca }} {{ d.modelo }} {{ d.cor }}</small></td>
-                <td><small>{{ '%.0f km/h' | format(d.velocidade) }}</small></td>
-                <td><small>{{ '%.0f%%' | format(d.score * 100) }}</small></td>
+                <td><small>{{ '%.0f km/h' | format(d.velocidade | default(0)) }}</small></td>
+                <td><small>{{ '%.0f%%' | format((d.score | default(0)) * 100) }}</small></td>
                 <td>
                   {% if d.alerta_tatico %}
                     <span class="badge badge-danger">ALERTA</span>
                   {% else %}
-                    <span class="badge badge-secondary">OK</span>
+                    <span class="badge badge-secondary">NORMAL</span>
                   {% endif %}
                 </td>
               </tr>

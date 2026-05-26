@@ -1,4 +1,6 @@
 import os
+from datetime import timedelta
+
 from flask import Flask, redirect, url_for, render_template
 from flask_login import LoginManager
 from dotenv import load_dotenv
@@ -43,6 +45,12 @@ def create_app():
     @app.template_filter("urlencode")
     def urlencode_filter(d):
         return urlencode({k: v for k, v in d.items() if v})
+
+    @app.template_filter("brt")
+    def brt_filter(dt):
+        if dt is None:
+            return "--"
+        return (dt - timedelta(hours=3)).strftime("%d/%m/%Y %H:%M:%S")
 
     @app.errorhandler(403)
     def forbidden(e):

@@ -19,7 +19,19 @@
       overflow: hidden;
     }
 
-    /* Grade de fundo sutil */
+    /* Vídeo como fundo fullscreen */
+    .bg-video {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0.35;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* Grade de fundo sutil sobre o vídeo */
     body::before {
       content: '';
       position: fixed;
@@ -29,51 +41,16 @@
         linear-gradient(90deg, rgba(0,200,220,.04) 1px, transparent 1px);
       background-size: 40px 40px;
       pointer-events: none;
+      z-index: 1;
     }
 
-    .login-wrapper {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 60px;
+    /* Overlay escuro central para legibilidade */
+    .login-overlay {
+      position: relative;
+      z-index: 2;
       width: 100%;
-      max-width: 900px;
+      max-width: 340px;
       padding: 20px;
-    }
-
-    /* ── Logo / Animação ── */
-    .logo-side {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      flex: 0 0 320px;
-    }
-
-    .logo-video {
-      width: 280px;
-      height: 280px;
-      object-fit: contain;
-      border-radius: 12px;
-      filter: drop-shadow(0 0 30px rgba(0,200,220,.35));
-    }
-
-    /* Fallback: imagem estática usada enquanto vídeo não carrega */
-    .logo-img {
-      width: 240px;
-      filter: drop-shadow(0 0 30px rgba(0,200,220,.35));
-    }
-
-    .tagline {
-      margin-top: 12px;
-      color: rgba(255,255,255,.35);
-      font-size: .75rem;
-      letter-spacing: 3px;
-      text-transform: uppercase;
-    }
-
-    /* ── Formulário ── */
-    .form-side {
-      flex: 0 0 300px;
     }
 
     .system-label {
@@ -82,14 +59,16 @@
       letter-spacing: 4px;
       text-transform: uppercase;
       margin-bottom: 6px;
+      text-align: center;
     }
 
     .system-title {
       color: #ffffff;
-      font-size: 1.5rem;
+      font-size: 1.7rem;
       font-weight: 700;
       letter-spacing: 2px;
       margin-bottom: 2px;
+      text-align: center;
     }
 
     .system-sub {
@@ -98,14 +77,16 @@
       letter-spacing: 2px;
       text-transform: uppercase;
       margin-bottom: 28px;
+      text-align: center;
     }
 
     .login-card {
-      background: rgba(255,255,255,.04);
+      background: rgba(10,12,17,.82);
       border: 1px solid rgba(255,255,255,.08);
       border-top: 2px solid #c0392b;
       border-radius: 8px;
       padding: 28px 24px;
+      backdrop-filter: blur(8px);
     }
 
     .form-label {
@@ -167,59 +148,53 @@
       margin-bottom: 16px;
     }
 
-    /* Responsivo: empilha em telas pequenas */
-    @media (max-width: 640px) {
-      .login-wrapper { flex-direction: column; gap: 20px; }
-      .logo-side { flex: none; }
-      .form-side { flex: none; width: 100%; max-width: 320px; }
-      .logo-video, .logo-img { width: 180px; height: 180px; }
+    .tagline {
+      margin-top: 16px;
+      color: rgba(255,255,255,.2);
+      font-size: .7rem;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      text-align: center;
     }
   </style>
 </head>
 <body>
 
-<div class="login-wrapper">
+<!-- Vídeo fullscreen de fundo -->
+<video class="bg-video" autoplay muted loop playsinline
+       poster="{{ url_for('static', filename='image_desktop.png') }}">
+  <source src="{{ url_for('static', filename='entrada.mp4') }}" type="video/mp4">
+</video>
 
-  <!-- Logo / Animação -->
-  <div class="logo-side">
-    <video class="logo-video" autoplay muted loop playsinline
-           poster="{{ url_for('static', filename='image_desktop.png') }}">
-      <source src="{{ url_for('static', filename='entrada.mp4') }}" type="video/mp4">
-      <!-- fallback para navegadores sem suporte a vídeo -->
-      <img src="{{ url_for('static', filename='image_desktop.png') }}" class="logo-img" alt="ARGOS">
-    </video>
-    <p class="tagline">De olho em tudo</p>
+<!-- Formulário centralizado -->
+<div class="login-overlay">
+  <p class="system-label">Sistema de Monitoramento</p>
+  <h1 class="system-title">ARGOS QG</h1>
+  <p class="system-sub">Quartel General</p>
+
+  <div class="login-card">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+        <div class="alert-msg">{{ message }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <form action="{{ url_for('auth.login') }}" method="POST">
+      <label class="form-label">Usuário</label>
+      <input type="text" name="username" class="form-control-dark"
+             placeholder="Digite seu usuário" autofocus required>
+
+      <label class="form-label">Senha</label>
+      <input type="password" name="senha" class="form-control-dark"
+             placeholder="••••••••" required>
+
+      <button type="submit" class="btn-entrar">
+        <i class="fas fa-sign-in-alt mr-2"></i>Entrar
+      </button>
+    </form>
   </div>
 
-  <!-- Formulário -->
-  <div class="form-side">
-    <p class="system-label">Sistema de Monitoramento</p>
-    <h1 class="system-title">ARGOS QG</h1>
-    <p class="system-sub">Quartel General</p>
-
-    <div class="login-card">
-      {% with messages = get_flashed_messages(with_categories=true) %}
-        {% for category, message in messages %}
-          <div class="alert-msg">{{ message }}</div>
-        {% endfor %}
-      {% endwith %}
-
-      <form action="{{ url_for('auth.login') }}" method="POST">
-        <label class="form-label">Usuário</label>
-        <input type="text" name="username" class="form-control-dark"
-               placeholder="Digite seu usuário" autofocus required>
-
-        <label class="form-label">Senha</label>
-        <input type="password" name="senha" class="form-control-dark"
-               placeholder="••••••••" required>
-
-        <button type="submit" class="btn-entrar">
-          <i class="fas fa-sign-in-alt mr-2"></i>Entrar
-        </button>
-      </form>
-    </div>
-  </div>
-
+  <p class="tagline">De olho em tudo</p>
 </div>
 
 </body>

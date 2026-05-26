@@ -1,12 +1,12 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+
+from flask_login import UserMixin
 from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import check_password_hash, generate_password_hash
 
 
 def _utcnow():
-    """Retorna naive UTC datetime sem usar datetime.utcnow() (depreciado em Python 3.12+)."""
     return datetime.now(timezone.utc).replace(tzinfo=None)
-from flask_login import UserMixin
-from werkzeug.security import generate_password_hash, check_password_hash
 
 db = SQLAlchemy()
 
@@ -18,6 +18,8 @@ class Viatura(db.Model):
     viatura_id = db.Column(db.String(64), unique=True, nullable=False, index=True)
     descricao = db.Column(db.String(128), default="")
     ativa = db.Column(db.Boolean, default=True)
+    # "hibrido": Pi OU QG fazem match | "nuvem": apenas QG | "local": apenas Pi
+    hotlist_mode = db.Column(db.String(16), default="hibrido")
     criado_em = db.Column(db.DateTime, default=_utcnow)
 
     deteccoes = db.relationship("Deteccao", backref="viatura_ref", lazy="dynamic")
@@ -76,7 +78,7 @@ class Deteccao(db.Model):
             "alerta_tatico": self.alerta_tatico,
             "latitude": self.latitude,
             "longitude": self.longitude,
-            "recebido_em": self.recebido_em.strftime("%d/%m/%Y %H:%M:%S"),
+            "recebido_em": (self.recebido_em - timedelta(hours=3)).strftime("%d/%m/%Y %H:%M:%S"),
         }
 
 

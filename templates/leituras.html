@@ -55,31 +55,31 @@
             <th>Veículo</th>
             <th>Velocidade</th>
             <th>Confiança</th>
-            <th>Status</th>
+            <th>Situação</th>
           </tr>
         </thead>
         <tbody>
           {% for d in paginacao.items %}
           <tr {{ 'class="item-placa-alerta"' | safe if d.alerta_tatico }}>
-            <td><small>{{ d.recebido_em.strftime('%d/%m/%Y %H:%M:%S') }}</small></td>
+            <td><small>{{ d.recebido_em | brt }}</small></td>
             <td><small>{{ d.viatura_id }}</small></td>
             <td>
               <span class="placa-badge {{ 'bg-danger' if d.alerta_tatico else '' }}">{{ d.placa }}</span>
             </td>
             <td><small>{{ d.marca }} {{ d.modelo }} <span style="color:var(--text-dim)">{{ d.cor }}</span></small></td>
-            <td><small>{{ '%.0f km/h' | format(d.velocidade) }}</small></td>
+            <td><small>{{ '%.0f km/h' | format(d.velocidade | default(0)) }}</small></td>
             <td>
-              <span class="score-bar" title="{{ '%.0f%%' | format(d.score * 100) }}">
-                <span class="score-bar-fill {{ 'high' if d.score >= 0.8 else ('medium' if d.score >= 0.6 else 'low') }}"
-                      style="width:{{ (d.score * 100) | int }}%"></span>
+              <span class="score-bar" title="{{ '%.0f%%' | format((d.score | default(0)) * 100) }}">
+                <span class="score-bar-fill {{ 'high' if (d.score | default(0)) >= 0.8 else ('medium' if (d.score | default(0)) >= 0.6 else 'low') }}"
+                      style="width:{{ ((d.score | default(0)) * 100) | int }}%"></span>
               </span>
-              <small style="color:var(--text-dim);margin-left:4px;">{{ '%.0f%%' | format(d.score * 100) }}</small>
+              <small style="color:var(--text-dim);margin-left:4px;">{{ '%.0f%%' | format((d.score | default(0)) * 100) }}</small>
             </td>
             <td>
               {% if d.alerta_tatico %}
                 <span class="badge badge-danger">ALERTA</span>
               {% else %}
-                <span class="badge badge-secondary">OK</span>
+                <span class="badge badge-secondary">NORMAL</span>
               {% endif %}
             </td>
           </tr>

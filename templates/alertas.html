@@ -60,19 +60,19 @@
         <tbody>
           {% for d in deteccoes %}
           <tr class="item-placa-alerta">
-            <td><small>{{ d.recebido_em.strftime('%d/%m/%Y %H:%M:%S') }}</small></td>
+            <td><small>{{ d.recebido_em | brt }}</small></td>
             <td><small><strong>{{ d.viatura_id }}</strong></small></td>
             <td>
               <span class="placa-badge bg-danger">{{ d.placa }}</span>
             </td>
             <td><small>{{ d.marca }} {{ d.modelo }} <span style="color:var(--text-dim)">{{ d.cor }}</span></small></td>
-            <td><small>{{ '%.0f km/h' | format(d.velocidade) }}</small></td>
+            <td><small>{{ '%.0f km/h' | format(d.velocidade | default(0)) }}</small></td>
             <td>
-              <span class="score-bar" title="{{ '%.0f%%' | format(d.score * 100) }}">
-                <span class="score-bar-fill {{ 'high' if d.score >= 0.8 else ('medium' if d.score >= 0.6 else 'low') }}"
-                      style="width:{{ (d.score * 100) | int }}%"></span>
+              <span class="score-bar" title="{{ '%.0f%%' | format((d.score | default(0)) * 100) }}">
+                <span class="score-bar-fill {{ 'high' if (d.score | default(0)) >= 0.8 else ('medium' if (d.score | default(0)) >= 0.6 else 'low') }}"
+                      style="width:{{ ((d.score | default(0)) * 100) | int }}%"></span>
               </span>
-              <small style="color:var(--text-dim);margin-left:4px;">{{ '%.0f%%' | format(d.score * 100) }}</small>
+              <small style="color:var(--text-dim);margin-left:4px;">{{ '%.0f%%' | format((d.score | default(0)) * 100) }}</small>
             </td>
             <td>
               {% if d.latitude %}

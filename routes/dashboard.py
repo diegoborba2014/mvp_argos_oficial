@@ -2,7 +2,7 @@ import csv
 import io
 from datetime import datetime, timedelta, timezone
 
-from flask import Blueprint, render_template, request, jsonify, Response, abort
+from flask import Blueprint, render_template, request, jsonify, Response, abort, redirect, url_for, flash
 from flask_login import login_required, current_user
 from sqlalchemy import func
 
@@ -250,6 +250,18 @@ def viaturas():
     return render_template("viaturas.html", viaturas=todas)
 
 
+@dashboard_bp.route("/viaturas/criar", methods=["POST"])
+@login_required
+def criar_viatura():
+    _admin_required()
+    viatura_id = request.form.get("viatura_id", "").strip()
+    descricao = request.form.get("descricao", "").strip()
+    if viatura_id and not Viatura.query.filter_by(viatura_id=viatura_id).first():
+        db.session.add(Viatura(viatura_id=viatura_id, descricao=descricao))
+        db.session.commit()
+    return redirect(url_for("dashboard.viaturas"))
+
+
 @dashboard_bp.route("/api/viaturas/<viatura_id>/historico")
 @login_required
 def api_historico_viatura(viatura_id):
@@ -348,7 +360,19 @@ def api_hotlist():
 def config_viatura(viatura_id):
     _admin_required()
     viatura = Viatura.query.filter_by(viatura_id=viatura_id).first_or_404()
-    return render_template("config_viatura.html", viatura_id=viatura.viatura_id)
+    return render_template("config_viatura.html", viatura_id=viatura.viatura_id, viatura=viatura)
+
+
+@dashboard_bp.route("/viaturas/<viatura_id>/hotlist_mode", methods=["POST"])
+@login_required
+def salvar_hotlist_mode(viatura_id):
+    _admin_required()
+    viatura = Viatura.query.filter_by(viatura_id=viatura_id).first_or_404()
+    modo = request.form.get("hotlist_mode", "hibrido")
+    if modo in ("hibrido", "nuvem", "local"):
+        viatura.hotlist_mode = modo
+        db.session.commit()
+    return redirect(url_for("dashboard.config_viatura", viatura_id=viatura_id))
 
 
 # ──────────────────────────────────────────────────────────────────────────────

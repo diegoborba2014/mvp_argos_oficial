@@ -7,6 +7,41 @@
 {% endblock %}
 
 {% block content %}
+
+<!-- Modo Hotlist -->
+<div class="row justify-content-center mb-3">
+  <div class="col-md-8">
+    <div class="card shadow-sm">
+      <div class="card-header py-2" style="background:#1a1d23;color:#fff;">
+        <h3 class="card-title"><i class="fas fa-list-ul mr-1"></i>Modo Hotlist — {{ viatura_id }}</h3>
+      </div>
+      <div class="card-body">
+        <p class="text-muted" style="font-size:.85rem;">
+          Define como o alerta de placa monitorada é gerado para esta viatura.
+        </p>
+        <form method="POST" action="{{ url_for('dashboard.salvar_hotlist_mode', viatura_id=viatura_id) }}">
+          <div class="form-group">
+            <select name="hotlist_mode" class="form-control form-control-sm" style="max-width:320px;">
+              <option value="hibrido" {{ 'selected' if viatura.hotlist_mode == 'hibrido' }}>
+                Híbrido — Pi OU QG fazem o match (recomendado)
+              </option>
+              <option value="nuvem" {{ 'selected' if viatura.hotlist_mode == 'nuvem' }}>
+                Nuvem — apenas QG verifica a hotlist
+              </option>
+              <option value="local" {{ 'selected' if viatura.hotlist_mode == 'local' }}>
+                Local — apenas Pi verifica (hotlist sincronizada)
+              </option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-sm btn-outline-info">
+            <i class="fas fa-save mr-1"></i>Salvar modo
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="row justify-content-center">
   <div class="col-md-8">
     <div class="card shadow-sm">

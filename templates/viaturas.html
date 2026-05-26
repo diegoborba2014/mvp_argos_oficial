@@ -20,7 +20,7 @@
         <table class="table table-sm table-borderless mb-0">
           <tr>
             <td class="text-muted py-0">Última comunicação</td>
-            <td class="py-0">{{ hb.recebido_em.strftime('%d/%m/%Y %H:%M:%S') }}</td>
+            <td class="py-0">{{ hb.recebido_em | brt }}</td>
           </tr>
           <tr>
             <td class="text-muted py-0">CPU Temp</td>
@@ -60,8 +60,7 @@
         <button class="btn btn-xs btn-info mr-1 mb-1" onclick="enviarComando('{{ v.viatura_id }}', 'restart_lpr')">
           <i class="fas fa-sync"></i> Reiniciar LPR
         </button>
-        <button class="btn btn-xs btn-danger mr-1 mb-1" onclick="enviarComando('{{ v.viatura_id }}', 'restart_argos')"
-                onclick="return confirm('Reiniciar ARGOS em {{ v.viatura_id }}?')">
+        <button class="btn btn-xs btn-danger mr-1 mb-1" onclick="enviarComando('{{ v.viatura_id }}', 'restart_argos')">
           <i class="fas fa-power-off"></i> Reiniciar ARGOS
         </button>
         <button class="btn btn-xs btn-secondary mb-1" onclick="abrirHistorico('{{ v.viatura_id }}')">
@@ -79,6 +78,34 @@
     <div class="callout callout-info">Nenhuma viatura cadastrada ainda.</div>
   </div>
   {% endfor %}
+</div>
+
+<!-- Nova Viatura -->
+<div class="row mb-3">
+  <div class="col-md-6 col-lg-4">
+    <div class="card shadow-sm border-dashed" style="border:2px dashed #495057;">
+      <div class="card-header py-2" style="background:#1a1d23;color:#fff;">
+        <strong><i class="fas fa-plus-circle mr-1"></i> Cadastrar Nova Viatura</strong>
+      </div>
+      <div class="card-body py-3">
+        <form method="POST" action="{{ url_for('dashboard.criar_viatura') }}">
+          <div class="form-group mb-2">
+            <label class="mb-1" style="font-size:.85rem;">ID da Viatura <span class="text-danger">*</span></label>
+            <input type="text" name="viatura_id" class="form-control form-control-sm"
+                   placeholder="Ex: ARGOS-01" required maxlength="64">
+          </div>
+          <div class="form-group mb-3">
+            <label class="mb-1" style="font-size:.85rem;">Descrição</label>
+            <input type="text" name="descricao" class="form-control form-control-sm"
+                   placeholder="Ex: Viatura Patrulha Norte" maxlength="128">
+          </div>
+          <button type="submit" class="btn btn-sm btn-primary w-100">
+            <i class="fas fa-save mr-1"></i> Cadastrar
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Modal histórico -->
