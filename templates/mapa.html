@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Mapa de Frota{% endblock %}
+{% block page_title %}<i class="fas fa-map-marked-alt text-success mr-2"></i>Mapa de Frota{% endblock %}
+{% block breadcrumb %}<li class="breadcrumb-item active">Mapa</li>{% endblock %}
+
+{% block extra_css %}
+<style>
+  #mapa { height: calc(100vh - 220px); min-height: 500px; border-radius: 0 0 8px 8px; }
+  /* Popup escuro matching tema */
+  .argos-popup .leaflet-popup-content-wrapper {
+    background: var(--bg-card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.5);
+  }
+  .argos-popup .leaflet-popup-tip {
+    background: var(--bg-card);
+  }
+  .argos-popup .leaflet-popup-content {
+    margin: 12px 14px;
+    font-family: var(--font-ui);
+    font-size: .82rem;
+    line-height: 1.6;
+  }
+  .argos-popup strong { color: var(--teal); }
+  .argos-popup .placa-popup {
+    font-family: var(--font-mono);
+    background: rgba(0,0,0,.35);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  /* Pulse para marcadores online */
+  @keyframes pulse-map {
+    0%   { box-shadow: 0 0 0 0 rgba(0,200,220,.6); }
+    70%  { box-shadow: 0 0 0 10px rgba(0,200,220,0); }
+    100% { box-shadow: 0 0 0 0 rgba(0,200,220,0); }
+  }
+  @keyframes pulse-alerta {
+    0%   { box-shadow: 0 0 0 0 rgba(192,57,43,.8); }
+    70%  { box-shadow: 0 0 0 14px rgba(192,57,43,0); }
+    100% { box-shadow: 0 0 0 0 rgba(192,57,43,0); }
+  }
+  .marker-online  { animation: pulse-map 2s infinite; }
+  .marker-alerta  { animation: pulse-alerta 1.2s infinite; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm" style="position:relative;">
+  <div class="card-header py-2 d-flex justify-content-between align-items-center" style="background:#1a1d23;color:#fff;">
+    <h3 class="card-title mb-0"><i class="fas fa-satellite-dish mr-2 text-success"></i>Posições em Tempo Real</h3>
+    <div>
+      <span class="badge badge-success" id="mapa-status">Carregando...</span>
+      <span class="ml-2 text-muted" style="font-size:.8rem;" id="mapa-ultima">—</span>
+    </div>
+  </div>
+  <div class="card-body p-0">
+    <div id="mapa"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const mapa = L.map('mapa', { zoomControl: true }).setView([-15.7801, -47.9292], 5);
+
+// CartoDB Dark Matter — tema escuro sem API key
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '© <a href="https://carto.com/">CARTO</a> © <a href="https://www.openstreetmap.org/copyright">OSM</a>',
+  subdomains: 'abcd',
+  maxZoom: 19,
+}).addTo(mapa);
+
+function makeIcon(color, size, cssClass) {
+  return L.divIcon({
+    html: `<div class="${cssClass}" style="background:${color};width:${size}px;height:${size}px;border-radius:50%;border:2px solid rgba(255,255,255,.6);"></div>`,
+    iconSize: [size, size], iconAnchor: [size/2, size/2],
+    className: '',
+  });
+}
+const iconOnline  = makeIcon('#00c8dc', 14, 'marker-online');
+const iconOffline = makeIcon('#636e72', 12, '');
+const iconAlerta  = makeIcon('#c0392b', 16, 'marker-alerta');
+
+const marcadores = {};
+const caminhosViatura = {};
+const marcadoresAlerta = [];
+
+function popupViatura(v) {
+  return `<strong>${v.viatura_id}</strong><br>
+    Status: <b style="color:${v.online ? 'var(--teal)' : 'var(--offline)'}">${v.online ? 'ONLINE' : 'OFFLINE'}</b><br>
+    CPU: ${v.cpu_temp_c ? v.cpu_temp_c.toFixed(1) + '°C' : '—'}<br>
+    LPR: ${v.lpr_health ? v.lpr_health.toFixed(0) + '%' : '—'}<br>
+    Buffer: ${v.buffer_pendente}<br>
+    <small style="color:var(--text-dim)">${v.ultima_atualizacao}</small>`;
+}
+
+function atualizarMapa() {
+  fetch('/api/mapa/viaturas')
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('mapa-status').textContent = `${data.viaturas.length} viaturas`;
+      document.getElementById('mapa-ultima').textContent = new Date().toLocaleTimeString('pt-BR');
+
+      data.viaturas.forEach(v => {
+        const icon = v.online ? iconOnline : iconOffline;
+        if (marcadores[v.viatura_id]) {
+          marcadores[v.viatura_id].setLatLng([v.latitude, v.longitude]);
+          marcadores[v.viatura_id].setIcon(icon);
+          marcadores[v.viatura_id].setPopupContent(popupViatura(v));
+        } else {
+          const m = L.marker([v.latitude, v.longitude], { icon })
+            .bindPopup(popupViatura(v), { className: 'argos-popup' })
+            .addTo(mapa);
+          m.on('click', function () {
+            fetch(`/api/mapa/trajeto/${v.viatura_id}`)
+              .then(r => r.json())
+              .then(pts => {
+                if (caminhosViatura[v.viatura_id]) mapa.removeLayer(caminhosViatura[v.viatura_id]);
+                if (pts.length < 2) return;
+                caminhosViatura[v.viatura_id] = L.polyline(
+                  pts.map(p => [p.lat, p.lon]),
+                  { color: '#00c8dc', weight: 2, opacity: .6 }
+                ).addTo(mapa);
+              });
+          });
+          marcadores[v.viatura_id] = m;
+        }
+      });
+
+      marcadoresAlerta.forEach(m => mapa.removeLayer(m));
+      marcadoresAlerta.length = 0;
+      data.alertas.forEach(a => {
+        const popup = `<strong style="color:var(--red)">⚠ ALERTA TÁTICO</strong><br>
+          <span class="placa-popup">${a.placa}</span><br>
+          ${a.viatura_id}<br>
+          <small style="color:var(--text-dim)">${a.recebido_em}</small>`;
+        marcadoresAlerta.push(
+          L.marker([a.latitude, a.longitude], { icon: iconAlerta })
+            .bindPopup(popup, { className: 'argos-popup' })
+            .addTo(mapa)
+        );
+      });
+    })
+    .catch(() => { document.getElementById('mapa-status').textContent = 'Erro'; });
+}
+
+atualizarMapa();
+setInterval(atualizarMapa, 60000);
+
+const sseMap = new EventSource('/api/stream');
+sseMap.addEventListener('heartbeat', atualizarMapa);
+</script>
+{% endblock %}

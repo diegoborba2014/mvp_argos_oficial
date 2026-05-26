@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login | ARGOS QG</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0d0f14;
+      font-family: 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* Grade de fundo sutil */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,200,220,.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,200,220,.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+    }
+
+    .login-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 60px;
+      width: 100%;
+      max-width: 900px;
+      padding: 20px;
+    }
+
+    /* ── Logo / Animação ── */
+    .logo-side {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 0 0 320px;
+    }
+
+    .logo-video {
+      width: 280px;
+      height: 280px;
+      object-fit: contain;
+      border-radius: 12px;
+      filter: drop-shadow(0 0 30px rgba(0,200,220,.35));
+    }
+
+    /* Fallback: imagem estática usada enquanto vídeo não carrega */
+    .logo-img {
+      width: 240px;
+      filter: drop-shadow(0 0 30px rgba(0,200,220,.35));
+    }
+
+    .tagline {
+      margin-top: 12px;
+      color: rgba(255,255,255,.35);
+      font-size: .75rem;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+
+    /* ── Formulário ── */
+    .form-side {
+      flex: 0 0 300px;
+    }
+
+    .system-label {
+      color: rgba(255,255,255,.25);
+      font-size: .65rem;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .system-title {
+      color: #ffffff;
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      margin-bottom: 2px;
+    }
+
+    .system-sub {
+      color: #00c8dc;
+      font-size: .75rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 28px;
+    }
+
+    .login-card {
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.08);
+      border-top: 2px solid #c0392b;
+      border-radius: 8px;
+      padding: 28px 24px;
+    }
+
+    .form-label {
+      color: rgba(255,255,255,.5);
+      font-size: .7rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .form-control-dark {
+      width: 100%;
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 5px;
+      color: #fff;
+      padding: 9px 14px;
+      font-size: .9rem;
+      outline: none;
+      transition: border-color .2s;
+      margin-bottom: 18px;
+    }
+
+    .form-control-dark:focus {
+      border-color: #00c8dc;
+      background: rgba(0,200,220,.06);
+    }
+
+    .form-control-dark::placeholder { color: rgba(255,255,255,.2); }
+
+    .btn-entrar {
+      width: 100%;
+      padding: 10px;
+      background: #c0392b;
+      border: none;
+      border-radius: 5px;
+      color: #fff;
+      font-weight: 700;
+      font-size: .9rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background .2s, box-shadow .2s;
+    }
+
+    .btn-entrar:hover {
+      background: #a93226;
+      box-shadow: 0 0 20px rgba(192,57,43,.4);
+    }
+
+    .alert-msg {
+      background: rgba(220,53,69,.15);
+      border: 1px solid rgba(220,53,69,.3);
+      color: #ff8080;
+      border-radius: 4px;
+      padding: 8px 12px;
+      font-size: .8rem;
+      margin-bottom: 16px;
+    }
+
+    /* Responsivo: empilha em telas pequenas */
+    @media (max-width: 640px) {
+      .login-wrapper { flex-direction: column; gap: 20px; }
+      .logo-side { flex: none; }
+      .form-side { flex: none; width: 100%; max-width: 320px; }
+      .logo-video, .logo-img { width: 180px; height: 180px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="login-wrapper">
+
+  <!-- Logo / Animação -->
+  <div class="logo-side">
+    <video class="logo-video" autoplay muted loop playsinline
+           poster="{{ url_for('static', filename='image_desktop.png') }}">
+      <source src="{{ url_for('static', filename='entrada.mp4') }}" type="video/mp4">
+      <!-- fallback para navegadores sem suporte a vídeo -->
+      <img src="{{ url_for('static', filename='image_desktop.png') }}" class="logo-img" alt="ARGOS">
+    </video>
+    <p class="tagline">De olho em tudo</p>
+  </div>
+
+  <!-- Formulário -->
+  <div class="form-side">
+    <p class="system-label">Sistema de Monitoramento</p>
+    <h1 class="system-title">ARGOS QG</h1>
+    <p class="system-sub">Quartel General</p>
+
+    <div class="login-card">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="alert-msg">{{ message }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <form action="{{ url_for('auth.login') }}" method="POST">
+        <label class="form-label">Usuário</label>
+        <input type="text" name="username" class="form-control-dark"
+               placeholder="Digite seu usuário" autofocus required>
+
+        <label class="form-label">Senha</label>
+        <input type="password" name="senha" class="form-control-dark"
+               placeholder="••••••••" required>
+
+        <button type="submit" class="btn-entrar">
+          <i class="fas fa-sign-in-alt mr-2"></i>Entrar
+        </button>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

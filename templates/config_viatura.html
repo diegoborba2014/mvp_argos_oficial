@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}Config — {{ viatura_id }}{% endblock %}
+{% block page_title %}<i class="fas fa-sliders-h text-info mr-2"></i>Config Remota — {{ viatura_id }}{% endblock %}
+{% block breadcrumb %}
+  <li class="breadcrumb-item"><a href="{{ url_for('dashboard.viaturas') }}">Viaturas</a></li>
+  <li class="breadcrumb-item active">{{ viatura_id }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-8">
+    <div class="card shadow-sm">
+      <div class="card-header py-2" style="background:#1a1d23;color:#fff;">
+        <h3 class="card-title">
+          <i class="fas fa-cog mr-1"></i>Parâmetros LPR — {{ viatura_id }}
+        </h3>
+        <div class="card-tools">
+          <span id="cfg-status" class="badge badge-secondary">Carregando...</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="callout callout-warning">
+          <h6>Atenção</h6>
+          Salvar a configuração reinicia o container LPR automaticamente (~5s de interrupção na leitura).
+        </div>
+
+        <form id="form-config">
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label>sample <small class="text-muted">(1=todos os frames, 2=1 de cada 2)</small></label>
+                <input type="number" id="cfg-sample" name="sample" class="form-control form-control-sm" min="1" max="5">
+              </div>
+              <div class="form-group">
+                <label>min_score <small class="text-muted">(0.0–1.0)</small></label>
+                <input type="number" id="cfg-min-score" name="min_score" class="form-control form-control-sm"
+                       min="0" max="1" step="0.05">
+              </div>
+              <div class="form-group">
+                <label>memory_decay <small class="text-muted">(segundos)</small></label>
+                <input type="number" id="cfg-memory-decay" name="memory_decay" class="form-control form-control-sm" min="0">
+              </div>
+              <div class="form-group">
+                <label>max_dwell_delay <small class="text-muted">(ms)</small></label>
+                <input type="number" id="cfg-max-dwell" name="max_dwell_delay" class="form-control form-control-sm" min="0">
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <label>roi <small class="text-muted">(null = desativado, ex: 0,0.25,1,0.85)</small></label>
+                <input type="text" id="cfg-roi" name="roi" class="form-control form-control-sm"
+                       placeholder="null">
+              </div>
+              <div class="form-group">
+                <label class="d-block">trajectory</label>
+                <div class="custom-control custom-switch">
+                  <input type="checkbox" class="custom-control-input" id="cfg-trajectory" name="trajectory">
+                  <label class="custom-control-label" for="cfg-trajectory">Rastrear velocidade e direção</label>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="d-block">report_static</label>
+                <div class="custom-control custom-switch">
+                  <input type="checkbox" class="custom-control-input" id="cfg-report-static" name="report_static">
+                  <label class="custom-control-label" for="cfg-report-static">Reportar placas estáticas</label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-2">
+            <button type="submit" class="btn btn-danger">
+              <i class="fas fa-save mr-1"></i>Salvar e Aplicar
+            </button>
+            <button type="button" class="btn btn-outline-secondary ml-2" onclick="carregarConfig()">
+              <i class="fas fa-sync mr-1"></i>Recarregar da Viatura
+            </button>
+          </div>
+        </form>
+
+        <div id="cfg-resultado" class="mt-3" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const VIATURA_ID = '{{ viatura_id }}';
+
+function carregarConfig() {
+  document.getElementById('cfg-status').textContent = 'Carregando...';
+  document.getElementById('cfg-status').className = 'badge badge-secondary';
+
+  fetch(`/api/viaturas/${VIATURA_ID}/config`)
+    .then(r => r.json())
+    .then(cfg => {
+      if (cfg.aviso) {
+        document.getElementById('cfg-status').textContent = 'Simulado';
+        document.getElementById('cfg-status').className = 'badge badge-warning';
+        return;
+      }
+      document.getElementById('cfg-sample').value = cfg.sample ?? '';
+      document.getElementById('cfg-min-score').value = cfg.min_score ?? '';
+      document.getElementById('cfg-memory-decay').value = cfg.memory_decay ?? '';
+      document.getElementById('cfg-max-dwell').value = cfg.max_dwell_delay ?? '';
+      document.getElementById('cfg-roi').value = cfg.roi ?? 'null';
+      document.getElementById('cfg-trajectory').checked = !!cfg.trajectory;
+      document.getElementById('cfg-report-static').checked = !!cfg.report_static;
+      document.getElementById('cfg-status').textContent = 'Config carregada';
+      document.getElementById('cfg-status').className = 'badge badge-success';
+    })
+    .catch(() => {
+      document.getElementById('cfg-status').textContent = 'Erro ao conectar';
+      document.getElementById('cfg-status').className = 'badge badge-danger';
+    });
+}
+
+document.getElementById('form-config').addEventListener('submit', function (e) {
+  e.preventDefault();
+  const roi = document.getElementById('cfg-roi').value.trim();
+  const config = {
+    sample: parseInt(document.getElementById('cfg-sample').value) || null,
+    min_score: parseFloat(document.getElementById('cfg-min-score').value) || null,
+    memory_decay: parseInt(document.getElementById('cfg-memory-decay').value) || null,
+    max_dwell_delay: parseInt(document.getElementById('cfg-max-dwell').value) || null,
+    roi: roi === 'null' || roi === '' ? null : roi,
+    trajectory: document.getElementById('cfg-trajectory').checked,
+    report_static: document.getElementById('cfg-report-static').checked,
+  };
+
+  // Remove nulls
+  Object.keys(config).forEach(k => config[k] === null && delete config[k]);
+
+  fetch(`/api/viaturas/${VIATURA_ID}/config`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(config),
+  })
+  .then(r => r.json())
+  .then(d => {
+    const el = document.getElementById('cfg-resultado');
+    el.style.display = '';
+    if (d.status === 'aplicado' || d.aviso) {
+      el.className = 'alert alert-success';
+      el.textContent = d.aviso || 'Configuração aplicada. Container LPR reiniciando...';
+    } else {
+      el.className = 'alert alert-danger';
+      el.textContent = d.erro || JSON.stringify(d);
+    }
+  });
+});
+
+carregarConfig();
+</script>
+{% endblock %}

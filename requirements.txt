@@ -1,0 +1,8 @@
+flask
+flask-login
+flask-sqlalchemy
+python-dotenv
+gunicorn
+werkzeug
+requests
+gevent

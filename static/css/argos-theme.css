@@ -1,0 +1,533 @@
+/* ============================================================
+   ARGOS QG — Design System
+   Carregado após AdminLTE CSS em base.html e login.html.
+   Todas as cores e fontes saem daqui — nunca hardcode inline.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700&family=Share+Tech+Mono&display=swap');
+
+/* ─── CAMADA 1: PRIMITIVOS ─────────────────────────────────── */
+:root {
+  --primitive-teal:    #00c8dc;
+  --primitive-red:     #c0392b;
+  --primitive-green:   #2ecc71;
+  --primitive-gray:    #636e72;
+  --primitive-dark-900: #0a0c11;
+  --primitive-dark-800: #12151c;
+  --primitive-dark-700: #1a1d26;
+  --primitive-dark-600: #22263a;
+}
+
+/* ─── CAMADA 2: SEMÂNTICOS ─────────────────────────────────── */
+:root {
+  --teal:         var(--primitive-teal);
+  --teal-dim:     rgba(0,200,220,.12);
+  --teal-glow:    rgba(0,200,220,.35);
+  --red:          var(--primitive-red);
+  --red-dim:      rgba(192,57,43,.10);
+  --red-glow:     rgba(192,57,43,.40);
+  --bg-deep:      var(--primitive-dark-900);
+  --bg-surface:   var(--primitive-dark-800);
+  --bg-card:      var(--primitive-dark-700);
+  --bg-card-2:    var(--primitive-dark-600);
+  --text:         #f0f2f5;
+  --text-dim:     rgba(240,242,245,.55);
+  --text-muted:   rgba(240,242,245,.28);
+  --border:       rgba(0,200,220,.12);
+  --online:       var(--primitive-green);
+  --offline:      var(--primitive-gray);
+  --font-mono:    'Share Tech Mono', 'Courier New', monospace;
+  --font-ui:      'Exo 2', 'Segoe UI', sans-serif;
+}
+
+/* ─── RESET GLOBAL ─────────────────────────────────────────── */
+body,
+.wrapper {
+  background-color: var(--bg-deep) !important;
+  color: var(--text) !important;
+  font-family: var(--font-ui) !important;
+}
+
+/* ─── NAVBAR ───────────────────────────────────────────────── */
+.main-header.navbar {
+  background-color: var(--bg-surface) !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+.main-header .navbar-nav .nav-link,
+.main-header .navbar-nav .nav-item > a {
+  color: var(--text-dim) !important;
+}
+.main-header .navbar-nav .nav-link:hover {
+  color: var(--teal) !important;
+}
+
+/* ─── SIDEBAR ──────────────────────────────────────────────── */
+.main-sidebar {
+  background-color: var(--bg-surface) !important;
+  border-right: 1px solid var(--border) !important;
+}
+.sidebar-dark-primary .nav-sidebar > .nav-item > .nav-link {
+  color: var(--text-dim) !important;
+  transition: background 0.15s, color 0.15s;
+}
+.sidebar-dark-primary .nav-sidebar > .nav-item > .nav-link:hover {
+  background: rgba(0,200,220,.06) !important;
+  color: var(--text) !important;
+}
+.sidebar-dark-primary .nav-sidebar > .nav-item.menu-open > .nav-link,
+.sidebar-dark-primary .nav-sidebar > .nav-item > .nav-link.active {
+  background: var(--teal-dim) !important;
+  border-left: 3px solid var(--teal) !important;
+  color: var(--teal) !important;
+  font-weight: 600;
+}
+.sidebar-dark-primary .nav-sidebar > .nav-item > .nav-link.active .nav-icon {
+  color: var(--teal) !important;
+}
+.nav-header {
+  color: var(--text-muted) !important;
+  font-size: .65rem;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  border-top: 1px solid var(--border);
+  padding-top: .75rem;
+  margin-top: .5rem;
+}
+.brand-link {
+  background: var(--bg-surface) !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+
+/* ─── CONTENT WRAPPER ──────────────────────────────────────── */
+.content-wrapper {
+  background-color: var(--bg-deep) !important;
+}
+.content-header h1 {
+  font-family: var(--font-ui);
+  font-weight: 700;
+  color: var(--text);
+}
+.breadcrumb {
+  background: transparent !important;
+}
+.breadcrumb-item,
+.breadcrumb-item.active {
+  color: var(--text-dim) !important;
+}
+.breadcrumb-item a {
+  color: var(--teal) !important;
+}
+
+/* ─── MAIN FOOTER ──────────────────────────────────────────── */
+.main-footer {
+  background: var(--bg-surface) !important;
+  border-top: 1px solid var(--border) !important;
+  color: var(--text-muted) !important;
+}
+
+/* ─── KPI INFO-BOX (Dashboard) ─────────────────────────────── */
+.info-box {
+  background: rgba(255,255,255,.03) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  color: var(--text) !important;
+  min-height: 80px;
+}
+.info-box-icon {
+  background: transparent !important;
+  color: var(--teal) !important;
+  filter: drop-shadow(0 0 8px var(--teal-glow));
+  font-size: 1.8rem;
+  width: 60px;
+}
+.info-box-text {
+  color: var(--text-dim) !important;
+  font-size: .78rem;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+}
+.info-box-number {
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 2rem !important;
+  color: var(--teal) !important;
+}
+/* KPI de alertas — vermelho */
+.info-box.bg-danger .info-box-icon {
+  color: var(--red) !important;
+  filter: drop-shadow(0 0 8px var(--red-glow));
+}
+.info-box.bg-danger .info-box-number {
+  color: var(--red) !important;
+}
+/* Remover fundos sólidos do AdminLTE */
+.info-box.bg-danger,
+.info-box.bg-primary,
+.info-box.bg-success,
+.info-box.bg-secondary,
+.info-box.bg-warning,
+.info-box.bg-info {
+  background: rgba(255,255,255,.03) !important;
+  border: 1px solid var(--border) !important;
+}
+
+/* ─── CARDS DE VIATURA ─────────────────────────────────────── */
+.card {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+  color: var(--text) !important;
+  box-shadow: none !important;
+}
+.card-header {
+  background: var(--bg-surface) !important;
+  border-bottom: 1px solid var(--border) !important;
+  color: var(--text) !important;
+  font-family: var(--font-ui);
+  font-weight: 600;
+}
+.card-body {
+  background: transparent !important;
+}
+.card-viatura-online {
+  border-left: 3px solid var(--teal) !important;
+  box-shadow: 0 0 16px rgba(0,200,220,.08) !important;
+}
+.card-viatura-offline {
+  border-left: 3px solid var(--offline) !important;
+}
+
+/* Badge de status ONLINE com pulse */
+.badge-success {
+  background-color: var(--online) !important;
+  color: #0a0c11 !important;
+  font-weight: 700;
+}
+.badge-success.pulse-badge {
+  animation: pulse-badge 2s infinite;
+}
+@keyframes pulse-badge {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(46,204,113,.5); }
+  50%       { box-shadow: 0 0 0 5px rgba(46,204,113,0); }
+}
+.badge-danger {
+  background-color: var(--red) !important;
+}
+.badge-secondary {
+  background-color: var(--bg-card-2) !important;
+  color: var(--text-dim) !important;
+}
+
+/* ─── PLACA (fonte mono) ───────────────────────────────────── */
+.placa-badge {
+  font-family: var(--font-mono);
+  font-size: .85rem;
+  background: rgba(0,0,0,.35);
+  border: 1px solid var(--border);
+  padding: 1px 6px;
+  border-radius: 3px;
+  letter-spacing: 1px;
+  color: var(--text);
+}
+.placa-badge.bg-danger {
+  background: rgba(192,57,43,.25) !important;
+  border-color: rgba(192,57,43,.5) !important;
+  color: #ff6b6b !important;
+}
+
+/* ─── FEED AO VIVO ─────────────────────────────────────────── */
+#feed-deteccoes {
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: 0 0 8px 8px;
+  position: relative;
+  overflow: hidden;
+}
+/* Efeito scan */
+#feed-deteccoes::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--teal), transparent);
+  animation: scan 4s linear infinite;
+  z-index: 10;
+  pointer-events: none;
+}
+@keyframes scan {
+  0%   { top: 0; opacity: .8; }
+  90%  { top: calc(100% - 2px); opacity: .8; }
+  100% { top: 100%; opacity: 0; }
+}
+
+/* Animação de entrada de novas linhas */
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.feed-new-row {
+  animation: fadeInDown 0.3s ease-out;
+}
+
+.item-placa-alerta {
+  background: var(--red-dim) !important;
+  border-left: 3px solid var(--red);
+}
+
+/* ─── TABELAS ──────────────────────────────────────────────── */
+.table {
+  color: var(--text) !important;
+  background: transparent !important;
+}
+.table thead th {
+  background: var(--bg-surface) !important;
+  color: var(--text-dim) !important;
+  border-bottom: 1px solid var(--border) !important;
+  font-size: .72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: .6rem .75rem;
+}
+.table tbody tr {
+  background: var(--bg-card) !important;
+  border-bottom: 1px solid rgba(0,200,220,.05) !important;
+  transition: background 0.1s;
+}
+.table tbody tr:hover {
+  background: var(--bg-card-2) !important;
+}
+.table tbody td {
+  border-color: rgba(0,200,220,.05) !important;
+  vertical-align: middle;
+}
+/* Sem stripe claro do Bootstrap */
+.table-striped tbody tr:nth-of-type(odd) {
+  background: var(--bg-card) !important;
+}
+.table-hover tbody tr:hover {
+  background: var(--bg-card-2) !important;
+}
+
+/* ─── BARRA DE CONFIANÇA LPR ───────────────────────────────── */
+.score-bar {
+  height: 4px;
+  background: rgba(255,255,255,.08);
+  border-radius: 2px;
+  overflow: hidden;
+  width: 60px;
+  display: inline-block;
+  vertical-align: middle;
+}
+.score-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+}
+.score-bar-fill.high   { background: var(--teal); }
+.score-bar-fill.medium { background: #f39c12; }
+.score-bar-fill.low    { background: var(--red); }
+
+/* ─── PAGINAÇÃO ────────────────────────────────────────────── */
+.pagination .page-link {
+  background: var(--bg-card) !important;
+  border-color: var(--border) !important;
+  color: var(--text-dim) !important;
+  transition: background 0.15s;
+}
+.pagination .page-link:hover {
+  background: var(--teal-dim) !important;
+  color: var(--teal) !important;
+}
+.pagination .page-item.active .page-link {
+  background: var(--teal) !important;
+  border-color: var(--teal) !important;
+  color: #0a0c11 !important;
+  font-weight: 700;
+}
+.pagination .page-item.disabled .page-link {
+  background: var(--bg-surface) !important;
+  color: var(--text-muted) !important;
+}
+
+/* ─── FORMULÁRIOS ──────────────────────────────────────────── */
+.form-control,
+select.form-control {
+  background: rgba(255,255,255,.05) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
+  font-family: var(--font-ui);
+}
+.form-control:focus {
+  background: rgba(0,200,220,.06) !important;
+  border-color: var(--teal) !important;
+  box-shadow: 0 0 0 3px var(--teal-dim) !important;
+  color: var(--text) !important;
+  outline: none;
+}
+.form-control::placeholder {
+  color: var(--text-muted) !important;
+}
+label {
+  color: var(--text-dim);
+  font-size: .82rem;
+  font-weight: 600;
+  letter-spacing: .3px;
+}
+.input-group-text {
+  background: var(--bg-surface) !important;
+  border-color: var(--border) !important;
+  color: var(--text-dim) !important;
+}
+
+/* ─── BOTÕES ───────────────────────────────────────────────── */
+.btn-primary {
+  background: transparent !important;
+  border: 1px solid var(--teal) !important;
+  color: var(--teal) !important;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+.btn-primary:hover {
+  background: var(--teal-dim) !important;
+  color: var(--teal) !important;
+}
+.btn-danger {
+  background: var(--red) !important;
+  border-color: var(--red) !important;
+  color: #fff !important;
+}
+.btn-danger:hover {
+  filter: brightness(1.15);
+}
+.btn-outline-danger {
+  background: transparent !important;
+  border-color: var(--red) !important;
+  color: var(--red) !important;
+}
+.btn-outline-danger:hover {
+  background: var(--red-dim) !important;
+}
+.btn-secondary {
+  background: transparent !important;
+  border: 1px solid rgba(240,242,245,.2) !important;
+  color: var(--text-dim) !important;
+}
+.btn-secondary:hover {
+  background: var(--bg-card-2) !important;
+  color: var(--text) !important;
+}
+
+/* ─── MODAIS ───────────────────────────────────────────────── */
+.modal-content {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
+}
+.modal-header {
+  border-bottom: 1px solid var(--border) !important;
+  background: var(--bg-surface) !important;
+}
+.modal-footer {
+  border-top: 1px solid var(--border) !important;
+}
+.modal-title {
+  color: var(--text) !important;
+  font-weight: 700;
+}
+.close {
+  color: var(--text-dim) !important;
+}
+
+/* ─── ALERTAS / CALLOUTS ───────────────────────────────────── */
+.callout {
+  background: var(--bg-card) !important;
+  border-left-color: var(--teal) !important;
+  color: var(--text) !important;
+}
+.callout-info {
+  border-left-color: var(--teal) !important;
+}
+.callout-warning {
+  border-left-color: #f39c12 !important;
+}
+.callout-danger {
+  border-left-color: var(--red) !important;
+}
+
+/* ─── TOAST DE ALERTA TÁTICO ───────────────────────────────── */
+#alerta-toast {
+  position: fixed;
+  top: 70px;
+  right: 20px;
+  z-index: 9999;
+  min-width: 320px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--red);
+  border-radius: 6px;
+  padding: 14px 18px;
+  box-shadow: 0 4px 20px var(--red-glow);
+  display: none;
+  animation: slideInRight 0.3s ease-out;
+}
+#alerta-toast.show {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(60px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.toast-icon {
+  color: var(--red);
+  font-size: 1.4rem;
+  animation: tremble 0.4s ease-in-out infinite alternate;
+}
+@keyframes tremble {
+  from { transform: rotate(-8deg); }
+  to   { transform: rotate(8deg); }
+}
+.toast-body { flex: 1; }
+.toast-title { font-weight: 700; color: var(--red); font-size: .9rem; margin-bottom: 2px; }
+.toast-placa { font-family: var(--font-mono); font-size: 1rem; color: var(--text); }
+.toast-meta  { font-size: .75rem; color: var(--text-dim); }
+.toast-progress {
+  position: absolute;
+  bottom: 0; left: 0;
+  height: 3px;
+  background: var(--red);
+  border-radius: 0 0 0 6px;
+  animation: progress-shrink 8s linear forwards;
+}
+@keyframes progress-shrink {
+  from { width: 100%; }
+  to   { width: 0%; }
+}
+
+/* ─── TEMPERATURA — COR DINÂMICA ───────────────────────────── */
+.temp-ok     { color: var(--online) !important; }
+.temp-warn   { color: #f39c12 !important; }
+.temp-crit   { color: var(--red) !important; }
+
+/* ─── LINK MAPA (GPS) ──────────────────────────────────────── */
+a.gps-link {
+  color: var(--teal);
+  text-decoration: none;
+  font-family: var(--font-mono);
+  font-size: .8rem;
+}
+a.gps-link:hover { text-decoration: underline; }
+
+/* ─── SELECT DARK ──────────────────────────────────────────── */
+select option {
+  background: var(--bg-card);
+  color: var(--text);
+}
+
+/* ─── SCROLLBAR CUSTOM ─────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-deep); }
+::-webkit-scrollbar-thumb { background: rgba(0,200,220,.25); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--teal); }

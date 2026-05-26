@@ -1,0 +1,23 @@
+# Banco de dados local
+instance/
+*.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+
+# Variáveis de ambiente
+.env
+
+# Ferramentas de IA (não vai para produção)
+.ai/
+.agents/
+skills-lock.json
+
+# Sistema operacional
+.DS_Store
+Thumbs.db

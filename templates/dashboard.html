@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block page_title %}
+  <i class="fas fa-tachometer-alt text-danger mr-2"></i>Dashboard
+{% endblock %}
+
+{% block breadcrumb %}
+  <li class="breadcrumb-item active">Dashboard</li>
+{% endblock %}
+
+{% block content %}
+
+<!-- KPI Cards -->
+<div class="row mb-3">
+  <div class="col-sm-3">
+    <div class="info-box bg-danger shadow-sm">
+      <span class="info-box-icon"><i class="fas fa-exclamation-triangle"></i></span>
+      <div class="info-box-content">
+        <span class="info-box-text">Alertas Hoje</span>
+        <span class="info-box-number" id="kpi-alertas">{{ alertas_hoje }}</span>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-3">
+    <div class="info-box bg-primary shadow-sm">
+      <span class="info-box-icon"><i class="fas fa-camera"></i></span>
+      <div class="info-box-content">
+        <span class="info-box-text">Leituras Hoje</span>
+        <span class="info-box-number" id="kpi-leituras">{{ leituras_hoje }}</span>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-3">
+    <div class="info-box bg-success shadow-sm">
+      <span class="info-box-icon"><i class="fas fa-car"></i></span>
+      <div class="info-box-content">
+        <span class="info-box-text">Viaturas Online</span>
+        <span class="info-box-number" id="kpi-online">
+          {{ viaturas | selectattr('online', 'equalto', true) | list | length }} / {{ viaturas | length }}
+        </span>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-3">
+    <div class="info-box bg-secondary shadow-sm">
+      <span class="info-box-icon"><i class="fas fa-clock"></i></span>
+      <div class="info-box-content">
+        <span class="info-box-text">Última Atualização</span>
+        <span class="info-box-number" style="font-size:1rem;" id="kpi-hora">--:--:--</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Cards de viaturas -->
+<div class="row mb-3">
+  {% for v in viaturas %}
+  {% set hb = v.heartbeat %}
+  <div class="col-sm-6 col-lg-4" id="card-viatura-{{ v.viatura_id | replace('-', '_') }}">
+    <div class="card shadow-sm {{ 'card-viatura-online' if v.online else 'card-viatura-offline' }}">
+      <div class="card-header d-flex justify-content-between align-items-center py-2">
+        <strong><i class="fas fa-car mr-1"></i> {{ v.viatura_id }}</strong>
+        <span class="badge badge-{{ 'success pulse-badge' if v.online else 'secondary' }}">
+          {{ 'ONLINE' if v.online else 'OFFLINE' }}
+        </span>
+      </div>
+      <div class="card-body py-2" style="font-size:.85rem;">
+        {% if hb %}
+        <div class="row">
+          <div class="col-6">
+            <div><i class="fas fa-thermometer-half mr-1"></i>
+              <span class="{{ 'temp-crit' if hb.cpu_temp_c and hb.cpu_temp_c >= 80 else ('temp-warn' if hb.cpu_temp_c and hb.cpu_temp_c >= 65 else 'temp-ok') }}">
+                {{ '%.1f°C' | format(hb.cpu_temp_c) if hb.cpu_temp_c else '—' }}
+              </span>
+            </div>
+            <div><i class="fas fa-microchip text-primary mr-1"></i>
+              LPR {{ '%.0f%%' | format(hb.lpr_health) if hb.lpr_health else '—' }}
+            </div>
+          </div>
+          <div class="col-6">
+            <div><i class="fas fa-inbox text-secondary mr-1"></i>
+              Buffer: {{ hb.buffer_pendente }}
+            </div>
+            <div><i class="fas fa-map-marker-alt text-danger mr-1"></i>
+              {% if hb.latitude %}
+                {{ '%.4f' | format(hb.latitude) }}, {{ '%.4f' | format(hb.longitude) }}
+              {% else %}
+                Sem GPS
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        <div class="mt-1 text-muted" style="font-size:.75rem;">
+          Atualizado: {{ hb.recebido_em.strftime('%d/%m %H:%M:%S') }}
+        </div>
+        {% else %}
+        <span class="text-muted">Sem dados recebidos ainda.</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="col-12">
+    <div class="callout callout-info">
+      <h5>Nenhuma viatura conectada ainda.</h5>
+      O sistema aguarda conexão das viaturas via <code>POST /api/argos/telemetry</code>.
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Feed ao vivo -->
+<div class="row">
+  <div class="col-12">
+    <div class="card shadow-sm">
+      <div class="card-header" style="background:#1a1d23;color:#fff;">
+        <h3 class="card-title">
+          <i class="fas fa-broadcast-tower mr-2 text-danger"></i>Feed ao Vivo
+        </h3>
+        <div class="card-tools">
+          <span class="badge badge-success" id="sse-status">Conectado</span>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        <div id="feed-deteccoes" style="max-height:400px;overflow-y:auto;">
+          <table class="table table-sm table-hover mb-0">
+            <thead style="position:sticky;top:0;background:#343a40;color:#fff;">
+              <tr>
+                <th style="width:150px;">Data/Hora</th>
+                <th>Viatura</th>
+                <th>Placa</th>
+                <th>Veículo</th>
+                <th>Velocidade</th>
+                <th>Confiança</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="feed-body">
+              {% for d in ultimas_deteccoes %}
+              <tr class="{{ 'item-placa-alerta' if d.alerta_tatico else '' }}">
+                <td><small>{{ d.recebido_em.strftime('%d/%m %H:%M:%S') }}</small></td>
+                <td><small>{{ d.viatura_id }}</small></td>
+                <td><span class="placa-badge {{ 'bg-danger' if d.alerta_tatico else '' }}">{{ d.placa }}</span></td>
+                <td><small>{{ d.marca }} {{ d.modelo }} {{ d.cor }}</small></td>
+                <td><small>{{ '%.0f km/h' | format(d.velocidade) }}</small></td>
+                <td><small>{{ '%.0f%%' | format(d.score * 100) }}</small></td>
+                <td>
+                  {% if d.alerta_tatico %}
+                    <span class="badge badge-danger">ALERTA</span>
+                  {% else %}
+                    <span class="badge badge-secondary">OK</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const tbody = document.getElementById('feed-body');
+  const sseStatus = document.getElementById('sse-status');
+  const kpiAlertasEl = document.getElementById('kpi-alertas');
+  const kpiLeiturasEl = document.getElementById('kpi-leituras');
+  const kpiHoraEl = document.getElementById('kpi-hora');
+
+  let totalAlertas = parseInt(kpiAlertasEl.textContent) || 0;
+  let totalLeituras = parseInt(kpiLeiturasEl.textContent) || 0;
+
+  function atualizarHora() {
+    const now = new Date();
+    kpiHoraEl.textContent = now.toLocaleTimeString('pt-BR');
+  }
+  setInterval(atualizarHora, 1000);
+  atualizarHora();
+
+  const source = new EventSource('/api/stream');
+
+  source.onopen = function () {
+    sseStatus.textContent = 'Conectado';
+    sseStatus.className = 'badge badge-success';
+  };
+
+  source.onerror = function () {
+    sseStatus.textContent = 'Reconectando...';
+    sseStatus.className = 'badge badge-warning';
+  };
+
+  source.addEventListener('new_detection', function (e) {
+    const d = JSON.parse(e.data);
+
+    totalLeituras++;
+    kpiLeiturasEl.textContent = totalLeituras;
+
+    const alerta = d.alerta_tatico;
+    if (alerta) {
+      totalAlertas++;
+      kpiAlertasEl.textContent = totalAlertas;
+    }
+
+    const tr = document.createElement('tr');
+    tr.className = (alerta ? 'item-placa-alerta' : '') + ' feed-new-row';
+    tr.innerHTML = `
+      <td><small>${d.recebido_em}</small></td>
+      <td><small>${d.viatura_id}</small></td>
+      <td><span class="placa-badge ${alerta ? 'bg-danger text-white' : ''}">${d.placa}</span></td>
+      <td><small>${d.marca || ''} ${d.modelo || ''} ${d.cor || ''}</small></td>
+      <td><small>${(d.velocidade || 0).toFixed(0)} km/h</small></td>
+      <td><small>${((d.score || 0) * 100).toFixed(0)}%</small></td>
+      <td>${alerta ? '<span class="badge badge-danger">ALERTA</span>' : '<span class="badge badge-secondary">OK</span>'}</td>
+    `;
+
+    tbody.insertBefore(tr, tbody.firstChild);
+
+    // Manter apenas 50 linhas no feed
+    while (tbody.rows.length > 50) {
+      tbody.removeChild(tbody.lastChild);
+    }
+  });
+})();
+</script>
+{% endblock %}

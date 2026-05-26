@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}Hotlist{% endblock %}
+{% block page_title %}<i class="fas fa-clipboard-list text-warning mr-2"></i>Hotlist — Placas Monitoradas{% endblock %}
+{% block breadcrumb %}<li class="breadcrumb-item active">Hotlist</li>{% endblock %}
+
+{% block content %}
+<div class="row">
+  <!-- Coluna esquerda: lista -->
+  <div class="col-md-8">
+    <div class="card shadow-sm">
+      <div class="card-header d-flex justify-content-between align-items-center py-2" style="background:#1a1d23;color:#fff;">
+        <h3 class="card-title mb-0">
+          <i class="fas fa-list mr-1"></i>{{ hotlist | length }} placa(s)
+        </h3>
+        <a href="{{ url_for('dashboard.hotlist', export='csv') }}" class="btn btn-sm btn-outline-light">
+          <i class="fas fa-file-csv mr-1"></i> Exportar CSV
+        </a>
+      </div>
+      <div class="card-body p-0">
+        <div style="max-height:500px;overflow-y:auto;">
+          <table class="table table-sm table-hover table-striped mb-0">
+            <thead style="background:#343a40;color:#fff;position:sticky;top:0;">
+              <tr>
+                <th>Placa</th>
+                <th>Descrição</th>
+                <th>Status</th>
+                <th>Cadastrado em</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in hotlist %}
+              <tr>
+                <td>
+                  <span style="font-family:monospace;font-size:.95rem;font-weight:700;
+                               background:{{ '#dc3545' if item.ativa else '#6c757d' }};color:#fff;
+                               padding:2px 8px;border-radius:4px;">
+                    {{ item.placa }}
+                  </span>
+                </td>
+                <td><small>{{ item.descricao or '—' }}</small></td>
+                <td>
+                  <span class="badge badge-{{ 'danger' if item.ativa else 'secondary' }}">
+                    {{ 'ATIVA' if item.ativa else 'INATIVA' }}
+                  </span>
+                </td>
+                <td><small>{{ item.criado_em.strftime('%d/%m/%Y') }}</small></td>
+                <td>
+                  <form method="POST" style="display:inline;">
+                    <input type="hidden" name="acao" value="remover">
+                    <input type="hidden" name="placa" value="{{ item.placa }}">
+                    <button type="submit" class="btn btn-xs btn-outline-danger"
+                            onclick="return confirm('Remover {{ item.placa }} da hotlist?')">
+                      <i class="fas fa-trash-alt"></i>
+                    </button>
+                  </form>
+                </td>
+              </tr>
+              {% else %}
+              <tr><td colspan="5" class="text-center text-muted py-3">Hotlist vazia.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Coluna direita: ações -->
+  <div class="col-md-4">
+
+    <!-- Adicionar placa -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-header py-2" style="background:#343a40;color:#fff;">
+        <h3 class="card-title"><i class="fas fa-plus mr-1"></i>Adicionar Placa</h3>
+      </div>
+      <div class="card-body">
+        <form method="POST">
+          <input type="hidden" name="acao" value="adicionar">
+          <div class="form-group">
+            <label style="font-size:.85rem;">Placa</label>
+            <input type="text" name="placa" class="form-control form-control-sm"
+                   placeholder="ABC1D23" pattern="[A-Za-z0-9]{7}" maxlength="7" required
+                   style="font-family:monospace;font-size:1rem;text-transform:uppercase;font-weight:700;">
+          </div>
+          <div class="form-group">
+            <label style="font-size:.85rem;">Descrição (opcional)</label>
+            <input type="text" name="descricao" class="form-control form-control-sm" placeholder="Ex: Veículo suspeito">
+          </div>
+          <button type="submit" class="btn btn-sm btn-danger btn-block">
+            <i class="fas fa-plus mr-1"></i>Adicionar
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Importar CSV -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-header py-2" style="background:#343a40;color:#fff;">
+        <h3 class="card-title"><i class="fas fa-upload mr-1"></i>Importar CSV</h3>
+      </div>
+      <div class="card-body">
+        <p class="text-muted" style="font-size:.8rem;">Formato: <code>PLACA,descricao</code> (uma por linha)</p>
+        <form method="POST" enctype="multipart/form-data">
+          <input type="hidden" name="acao" value="importar_csv">
+          <div class="form-group">
+            <input type="file" name="csv_file" accept=".csv,.txt" class="form-control-file" required>
+          </div>
+          <button type="submit" class="btn btn-sm btn-warning btn-block">
+            <i class="fas fa-file-import mr-1"></i>Importar
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Sincronizar -->
+    <div class="card shadow-sm">
+      <div class="card-header py-2" style="background:#1a1d23;color:#fff;">
+        <h3 class="card-title"><i class="fas fa-sync mr-1 text-success"></i>Sincronizar</h3>
+      </div>
+      <div class="card-body">
+        <p class="text-muted" style="font-size:.8rem;">
+          Envia a hotlist atual para todas as viaturas ativas via <code>POST /api/hotlist</code>.
+        </p>
+        <button class="btn btn-sm btn-success btn-block" id="btn-sync" onclick="sincronizarTodas()">
+          <i class="fas fa-broadcast-tower mr-1"></i>Sincronizar com Viaturas
+        </button>
+        <div id="sync-resultado" class="mt-2" style="font-size:.8rem;"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function sincronizarTodas() {
+  const btn = document.getElementById('btn-sync');
+  const res = document.getElementById('sync-resultado');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Sincronizando...';
+  res.innerHTML = '';
+
+  // Busca viaturas ativas e sincroniza cada uma
+  fetch('/api/mapa/viaturas')
+    .then(r => r.json())
+    .then(data => {
+      const promessas = data.viaturas
+        .filter(v => v.online)
+        .map(v =>
+          fetch(`/api/hotlist/sync/${v.viatura_id}`, { method: 'POST' })
+            .then(r => r.json())
+            .then(d => `${v.viatura_id}: ${d.status || d.aviso || d.erro}`)
+            .catch(() => `${v.viatura_id}: falha`)
+        );
+
+      Promise.all(promessas).then(resultados => {
+        res.innerHTML = resultados.map(r => `<div>✓ ${r}</div>`).join('') || 'Nenhuma viatura online.';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-broadcast-tower mr-1"></i>Sincronizar com Viaturas';
+      });
+    });
+}
+</script>
+{% endblock %}

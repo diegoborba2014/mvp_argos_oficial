@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Log de Leituras{% endblock %}
+{% block page_title %}<i class="fas fa-list-alt mr-2" style="color:var(--teal)"></i>Log de Leituras{% endblock %}
+{% block breadcrumb %}<li class="breadcrumb-item active">Leituras</li>{% endblock %}
+
+{% block content %}
+<!-- Filtros -->
+<div class="card mb-3">
+  <div class="card-header py-2 d-flex justify-content-between align-items-center">
+    <h3 class="card-title mb-0"><i class="fas fa-filter mr-1"></i>Filtros</h3>
+    <a href="?{{ request.query_string.decode() }}&export=csv" class="btn btn-sm btn-primary">
+      <i class="fas fa-file-csv mr-1"></i> Exportar CSV
+    </a>
+  </div>
+  <div class="card-body py-2">
+    <form method="GET" class="form-inline flex-wrap">
+      <select name="viatura_id" class="form-control form-control-sm mr-2 mb-2">
+        <option value="">Todas</option>
+        {% for v in viaturas %}
+        <option value="{{ v.viatura_id }}" {{ 'selected' if filtros.viatura_id == v.viatura_id }}>{{ v.viatura_id }}</option>
+        {% endfor %}
+      </select>
+      <input type="text" name="placa" class="form-control form-control-sm mr-2 mb-2" placeholder="Placa..." value="{{ filtros.placa }}">
+      <input type="date" name="data_inicio" class="form-control form-control-sm mr-2 mb-2" value="{{ filtros.data_inicio }}">
+      <input type="date" name="data_fim" class="form-control form-control-sm mr-2 mb-2" value="{{ filtros.data_fim }}">
+      <div class="form-check mr-3 mb-2">
+        <input type="checkbox" name="so_alertas" value="1" id="chk-alertas" class="form-check-input"
+               {{ 'checked' if filtros.so_alertas }}>
+        <label class="form-check-label" for="chk-alertas">Só alertas</label>
+      </div>
+      <button type="submit" class="btn btn-sm btn-primary mb-2">
+        <i class="fas fa-search mr-1"></i>Filtrar
+      </button>
+      <a href="{{ url_for('dashboard.leituras') }}" class="btn btn-sm btn-secondary mb-2 ml-1">Limpar</a>
+    </form>
+  </div>
+</div>
+
+<!-- Tabela -->
+<div class="card">
+  <div class="card-header py-2">
+    <h3 class="card-title mb-0">
+      <i class="fas fa-list mr-1"></i>
+      {{ paginacao.total }} leitura(s) — página {{ paginacao.page }} de {{ paginacao.pages }}
+    </h3>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm table-hover mb-0">
+        <thead>
+          <tr>
+            <th>Data/Hora</th>
+            <th>Viatura</th>
+            <th>Placa</th>
+            <th>Veículo</th>
+            <th>Velocidade</th>
+            <th>Confiança</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in paginacao.items %}
+          <tr {{ 'class="item-placa-alerta"' | safe if d.alerta_tatico }}>
+            <td><small>{{ d.recebido_em.strftime('%d/%m/%Y %H:%M:%S') }}</small></td>
+            <td><small>{{ d.viatura_id }}</small></td>
+            <td>
+              <span class="placa-badge {{ 'bg-danger' if d.alerta_tatico else '' }}">{{ d.placa }}</span>
+            </td>
+            <td><small>{{ d.marca }} {{ d.modelo }} <span style="color:var(--text-dim)">{{ d.cor }}</span></small></td>
+            <td><small>{{ '%.0f km/h' | format(d.velocidade) }}</small></td>
+            <td>
+              <span class="score-bar" title="{{ '%.0f%%' | format(d.score * 100) }}">
+                <span class="score-bar-fill {{ 'high' if d.score >= 0.8 else ('medium' if d.score >= 0.6 else 'low') }}"
+                      style="width:{{ (d.score * 100) | int }}%"></span>
+              </span>
+              <small style="color:var(--text-dim);margin-left:4px;">{{ '%.0f%%' | format(d.score * 100) }}</small>
+            </td>
+            <td>
+              {% if d.alerta_tatico %}
+                <span class="badge badge-danger">ALERTA</span>
+              {% else %}
+                <span class="badge badge-secondary">OK</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" class="text-center py-4" style="color:var(--text-muted)">Nenhuma leitura encontrada.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% if paginacao.pages > 1 %}
+  <div class="card-footer" style="background:var(--bg-surface);border-top:1px solid var(--border);">
+    <nav>
+      <ul class="pagination pagination-sm mb-0">
+        {% if paginacao.has_prev %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ paginacao.prev_num }}&{{ filtros | urlencode }}">Anterior</a>
+        </li>
+        {% endif %}
+        {% for num in paginacao.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+          {% if num %}
+            <li class="page-item {{ 'active' if num == paginacao.page }}">
+              <a class="page-link" href="?page={{ num }}&{{ filtros | urlencode }}">{{ num }}</a>
+            </li>
+          {% else %}
+            <li class="page-item disabled"><span class="page-link">…</span></li>
+          {% endif %}
+        {% endfor %}
+        {% if paginacao.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ paginacao.next_num }}&{{ filtros | urlencode }}">Próxima</a>
+        </li>
+        {% endif %}
+      </ul>
+    </nav>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

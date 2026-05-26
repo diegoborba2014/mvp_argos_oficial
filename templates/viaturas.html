@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}Viaturas{% endblock %}
+{% block page_title %}<i class="fas fa-car text-primary mr-2"></i>Gestão de Viaturas{% endblock %}
+{% block breadcrumb %}<li class="breadcrumb-item active">Viaturas</li>{% endblock %}
+
+{% block content %}
+<div class="row">
+  {% for v in viaturas %}
+  {% set hb = v.ultimo_heartbeat() %}
+  <div class="col-md-6 col-lg-4">
+    <div class="card shadow-sm mb-3 {{ 'card-viatura-online' if v.online() else 'card-viatura-offline' }}">
+      <div class="card-header d-flex justify-content-between align-items-center py-2" style="background:#1a1d23;color:#fff;">
+        <strong><i class="fas fa-car mr-1"></i> {{ v.viatura_id }}</strong>
+        <span class="badge badge-{{ 'success' if v.online() else 'danger' }} badge-pill">
+          {{ 'ONLINE' if v.online() else 'OFFLINE' }}
+        </span>
+      </div>
+      <div class="card-body py-2" style="font-size:.85rem;">
+        {% if hb %}
+        <table class="table table-sm table-borderless mb-0">
+          <tr>
+            <td class="text-muted py-0">Última comunicação</td>
+            <td class="py-0">{{ hb.recebido_em.strftime('%d/%m/%Y %H:%M:%S') }}</td>
+          </tr>
+          <tr>
+            <td class="text-muted py-0">CPU Temp</td>
+            <td class="py-0">
+              <span style="color: {{ '#dc3545' if hb.cpu_temp_c and hb.cpu_temp_c >= 80 else ('#fd7e14' if hb.cpu_temp_c and hb.cpu_temp_c >= 70 else '#28a745') }}">
+                {{ '%.1f°C' | format(hb.cpu_temp_c) if hb.cpu_temp_c else '—' }}
+              </span>
+            </td>
+          </tr>
+          <tr>
+            <td class="text-muted py-0">LPR Health</td>
+            <td class="py-0">{{ '%.0f%%' | format(hb.lpr_health) if hb.lpr_health else '—' }}</td>
+          </tr>
+          <tr>
+            <td class="text-muted py-0">Buffer pendente</td>
+            <td class="py-0">{{ hb.buffer_pendente }}</td>
+          </tr>
+          <tr>
+            <td class="text-muted py-0">GPS</td>
+            <td class="py-0">
+              {% if hb.latitude %}{{ '%.4f' | format(hb.latitude) }}, {{ '%.4f' | format(hb.longitude) }}
+              {% else %}Sem fix{% endif %}
+            </td>
+          </tr>
+        </table>
+        {% else %}
+        <p class="text-muted mb-0">Sem dados recebidos.</p>
+        {% endif %}
+      </div>
+      <div class="card-footer py-2 d-flex flex-wrap gap-1" style="background:#f8f9fa;">
+        <button class="btn btn-xs btn-warning mr-1 mb-1" onclick="enviarComando('{{ v.viatura_id }}', 'pause_lpr')">
+          <i class="fas fa-pause"></i> Pausar LPR
+        </button>
+        <button class="btn btn-xs btn-success mr-1 mb-1" onclick="enviarComando('{{ v.viatura_id }}', 'resume_lpr')">
+          <i class="fas fa-play"></i> Retomar LPR
+        </button>
+        <button class="btn btn-xs btn-info mr-1 mb-1" onclick="enviarComando('{{ v.viatura_id }}', 'restart_lpr')">
+          <i class="fas fa-sync"></i> Reiniciar LPR
+        </button>
+        <button class="btn btn-xs btn-danger mr-1 mb-1" onclick="enviarComando('{{ v.viatura_id }}', 'restart_argos')"
+                onclick="return confirm('Reiniciar ARGOS em {{ v.viatura_id }}?')">
+          <i class="fas fa-power-off"></i> Reiniciar ARGOS
+        </button>
+        <button class="btn btn-xs btn-secondary mb-1" onclick="abrirHistorico('{{ v.viatura_id }}')">
+          <i class="fas fa-chart-line"></i> Histórico 24h
+        </button>
+        <a href="{{ url_for('dashboard.config_viatura', viatura_id=v.viatura_id) }}"
+           class="btn btn-xs btn-outline-info mb-1">
+          <i class="fas fa-sliders-h"></i> Config LPR
+        </a>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="col-12">
+    <div class="callout callout-info">Nenhuma viatura cadastrada ainda.</div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Modal histórico -->
+<div class="modal fade" id="modal-historico" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#1a1d23;color:#fff;">
+        <h5 class="modal-title"><i class="fas fa-chart-line mr-2"></i>Histórico 24h — <span id="modal-viatura-id"></span></h5>
+        <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="chart-temp" style="height:200px;"></div>
+        <div id="chart-health" style="height:200px;" class="mt-3"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function enviarComando(viaturaId, comando) {
+  if (!confirm(`Enviar comando "${comando}" para ${viaturaId}?`)) return;
+  fetch(`/api/viaturas/${viaturaId}/comando`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({comando}),
+  })
+  .then(r => r.json())
+  .then(d => alert(d.status || d.aviso || d.erro || JSON.stringify(d)))
+  .catch(e => alert('Erro: ' + e));
+}
+
+let chartTemp = null, chartHealth = null;
+
+function abrirHistorico(viaturaId) {
+  document.getElementById('modal-viatura-id').textContent = viaturaId;
+  $('#modal-historico').modal('show');
+
+  fetch(`/api/viaturas/${viaturaId}/historico`)
+    .then(r => r.json())
+    .then(dados => {
+      const labels = dados.map(d => d.ts);
+      const temps = dados.map(d => d.cpu_temp_c);
+      const healths = dados.map(d => d.lpr_health);
+
+      if (chartTemp) { chartTemp.destroy(); }
+      if (chartHealth) { chartHealth.destroy(); }
+
+      chartTemp = new ApexCharts(document.getElementById('chart-temp'), {
+        chart: { type: 'line', height: 200, toolbar: { show: false }, animations: { enabled: false } },
+        series: [{ name: 'CPU °C', data: temps }],
+        xaxis: { categories: labels, labels: { style: { fontSize: '10px' } } },
+        yaxis: { min: 30, max: 90, title: { text: '°C' } },
+        colors: ['#fd7e14'],
+        annotations: { yaxis: [{ y: 80, borderColor: '#dc3545', label: { text: 'Crítico 80°C' } }] },
+        stroke: { curve: 'smooth', width: 2 },
+        title: { text: 'Temperatura CPU', style: { fontSize: '12px' } },
+      });
+      chartTemp.render();
+
+      chartHealth = new ApexCharts(document.getElementById('chart-health'), {
+        chart: { type: 'area', height: 200, toolbar: { show: false }, animations: { enabled: false } },
+        series: [{ name: 'LPR Health %', data: healths }],
+        xaxis: { categories: labels, labels: { style: { fontSize: '10px' } } },
+        yaxis: { min: 0, max: 100, title: { text: '%' } },
+        colors: ['#28a745'],
+        stroke: { curve: 'smooth', width: 2 },
+        fill: { opacity: 0.2 },
+        title: { text: 'LPR Health', style: { fontSize: '12px' } },
+      });
+      chartHealth.render();
+    });
+}
+</script>
+{% endblock %}

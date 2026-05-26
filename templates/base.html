@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}ARGOS QG{% endblock %} | Sistema de Monitoramento</title>
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+  <!-- AdminLTE 3 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
+
+  <!-- Leaflet (carregado em todas as páginas, usado apenas no mapa) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+  <!-- ARGOS Design System — sobrepõe o AdminLTE -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/argos-theme.css') }}">
+
+  <style>
+    /* Badge de alerta piscando na navbar */
+    @keyframes blink-badge { 50% { opacity: 0; } }
+    .badge-alerta-live { animation: blink-badge 1s step-start infinite; }
+  </style>
+
+  {% block extra_css %}{% endblock %}
+</head>
+
+<body class="hold-transition sidebar-mini layout-fixed sidebar-dark-primary">
+<div class="wrapper">
+
+  <!-- Navbar -->
+  <nav class="main-header navbar navbar-expand navbar-dark">
+    <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link" data-widget="pushmenu" href="#" role="button">
+          <i class="fas fa-bars"></i>
+        </a>
+      </li>
+      <li class="nav-item d-none d-sm-flex align-items-center ml-1">
+        <img src="{{ url_for('static', filename='image_desktop.png') }}"
+             alt="ARGOS" style="height:28px;opacity:.85;">
+      </li>
+    </ul>
+
+    <ul class="navbar-nav ml-auto">
+      <!-- Contador de alertas ao vivo -->
+      <li class="nav-item mr-3">
+        <a class="nav-link" href="{{ url_for('dashboard.alertas') }}" title="Alertas táticos">
+          <i class="fas fa-exclamation-triangle text-danger"></i>
+          <span id="badge-alertas" class="badge badge-danger badge-alerta-live" style="display:none">0</span>
+        </a>
+      </li>
+      <li class="nav-item dropdown">
+        <a class="nav-link" data-toggle="dropdown" href="#">
+          <i class="fas fa-user-circle"></i>
+          <span class="ml-1 d-none d-sm-inline">{{ current_user.username }}</span>
+          <span class="badge badge-sm badge-{{ 'danger' if current_user.is_admin() else 'secondary' }} ml-1">
+            {{ current_user.perfil }}
+          </span>
+        </a>
+        <div class="dropdown-menu dropdown-menu-right">
+          <a href="{{ url_for('auth.logout') }}" class="dropdown-item">
+            <i class="fas fa-sign-out-alt mr-2"></i> Sair
+          </a>
+        </div>
+      </li>
+    </ul>
+  </nav>
+
+  <!-- Sidebar -->
+  <aside class="main-sidebar sidebar-dark-primary elevation-4">
+    <a href="{{ url_for('dashboard.index') }}" class="brand-link d-flex align-items-center"
+       style="border-bottom:1px solid rgba(255,255,255,.1); padding: 8px 12px; text-decoration:none;">
+      <img src="{{ url_for('static', filename='image_desktop.png') }}"
+           alt="ARGOS" style="width:38px;height:38px;object-fit:contain;flex-shrink:0;">
+      <div class="ml-2" style="line-height:1.1;">
+        <span style="color:#fff;font-weight:700;font-size:.95rem;letter-spacing:1px;">ARGOS QG</span><br>
+        <span style="color:#00c8dc;font-size:.6rem;letter-spacing:2px;text-transform:uppercase;">De olho em tudo</span>
+      </div>
+    </a>
+
+    <div class="sidebar">
+      <div class="user-panel mt-3 pb-3 mb-3 d-flex" style="border-bottom:1px solid rgba(255,255,255,.1);">
+        <div class="image">
+          <i class="fas fa-shield-alt fa-2x text-danger ml-2 mt-1"></i>
+        </div>
+        <div class="info ml-2">
+          <span class="d-block text-white" style="font-size:.85rem;font-weight:600;">
+            {{ current_user.username }}
+          </span>
+          <span class="text-muted" style="font-size:.75rem;">{{ current_user.perfil | capitalize }}</span>
+        </div>
+      </div>
+
+      <nav class="mt-2">
+        <ul class="nav nav-pills nav-sidebar flex-column nav-compact nav-flat" data-widget="treeview" role="menu">
+
+          <li class="nav-item">
+            <a href="{{ url_for('dashboard.index') }}" class="nav-link {% if request.endpoint == 'dashboard.index' %}active{% endif %}">
+              <i class="nav-icon fas fa-tachometer-alt"></i>
+              <p>Dashboard</p>
+            </a>
+          </li>
+
+          <li class="nav-item">
+            <a href="{{ url_for('dashboard.alertas') }}" class="nav-link {% if request.endpoint == 'dashboard.alertas' %}active{% endif %}">
+              <i class="nav-icon fas fa-exclamation-triangle text-danger"></i>
+              <p>Alertas Táticos</p>
+            </a>
+          </li>
+
+          <li class="nav-item">
+            <a href="{{ url_for('dashboard.leituras') }}" class="nav-link {% if request.endpoint == 'dashboard.leituras' %}active{% endif %}">
+              <i class="nav-icon fas fa-list-alt"></i>
+              <p>Log de Leituras</p>
+            </a>
+          </li>
+
+          <li class="nav-item">
+            <a href="{{ url_for('dashboard.mapa') }}" class="nav-link {% if request.endpoint == 'dashboard.mapa' %}active{% endif %}">
+              <i class="nav-icon fas fa-map-marked-alt"></i>
+              <p>Mapa de Frota</p>
+            </a>
+          </li>
+
+          {% if current_user.is_admin() %}
+          <li class="nav-header" style="color:rgba(255,255,255,.4);font-size:.7rem;letter-spacing:1px;">ADMINISTRAÇÃO</li>
+
+          <li class="nav-item">
+            <a href="{{ url_for('dashboard.viaturas') }}" class="nav-link {% if 'viaturas' in request.endpoint %}active{% endif %}">
+              <i class="nav-icon fas fa-car"></i>
+              <p>Viaturas</p>
+            </a>
+          </li>
+
+          <li class="nav-item">
+            <a href="{{ url_for('dashboard.hotlist') }}" class="nav-link {% if request.endpoint == 'dashboard.hotlist' %}active{% endif %}">
+              <i class="nav-icon fas fa-clipboard-list"></i>
+              <p>Hotlist</p>
+            </a>
+          </li>
+          {% endif %}
+
+        </ul>
+      </nav>
+    </div>
+  </aside>
+
+  <!-- Toast de alerta tático -->
+  <div id="alerta-toast" role="alert" aria-live="assertive">
+    <span class="toast-icon fas fa-exclamation-triangle"></span>
+    <div class="toast-body">
+      <div class="toast-title">ALERTA TÁTICO</div>
+      <div class="toast-placa" id="toast-placa-text">—</div>
+      <div class="toast-meta" id="toast-meta-text"></div>
+    </div>
+    <div class="toast-progress"></div>
+  </div>
+
+  <!-- Conteúdo principal -->
+  <div class="content-wrapper">
+    <div class="content-header">
+      <div class="container-fluid">
+        <div class="row mb-2">
+          <div class="col-sm-6">
+            <h1 class="m-0" style="font-size:1.4rem;font-weight:700;">
+              {% block page_title %}{% endblock %}
+            </h1>
+          </div>
+          <div class="col-sm-6">
+            <ol class="breadcrumb float-sm-right">
+              <li class="breadcrumb-item"><a href="{{ url_for('dashboard.index') }}">Home</a></li>
+              {% block breadcrumb %}{% endblock %}
+            </ol>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <section class="content">
+      <div class="container-fluid">
+
+        <!-- Flash messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show">
+              {{ message }}
+              <button type="button" class="close" data-dismiss="alert">
+                <span>&times;</span>
+              </button>
+            </div>
+          {% endfor %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+
+      </div>
+    </section>
+  </div>
+
+  <!-- Footer -->
+  <footer class="main-footer">
+    <strong>ARGOS QG</strong> &mdash; Sistema de Monitoramento de Frota &copy; 2026
+    <div class="float-right d-none d-sm-inline-block">
+      <span style="font-family:var(--font-mono);font-size:.75rem;color:var(--teal);">v1.0</span>
+    </div>
+  </footer>
+
+</div><!-- /.wrapper -->
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
+<script>
+// SSE global — alertas táticos: badge navbar + toast + beep
+(function () {
+  let alertasNovos = 0;
+  let toastTimer = null;
+
+  const source = new EventSource('/api/stream');
+
+  source.addEventListener('new_detection', function (e) {
+    const d = JSON.parse(e.data);
+    if (!d.alerta_tatico) return;
+
+    alertasNovos++;
+    const badge = document.getElementById('badge-alertas');
+    if (badge) {
+      badge.textContent = alertasNovos;
+      badge.style.display = '';
+    }
+
+    // Toast
+    const toast = document.getElementById('alerta-toast');
+    if (toast) {
+      document.getElementById('toast-placa-text').textContent = d.placa || '—';
+      document.getElementById('toast-meta-text').textContent =
+        (d.viatura_id || '') + ' • ' + (d.recebido_em || '');
+      toast.classList.add('show');
+      // Reinicia barra de progresso
+      const bar = toast.querySelector('.toast-progress');
+      if (bar) { bar.style.animation = 'none'; bar.offsetWidth; bar.style.animation = ''; }
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () { toast.classList.remove('show'); }, 8000);
+    }
+
+    // Beep tático
+    try {
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.4);
+    } catch (err) { /* sem áudio disponível */ }
+  });
+})();
+</script>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>
