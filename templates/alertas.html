@@ -8,7 +8,7 @@
 <div class="card mb-3">
   <div class="card-header py-2 d-flex justify-content-between align-items-center">
     <h3 class="card-title mb-0"><i class="fas fa-filter mr-1"></i>Filtros</h3>
-    <a href="{{ url_for('dashboard.alertas', **filtros, export='csv') }}" class="btn btn-sm btn-primary">
+    <a href="{{ url_for('dashboard.alertas', viatura_id=filtros.viatura_id, placa=filtros.placa, data_inicio=filtros.data_inicio, data_fim=filtros.data_fim, export='csv') }}" class="btn btn-sm btn-primary">
       <i class="fas fa-file-csv mr-1"></i> Exportar CSV
     </a>
   </div>
