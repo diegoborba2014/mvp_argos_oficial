@@ -181,11 +181,13 @@
       color: #c0392b;
       clip-path: polygon(0 25%, 100% 25%, 100% 45%, 0 45%);
       animation: glitch-r .9s steps(1) .4s 1;
+      opacity: 0;
     }
     .glitch::after {
       color: #00eeff;
       clip-path: polygon(0 60%, 100% 60%, 100% 80%, 0 80%);
       animation: glitch-b .9s steps(1) .4s 1;
+      opacity: 0;
     }
     @keyframes glitch-r {
       0%,100%{ transform: none; opacity:0; }
