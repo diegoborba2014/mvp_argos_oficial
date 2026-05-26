@@ -11,6 +11,10 @@ api_viaturas_bp = Blueprint("api_viaturas", __name__)
 COMANDOS_VALIDOS = {"pause_lpr", "resume_lpr", "restart_lpr", "restart_argos"}
 
 
+def _headers_pi():
+    return {"X-API-Key": current_app.config.get("QG_API_KEY", "argos-secret-2026")}
+
+
 def _admin_required_json():
     if not current_user.is_admin():
         return jsonify({"erro": "acesso negado"}), 403
@@ -45,8 +49,9 @@ def enviar_comando(viatura_id):
 
     try:
         resp = requests.post(
-            f"{base_url}/api/command",
-            json={"command": comando},
+            f"{base_url}/api/control",
+            json={"acao": comando},
+            headers=_headers_pi(),
             timeout=10,
         )
         return jsonify({"status": "enviado", "resposta": resp.status_code}), 200
@@ -67,7 +72,7 @@ def obter_config(viatura_id):
                         "config": {}}), 200
 
     try:
-        resp = requests.get(f"{base_url}/api/config", timeout=10)
+        resp = requests.get(f"{base_url}/api/config", headers=_headers_pi(), timeout=10)
         return jsonify(resp.json()), 200
     except requests.exceptions.RequestException as e:
         return jsonify({"erro": str(e)}), 502
@@ -87,7 +92,7 @@ def salvar_config(viatura_id):
         return jsonify({"aviso": "VIATURA_BASE_URL não configurada — config simulada", "config": config}), 200
 
     try:
-        resp = requests.post(f"{base_url}/api/config", json=config, timeout=10)
+        resp = requests.post(f"{base_url}/api/config", json=config, headers=_headers_pi(), timeout=10)
         return jsonify({"status": "aplicado", "resposta": resp.status_code}), 200
     except requests.exceptions.RequestException as e:
         return jsonify({"erro": str(e)}), 502
@@ -109,7 +114,7 @@ def sincronizar_hotlist(viatura_id):
                         "placas_enviadas": len(placas)}), 200
 
     try:
-        resp = requests.post(f"{base_url}/api/hotlist", json={"placas": placas}, timeout=15)
+        resp = requests.post(f"{base_url}/api/hotlist", json={"placas": placas}, headers=_headers_pi(), timeout=15)
         return jsonify({"status": "sincronizado", "placas": len(placas), "resposta": resp.status_code}), 200
     except requests.exceptions.RequestException as e:
         return jsonify({"erro": str(e)}), 502
