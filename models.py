@@ -23,6 +23,9 @@ class Viatura(db.Model):
     hotlist_mode = db.Column(db.String(16), default="hibrido")
     config_json = db.Column(db.Text, nullable=True)
     config_pendente = db.Column(db.Boolean, default=False)
+    hotlist_pendente = db.Column(db.Boolean, default=False)
+    hotlist_hash = db.Column(db.String(32), nullable=True)
+    ultima_sync_hotlist = db.Column(db.DateTime, nullable=True)
     criado_em = db.Column(db.DateTime, default=_utcnow)
 
     deteccoes = db.relationship("Deteccao", backref="viatura_ref", lazy="dynamic")

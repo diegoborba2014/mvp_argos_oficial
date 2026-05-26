@@ -83,6 +83,9 @@ def _migrar_schema():
         "ALTER TABLE viaturas ADD COLUMN hotlist_mode VARCHAR(16) DEFAULT 'hibrido'",
         "ALTER TABLE viaturas ADD COLUMN config_json TEXT",
         "ALTER TABLE viaturas ADD COLUMN config_pendente BOOLEAN DEFAULT 0",
+        "ALTER TABLE viaturas ADD COLUMN hotlist_pendente BOOLEAN DEFAULT 0",
+        "ALTER TABLE viaturas ADD COLUMN hotlist_hash VARCHAR(32)",
+        "ALTER TABLE viaturas ADD COLUMN ultima_sync_hotlist TIMESTAMP",
     ]
     with db.engine.connect() as conn:
         for sql in migrations:

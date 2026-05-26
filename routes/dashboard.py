@@ -13,6 +13,12 @@ def _utcnow():
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
+def _marcar_hotlist_pendente():
+    """Sinaliza para todas as viaturas ativas que a hotlist mudou."""
+    for v in Viatura.query.filter_by(ativa=True).all():
+        v.hotlist_pendente = True
+
+
 def _ultimos_heartbeats(viatura_ids=None):
     """Retorna {viatura_id: Heartbeat} com o último heartbeat de cada viatura em uma query."""
     subq = (
@@ -306,6 +312,7 @@ def hotlist():
                     existente.descricao = descricao
                 else:
                     db.session.add(Hotlist(placa=placa, descricao=descricao))
+                _marcar_hotlist_pendente()
                 db.session.commit()
 
         elif acao == "remover":
@@ -313,6 +320,7 @@ def hotlist():
             item = Hotlist.query.filter_by(placa=placa).first()
             if item:
                 db.session.delete(item)
+                _marcar_hotlist_pendente()
                 db.session.commit()
 
         elif acao == "importar_csv":
@@ -329,6 +337,7 @@ def hotlist():
                         existente = Hotlist.query.filter_by(placa=placa).first()
                         if not existente:
                             db.session.add(Hotlist(placa=placa, descricao=descricao))
+                _marcar_hotlist_pendente()
                 db.session.commit()
 
     if request.args.get("export") == "csv":
