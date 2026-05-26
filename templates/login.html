@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Login | ARGOS QG</title>
+  <title>Login | Argos Vision</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@400;700;800&display=swap">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
@@ -335,6 +335,16 @@
       animation: blink-cursor .7s step-end infinite;
     }
     @keyframes blink-cursor { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* Animações congeladas durante o boot — retomam quando .anims-go é adicionado ao body */
+    body:not(.anims-go) .bg-grid,
+    body:not(.anims-go) .scanline,
+    body:not(.anims-go) .status-dot,
+    body:not(.anims-go) .cursor,
+    body:not(.anims-go) .glitch::before,
+    body:not(.anims-go) .glitch::after {
+      animation-play-state: paused;
+    }
   </style>
 </head>
 <body>
@@ -366,9 +376,9 @@
 
 <!-- ════════════════════ LOGIN ════════════════════ -->
 <div class="login-overlay" id="login-overlay">
-  <p class="system-label">Sistema de Monitoramento</p>
-  <h1 class="system-title glitch" data-text="ARGOS QG">ARGOS QG</h1>
-  <p class="system-sub">Quartel General</p>
+  <p class="system-label">Sistema de Inteligência</p>
+  <h1 class="system-title glitch" data-text="ARGOS VISION">ARGOS VISION</h1>
+  <p class="system-sub">Argos Vision</p>
 
   <div class="login-card">
     <span class="card-corner-tr"></span>
@@ -426,6 +436,7 @@
     bootSeq.classList.add('fade-out');
     setTimeout(() => {
       bootSeq.style.display = 'none';
+      document.body.classList.add('anims-go');
       overlay.classList.add('visible');
       const input = overlay.querySelector('input[name=username]');
       if (input) input.focus();
