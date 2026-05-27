@@ -46,7 +46,8 @@ def _verificar_pi_offline():
             ev_aberto.resolvido = True
             ev_aberto.resolvido_em = agora
 
-    db.session.commit()
+    # S-17: commit removido daqui — responsabilidade do caller
+    # Evita double-commit se o caller já tiver transação em andamento
 
 
 def _ultimos_heartbeats(viatura_ids=None):
@@ -87,6 +88,7 @@ def index():
     inicio_hoje = datetime.combine(agora.date(), datetime.min.time())
 
     _verificar_pi_offline()
+    db.session.commit()  # persiste eventos pi_offline criados/resolvidos acima
 
     viaturas_db = Viatura.query.filter_by(ativa=True).all()
     hbs = _ultimos_heartbeats([v.viatura_id for v in viaturas_db])
@@ -349,6 +351,7 @@ def api_historico_viatura(viatura_id):
 def eventos():
     _admin_required()
     _verificar_pi_offline()
+    db.session.commit()  # persiste eventos pi_offline criados/resolvidos acima
 
     viatura_id = request.args.get("viatura_id", "")
     tipo = request.args.get("tipo", "")

@@ -92,7 +92,7 @@
             </td>
             <td onclick="event.stopPropagation()">
               {% if d.latitude and d.longitude %}
-              <a href="https://maps.google.com/?q={{ d.latitude }},{{ d.longitude }}" target="_blank"
+              <a href="https://maps.google.com/?q={{ d.latitude }},{{ d.longitude }}" target="_blank" rel="noopener noreferrer"
                  class="gps-link" title="{{ '%.5f, %.5f' | format(d.latitude, d.longitude) }}">
                 <i class="fas fa-map-marker-alt"></i> GPS
               </a>
