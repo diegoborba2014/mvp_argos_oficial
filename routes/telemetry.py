@@ -79,7 +79,7 @@ def _evento_antigo(payload: dict) -> bool:
 
 @telemetry_bp.route("/api/argos/telemetry", methods=["POST"])
 def receber_telemetria():
-    api_key = current_app.config.get("QG_API_KEY", "argos-secret-2026")
+    api_key = current_app.config.get("QG_API_KEY")
     if request.headers.get("X-API-Key", "") != api_key:
         return jsonify({"erro": "nao autorizado"}), 401
 

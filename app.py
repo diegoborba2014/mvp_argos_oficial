@@ -13,8 +13,23 @@ from models import db, Usuario, MotivoHotlist, EventoSistema
 def create_app():
     app = Flask(__name__)
 
-    app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "argos-qg-secret-2026")
-    app.config["QG_API_KEY"] = os.getenv("QG_API_KEY", "argos-secret-2026")
+    # S-1: SECRET_KEY obrigatória via env var — nunca hardcoded
+    secret_key = os.environ.get("SECRET_KEY")
+    if not secret_key:
+        raise RuntimeError(
+            "[ARGOS] SECRET_KEY não definida. "
+            "Adicione SECRET_KEY nas variáveis de ambiente do Railway antes de fazer deploy."
+        )
+    app.config["SECRET_KEY"] = secret_key
+
+    # S-2: QG_API_KEY obrigatória via env var — nunca hardcoded
+    qg_api_key = os.environ.get("QG_API_KEY")
+    if not qg_api_key:
+        raise RuntimeError(
+            "[ARGOS] QG_API_KEY não definida. "
+            "Adicione QG_API_KEY nas variáveis de ambiente do Railway antes de fazer deploy."
+        )
+    app.config["QG_API_KEY"] = qg_api_key
     db_url = os.getenv("DATABASE_URL", "sqlite:///argos_qg.db")
     if db_url.startswith("postgres://"):
         db_url = db_url.replace("postgres://", "postgresql://", 1)
@@ -133,18 +148,35 @@ def _migrar_schema():
 
 
 def _seed_usuarios():
-    """Cria usuários padrão se não existirem."""
-    if Usuario.query.filter_by(username="admin").first():
-        return
+    """Cria usuários padrão se não existirem.
+    S-3: Senhas lidas de variáveis de ambiente — nunca hardcoded no código.
+    Se ADMIN_PASSWORD não estiver definida, gera uma senha aleatória e loga no boot.
+    """
+    import logging
+    import secrets as _secrets
+    log = logging.getLogger(__name__)
 
-    admin = Usuario(username="admin", perfil="admin")
-    admin.set_password("argos2026")
+    if not Usuario.query.filter_by(username="admin").first():
+        admin_pass = os.environ.get("ADMIN_PASSWORD")
+        if not admin_pass:
+            admin_pass = _secrets.token_urlsafe(16)
+            log.critical(
+                "\n" + "=" * 64 + "\n"
+                "[ARGOS] ⚠️  ADMIN_PASSWORD não definida nas variáveis de ambiente!\n"
+                f"[ARGOS]     Senha admin gerada automaticamente: {admin_pass}\n"
+                "[ARGOS]     Defina ADMIN_PASSWORD no Railway para fixar a senha.\n"
+                + "=" * 64
+            )
 
-    operador = Usuario(username="operador", perfil="operador")
-    operador.set_password("operador2026")
+        admin = Usuario(username="admin", perfil="admin")
+        admin.set_password(admin_pass)
 
-    db.session.add_all([admin, operador])
-    db.session.commit()
+        operador = Usuario(username="operador", perfil="operador")
+        operador.set_password(os.environ.get("OPERADOR_PASSWORD", "operador2026"))
+
+        db.session.add_all([admin, operador])
+        db.session.commit()
+        log.info("[SEED] Usuários padrão criados.")
 
 
 def _seed_motivos():

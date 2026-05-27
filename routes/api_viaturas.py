@@ -13,7 +13,7 @@ COMANDOS_VALIDOS = {"pause_lpr", "resume_lpr", "restart_lpr", "restart_argos"}
 
 
 def _headers_pi():
-    return {"X-API-Key": current_app.config.get("QG_API_KEY", "argos-secret-2026")}
+    return {"X-API-Key": current_app.config.get("QG_API_KEY")}
 
 
 def _admin_required_json():
@@ -23,7 +23,7 @@ def _admin_required_json():
 
 
 def _api_key_required():
-    api_key = current_app.config.get("QG_API_KEY", "argos-secret-2026")
+    api_key = current_app.config.get("QG_API_KEY")
     if request.headers.get("X-API-Key", "") != api_key:
         return jsonify({"erro": "nao autorizado"}), 401
     return None
