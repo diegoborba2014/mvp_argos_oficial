@@ -377,6 +377,13 @@ def hotlist():
     return render_template("hotlist.html", hotlist=items)
 
 
+@dashboard_bp.route("/leituras/<int:leitura_id>")
+@login_required
+def detalhe_leitura(leitura_id):
+    d = Deteccao.query.get_or_404(leitura_id)
+    return render_template("detalhe_leitura.html", d=d)
+
+
 @dashboard_bp.route("/api/hotlist")
 @login_required
 def api_hotlist():

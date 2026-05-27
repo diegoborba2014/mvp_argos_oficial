@@ -60,7 +60,8 @@
         </thead>
         <tbody>
           {% for d in paginacao.items %}
-          <tr {{ 'class="item-placa-alerta"' | safe if d.alerta_tatico }}>
+          <tr {{ 'class="item-placa-alerta"' | safe if d.alerta_tatico }}
+              style="cursor:pointer;" onclick="location.href='{{ url_for('dashboard.detalhe_leitura', leitura_id=d.id) }}'">
             <td><small>{{ d.recebido_em | brt }}</small></td>
             <td><small>{{ d.viatura_id }}</small></td>
             <td>

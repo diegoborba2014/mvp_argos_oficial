@@ -59,7 +59,8 @@
         </thead>
         <tbody>
           {% for d in deteccoes %}
-          <tr class="item-placa-alerta">
+          <tr class="item-placa-alerta" style="cursor:pointer;"
+              onclick="location.href='{{ url_for('dashboard.detalhe_leitura', leitura_id=d.id) }}'">
             <td><small>{{ d.recebido_em | brt }}</small></td>
             <td><small><strong>{{ d.viatura_id }}</strong></small></td>
             <td>
@@ -74,7 +75,7 @@
               </span>
               <small style="color:var(--text-dim);margin-left:4px;">{{ '%.0f%%' | format((d.score or 0) * 100) }}</small>
             </td>
-            <td>
+            <td onclick="event.stopPropagation()">
               {% if d.latitude and d.longitude %}
               <a href="https://maps.google.com/?q={{ d.latitude }},{{ d.longitude }}" target="_blank"
                  class="gps-link" title="{{ '%.5f, %.5f' | format(d.latitude, d.longitude) }}">

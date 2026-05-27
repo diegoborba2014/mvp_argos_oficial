@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+{% block title %}Leitura #{{ d.id }}{% endblock %}
+{% block page_title %}
+  <i class="fas fa-file-alt mr-2" style="color:var(--teal)"></i>Detalhe da Leitura
+  <small class="ml-2" style="color:var(--text-muted);font-size:.7em;">#{{ d.id }}</small>
+{% endblock %}
+{% block breadcrumb %}
+  <li class="breadcrumb-item"><a href="{{ url_for('dashboard.leituras') }}">Leituras</a></li>
+  <li class="breadcrumb-item active">#{{ d.id }}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  #mini-mapa { height: 280px; border-radius: 0 0 6px 6px; }
+  .dado-label  { font-size:.72rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em; margin-bottom:1px; }
+  .dado-valor  { font-size:.95rem; font-weight:600; color:var(--text); }
+  .dado-row    { margin-bottom:.9rem; }
+  .score-block { display:flex; align-items:center; gap:10px; }
+  .score-bar-lg { flex:1; height:10px; background:rgba(255,255,255,.08); border-radius:4px; overflow:hidden; }
+  .score-bar-lg-fill { height:100%; border-radius:4px; transition:width .4s; }
+  .score-pct   { font-size:.85rem; font-weight:700; min-width:38px; text-align:right; }
+  .header-placa {
+    font-family: var(--font-mono);
+    font-size: 2rem;
+    font-weight: 900;
+    letter-spacing: 4px;
+    padding: 6px 20px;
+    border-radius: 6px;
+    display: inline-block;
+  }
+  .ts-row { font-size:.82rem; color:var(--text-dim); }
+  .ts-row strong { color:var(--text); }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Header ── -->
+<div class="card mb-3" style="border-left:4px solid {{ 'var(--red)' if d.alerta_tatico else 'var(--teal)' }};">
+  <div class="card-body py-3">
+    <div class="d-flex align-items-center flex-wrap" style="gap:16px;">
+      <!-- Placa -->
+      <span class="header-placa"
+            style="background:{{ '#dc3545' if d.alerta_tatico else '#343a40' }};color:#fff;">
+        {{ d.placa }}
+      </span>
+      <!-- Meta -->
+      <div>
+        {% if d.alerta_tatico %}
+          <span class="badge badge-danger mb-1" style="font-size:.8rem;">
+            <i class="fas fa-exclamation-triangle mr-1"></i>ALERTA TÁTICO
+          </span><br>
+        {% else %}
+          <span class="badge badge-secondary mb-1" style="font-size:.8rem;">NORMAL</span><br>
+        {% endif %}
+        <small style="color:var(--text-muted);">
+          <i class="fas fa-car mr-1"></i>{{ d.viatura_id }}&nbsp;&nbsp;
+          <i class="fas fa-clock mr-1"></i>{{ d.recebido_em | brt }}
+        </small>
+      </div>
+      <!-- Botão voltar -->
+      <a href="{{ url_for('dashboard.leituras') }}" class="btn btn-sm btn-outline-secondary ml-auto">
+        <i class="fas fa-arrow-left mr-1"></i>Voltar
+      </a>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+
+  <!-- ── Coluna esquerda ── -->
+  <div class="col-md-6">
+
+    <!-- Veículo -->
+    <div class="card mb-3">
+      <div class="card-header py-2" style="background:#1a1d23;color:#fff;">
+        <h3 class="card-title mb-0"><i class="fas fa-car mr-2 text-info"></i>Veículo</h3>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-6 dado-row">
+            <div class="dado-label">Marca</div>
+            <div class="dado-valor">{{ d.marca or '—' }}</div>
+          </div>
+          <div class="col-6 dado-row">
+            <div class="dado-label">Modelo</div>
+            <div class="dado-valor">{{ d.modelo or '—' }}</div>
+          </div>
+          <div class="col-6 dado-row">
+            <div class="dado-label">Cor</div>
+            <div class="dado-valor">{{ d.cor or '—' }}</div>
+          </div>
+          <div class="col-6 dado-row">
+            <div class="dado-label">Tipo</div>
+            <div class="dado-valor">{{ d.tipo_veiculo or '—' }}</div>
+          </div>
+          <div class="col-6 dado-row">
+            <div class="dado-label">Velocidade</div>
+            <div class="dado-valor">{{ '%.0f km/h' | format(d.velocidade or 0) }}</div>
+          </div>
+          <div class="col-6 dado-row">
+            <div class="dado-label">Direção</div>
+            <div class="dado-valor">
+              {% if d.direcao %}
+                {{ '%.1f°' | format(d.direcao) }}
+              {% else %}—{% endif %}
+            </div>
+          </div>
+          <div class="col-6 dado-row">
+            <div class="dado-label">Região</div>
+            <div class="dado-valor">{{ d.regiao or '—' }}</div>
+          </div>
+          <div class="col-6 dado-row">
+            <div class="dado-label">Câmera</div>
+            <div class="dado-valor">{{ d.camera_id or '—' }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Confiança / Scores -->
+    <div class="card mb-3">
+      <div class="card-header py-2" style="background:#1a1d23;color:#fff;">
+        <h3 class="card-title mb-0"><i class="fas fa-chart-bar mr-2" style="color:var(--teal)"></i>Confiança</h3>
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <div class="dado-label mb-1">Score OCR (leitura da placa)</div>
+          <div class="score-block">
+            <div class="score-bar-lg">
+              <div class="score-bar-lg-fill {{ 'high' if (d.score or 0) >= 0.8 else ('medium' if (d.score or 0) >= 0.6 else 'low') }}"
+                   style="width:{{ ((d.score or 0) * 100) | int }}%;
+                          background:{{ '#28a745' if (d.score or 0) >= 0.8 else ('#f39c12' if (d.score or 0) >= 0.6 else '#dc3545') }};"></div>
+            </div>
+            <span class="score-pct" style="color:{{ '#28a745' if (d.score or 0) >= 0.8 else ('#f39c12' if (d.score or 0) >= 0.6 else '#dc3545') }};">
+              {{ '%.0f%%' | format((d.score or 0) * 100) }}
+            </span>
+          </div>
+        </div>
+        <div>
+          <div class="dado-label mb-1">Score detecção (dscore)</div>
+          <div class="score-block">
+            <div class="score-bar-lg">
+              <div class="score-bar-lg-fill"
+                   style="width:{{ ((d.dscore or 0) * 100) | int }}%;
+                          background:{{ '#28a745' if (d.dscore or 0) >= 0.8 else ('#f39c12' if (d.dscore or 0) >= 0.6 else '#dc3545') }};"></div>
+            </div>
+            <span class="score-pct" style="color:{{ '#28a745' if (d.dscore or 0) >= 0.8 else ('#f39c12' if (d.dscore or 0) >= 0.6 else '#dc3545') }};">
+              {{ '%.0f%%' | format((d.dscore or 0) * 100) }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Timestamps -->
+    <div class="card mb-3">
+      <div class="card-header py-2" style="background:#1a1d23;color:#fff;">
+        <h3 class="card-title mb-0"><i class="fas fa-clock mr-2" style="color:var(--teal)"></i>Timestamps</h3>
+      </div>
+      <div class="card-body">
+        <div class="dado-row">
+          <div class="dado-label">Recebido no QG (BRT)</div>
+          <div class="dado-valor">{{ d.recebido_em | brt }}</div>
+        </div>
+        <div class="dado-row">
+          <div class="dado-label">Timestamp do equipamento</div>
+          <div class="dado-valor">
+            {% if d.timestamp %}
+              {{ d.timestamp | int }}
+              <small style="color:var(--text-muted);font-size:.75rem;">
+                (Unix — aprox. {{ (d.recebido_em | brt) }})
+              </small>
+            {% else %}
+              <span style="color:var(--text-muted)">—</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Coluna direita: GPS ── -->
+  <div class="col-md-6">
+    <div class="card mb-3">
+      <div class="card-header py-2" style="background:#1a1d23;color:#fff;">
+        <h3 class="card-title mb-0">
+          <i class="fas fa-satellite mr-2 text-success"></i>GPS
+          {% if d.latitude and d.longitude %}
+            <span class="badge badge-success ml-1" style="font-size:.65rem;">FIX</span>
+          {% else %}
+            <span class="badge badge-secondary ml-1" style="font-size:.65rem;">SEM SINAL</span>
+          {% endif %}
+        </h3>
+      </div>
+      <div class="card-body">
+        {% if d.latitude and d.longitude %}
+        <div class="row mb-3">
+          <div class="col-6 dado-row">
+            <div class="dado-label">Latitude</div>
+            <div class="dado-valor" style="font-family:var(--font-mono);font-size:.88rem;">
+              {{ '%.6f' | format(d.latitude) }}
+            </div>
+          </div>
+          <div class="col-6 dado-row">
+            <div class="dado-label">Longitude</div>
+            <div class="dado-valor" style="font-family:var(--font-mono);font-size:.88rem;">
+              {{ '%.6f' | format(d.longitude) }}
+            </div>
+          </div>
+          <div class="col-6 dado-row">
+            <div class="dado-label">Altitude</div>
+            <div class="dado-valor">
+              {% if d.altitude %}{{ '%.0f m' | format(d.altitude) }}{% else %}—{% endif %}
+            </div>
+          </div>
+          <div class="col-6 dado-row">
+            <div class="dado-label">Satélites</div>
+            <div class="dado-valor">
+              {% if d.gps_satellites %}
+                <i class="fas fa-satellite text-success mr-1" style="font-size:.8rem;"></i>{{ d.gps_satellites }}
+              {% else %}—{% endif %}
+            </div>
+          </div>
+          <div class="col-6 dado-row">
+            <div class="dado-label">Status GPS</div>
+            <div class="dado-valor">{{ d.gps_status or '—' }}</div>
+          </div>
+          <div class="col-6 dado-row">
+            <div class="dado-label">Ver no Google Maps</div>
+            <div class="dado-valor">
+              <a href="https://maps.google.com/?q={{ d.latitude }},{{ d.longitude }}" target="_blank"
+                 class="btn btn-xs btn-outline-info">
+                <i class="fas fa-external-link-alt mr-1"></i>Abrir
+              </a>
+            </div>
+          </div>
+        </div>
+        <!-- Mini-mapa -->
+        <div id="mini-mapa"></div>
+        {% else %}
+        <div class="text-center py-4" style="color:var(--text-muted);">
+          <i class="fas fa-satellite-dish fa-2x mb-2 d-block" style="opacity:.3;"></i>
+          Coordenadas GPS não disponíveis para esta leitura.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if d.latitude and d.longitude %}
+<script>
+const lat = {{ d.latitude }};
+const lon = {{ d.longitude }};
+const placa = {{ d.placa | tojson }};
+const isAlerta = {{ 'true' if d.alerta_tatico else 'false' }};
+
+const miniMapa = L.map('mini-mapa', { zoomControl: true, scrollWheelZoom: false })
+  .setView([lat, lon], 16);
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '© CARTO © OSM',
+  subdomains: 'abcd',
+  maxZoom: 19,
+}).addTo(miniMapa);
+
+const cor = isAlerta ? '#dc3545' : '#00c8dc';
+const icon = L.divIcon({
+  html: `<div style="background:${cor};width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.7);box-shadow:0 0 8px ${cor};"></div>`,
+  iconSize: [14, 14], iconAnchor: [7, 7],
+  className: '',
+});
+
+L.marker([lat, lon], { icon })
+  .bindPopup(`<b style="font-family:monospace;letter-spacing:2px;">${placa}</b><br>
+    <small>${lat.toFixed(6)}, ${lon.toFixed(6)}</small>`, { className: 'argos-popup' })
+  .addTo(miniMapa)
+  .openPopup();
+</script>
+{% endif %}
+{% endblock %}
