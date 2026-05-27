@@ -60,7 +60,7 @@ def create_app():
 
     @login_manager.user_loader
     def load_user(user_id):
-        return Usuario.query.get(int(user_id))
+        return db.session.get(Usuario, int(user_id))
 
     from routes.auth import auth_bp
     from routes.telemetry import telemetry_bp
@@ -154,6 +154,12 @@ def _migrar_schema():
         "ALTER TABLE hotlist ADD COLUMN prioridade INTEGER DEFAULT 2",
         "ALTER TABLE hotlist ADD COLUMN observacao TEXT DEFAULT ''",
         "ALTER TABLE deteccoes ADD COLUMN imagem_placa BYTEA",
+        # P-17: índices compostos para queries frequentes
+        "CREATE INDEX IF NOT EXISTS ix_eventos_viatura_resolvido ON eventos_sistema (viatura_id, resolvido)",
+        "CREATE INDEX IF NOT EXISTS ix_eventos_viatura_tipo_resolvido ON eventos_sistema (viatura_id, tipo, resolvido)",
+        "CREATE INDEX IF NOT EXISTS ix_deteccoes_alerta_recebido ON deteccoes (alerta_tatico, recebido_em)",
+        "CREATE INDEX IF NOT EXISTS ix_deteccoes_viatura_recebido ON deteccoes (viatura_id, recebido_em)",
+        "CREATE INDEX IF NOT EXISTS ix_heartbeats_viatura_recebido ON heartbeats (viatura_id, recebido_em)",
     ]
     for sql in migrations:
         try:

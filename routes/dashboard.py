@@ -241,7 +241,7 @@ def leituras():
         flash("Data inválida — filtro de data ignorado.", "warning")
 
     if request.args.get("export") == "csv":
-        return _exportar_csv(q.order_by(Deteccao.recebido_em.desc()).all(), "leituras")
+        return _exportar_csv(q.order_by(Deteccao.recebido_em.desc()).limit(50_000).all(), "leituras")
 
     paginacao = q.order_by(Deteccao.recebido_em.desc()).paginate(page=page, per_page=50, error_out=False)
     viaturas = Viatura.query.filter_by(ativa=True).all()
@@ -467,6 +467,7 @@ def hotlist():
                     ))
                 _marcar_hotlist_pendente()
                 db.session.commit()
+                return redirect(url_for("dashboard.hotlist"))
 
         elif acao == "remover":
             placa = request.form.get("placa", "")
@@ -475,6 +476,7 @@ def hotlist():
                 db.session.delete(item)
                 _marcar_hotlist_pendente()
                 db.session.commit()
+                return redirect(url_for("dashboard.hotlist"))
 
         elif acao == "importar_csv":
             arquivo = request.files.get("csv_file")
@@ -507,6 +509,7 @@ def hotlist():
                         ))
                 _marcar_hotlist_pendente()
                 db.session.commit()
+                return redirect(url_for("dashboard.hotlist"))
 
         elif acao == "adicionar_motivo":
             nome = request.form.get("nome_motivo", "").strip()
@@ -517,7 +520,7 @@ def hotlist():
 
         elif acao == "remover_motivo":
             motivo_id = request.form.get("motivo_id")
-            item_m = MotivoHotlist.query.get(motivo_id)
+            item_m = db.session.get(MotivoHotlist, motivo_id)
             if item_m:
                 db.session.delete(item_m)
                 db.session.commit()

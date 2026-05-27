@@ -50,7 +50,7 @@
         <p class="text-muted mb-0">Sem dados recebidos.</p>
         {% endif %}
       </div>
-      <div class="card-footer py-2 d-flex flex-wrap gap-1" style="background:#f8f9fa;">
+      <div class="card-footer py-2 d-flex flex-wrap gap-1" style="background:#1a1d23;border-top:1px solid rgba(255,255,255,.08);">
         <button class="btn btn-xs btn-warning mr-1 mb-1" onclick="enviarComando('{{ v.viatura_id }}', 'pause_lpr')">
           <i class="fas fa-pause"></i> Pausar LPR
         </button>
@@ -181,7 +181,8 @@ function abrirHistorico(viaturaId) {
         title: { text: 'LPR Health', style: { fontSize: '12px' } },
       });
       chartHealth.render();
-    });
+    })
+    .catch(() => alert('Erro ao carregar histórico da viatura.'));
 }
 </script>
 {% endblock %}

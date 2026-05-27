@@ -28,8 +28,8 @@ class Viatura(db.Model):
     ultima_sync_hotlist = db.Column(db.DateTime, nullable=True)
     criado_em = db.Column(db.DateTime, default=_utcnow)
 
-    deteccoes = db.relationship("Deteccao", backref="viatura_ref", lazy="dynamic")
-    heartbeats = db.relationship("Heartbeat", backref="viatura_ref", lazy="dynamic")
+    deteccoes = db.relationship("Deteccao", backref="viatura_ref", lazy="select")
+    heartbeats = db.relationship("Heartbeat", backref="viatura_ref", lazy="select")
 
     def get_config(self):
         if self.config_json:
@@ -44,7 +44,9 @@ class Viatura(db.Model):
         self.config_pendente = True
 
     def ultimo_heartbeat(self):
-        return self.heartbeats.order_by(Heartbeat.recebido_em.desc()).first()
+        return Heartbeat.query.filter_by(viatura_id=self.viatura_id).order_by(
+            Heartbeat.recebido_em.desc()
+        ).first()
 
     def online(self):
         hb = self.ultimo_heartbeat()
@@ -59,6 +61,10 @@ class Viatura(db.Model):
 
 class Deteccao(db.Model):
     __tablename__ = "deteccoes"
+    __table_args__ = (
+        db.Index("ix_deteccoes_alerta_recebido", "alerta_tatico", "recebido_em"),
+        db.Index("ix_deteccoes_viatura_recebido", "viatura_id", "recebido_em"),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
     viatura_id = db.Column(db.String(64), db.ForeignKey("viaturas.viatura_id"), nullable=False, index=True)
@@ -104,6 +110,9 @@ class Deteccao(db.Model):
 
 class Heartbeat(db.Model):
     __tablename__ = "heartbeats"
+    __table_args__ = (
+        db.Index("ix_heartbeats_viatura_recebido", "viatura_id", "recebido_em"),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
     viatura_id = db.Column(db.String(64), db.ForeignKey("viaturas.viatura_id"), nullable=False, index=True)
@@ -137,6 +146,10 @@ class Hotlist(db.Model):
 class EventoSistema(db.Model):
     """Eventos operacionais do sistema: Pi offline, LPR degradado, GPS sem sinal, etc."""
     __tablename__ = "eventos_sistema"
+    __table_args__ = (
+        db.Index("ix_eventos_viatura_resolvido", "viatura_id", "resolvido"),
+        db.Index("ix_eventos_viatura_tipo_resolvido", "viatura_id", "tipo", "resolvido"),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
     viatura_id = db.Column(db.String(64), nullable=False, index=True)
