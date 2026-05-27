@@ -541,11 +541,11 @@ Sem isso, o Pi usa o código antigo e **não envia imagens** ao QG.
 #### 🔴 Segurança — Sprint 7.1 (fazer antes de ir ao campo)
 - [x] S-1/S-2/S-3: Secrets e senhas hardcoded → variáveis de ambiente obrigatórias ✅ `4e6f4f8`
 - [x] S-4: `debug=True` hardcoded → `os.getenv("FLASK_DEBUG","0")=="1"` ✅ `495d9b6`
-- [ ] S-5: Open Redirect no login → validar parâmetro `next`
+- [x] S-5: Open Redirect no login → `_redirect_seguro()` valida `next` ✅ `1e286ae`
 - [x] S-6: `/api/stream` SSE sem autenticação → `@login_required` ✅ `495d9b6`
-- [ ] S-7: `/healthz` exposto publicamente → restringir ou remover
+- [x] S-7: `/healthz` exposto publicamente → restrito a admin autenticado ✅ `1e286ae`
 - [x] S-8/S-9: XSS via `innerHTML` no feed SSE e popups Leaflet → `escapeHtml()` ✅ `0b78ce3`
-- [ ] S-10: XSS no `confirm()` da hotlist → `data-placa` + `dataset`
+- [x] S-10: XSS no `confirm()` da hotlist → `data-placa`/`data-nome` + `dataset` ✅ `1e286ae`
 - [ ] S-11: Logout via GET → mudar para POST + CSRF token
 - [x] S-12: Cookies de sessão com flags SECURE/HTTPONLY/SAMESITE/lifetime 8h ✅ `0b78ce3`
 - [ ] S-13: Sem CSRF em formulários → instalar Flask-WTF
