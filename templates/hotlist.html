@@ -72,6 +72,7 @@
                 <td><small class="text-muted">{{ item.criado_em.strftime('%d/%m/%Y') }}</small></td>
                 <td>
                   <form method="POST" style="display:inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="acao" value="remover">
                     <input type="hidden" name="placa" value="{{ item.placa }}">
                     <button type="submit" class="btn btn-xs btn-outline-danger btn-remover-placa"
@@ -101,6 +102,7 @@
       </div>
       <div class="card-body">
         <form method="POST">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <input type="hidden" name="acao" value="adicionar">
 
           <div class="form-group mb-2">
@@ -161,6 +163,7 @@
           <span style="color:#aaa;">As duas últimas são opcionais.</span>
         </p>
         <form method="POST" enctype="multipart/form-data">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <input type="hidden" name="acao" value="importar_csv">
           <div class="form-group">
             <input type="file" name="csv_file" accept=".csv,.txt" class="form-control-file" required>
@@ -185,6 +188,7 @@
                style="border-bottom:1px solid rgba(255,255,255,.06);">
             <span style="font-size:.82rem;">{{ m.nome }}</span>
             <form method="POST" style="margin:0;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <input type="hidden" name="acao" value="remover_motivo">
               <input type="hidden" name="motivo_id" value="{{ m.id }}">
               <button type="submit" class="btn btn-xs btn-outline-danger btn-remover-motivo"
@@ -200,6 +204,7 @@
         </div>
         <!-- Adicionar novo motivo -->
         <form method="POST" class="d-flex" style="gap:.4rem;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <input type="hidden" name="acao" value="adicionar_motivo">
           <input type="text" name="nome_motivo" class="form-control form-control-sm"
                  placeholder="Novo motivo..." maxlength="64" required
@@ -266,7 +271,10 @@ function sincronizarTodas() {
       const promessas = data.viaturas
         .filter(v => v.online)
         .map(v =>
-          fetch(`/api/hotlist/sync/${v.viatura_id}`, { method: 'POST' })
+          fetch(`/api/hotlist/sync/${v.viatura_id}`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': getCsrfToken()},
+          })
             .then(r => r.json())
             .then(d => `${v.viatura_id}: ${d.status || d.aviso || d.erro}`)
             .catch(() => `${v.viatura_id}: falha`)

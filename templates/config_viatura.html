@@ -17,6 +17,7 @@
       </div>
       <div class="card-body">
         <form method="POST" action="{{ url_for('dashboard.salvar_hotlist_mode', viatura_id=viatura_id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <div class="form-group mb-2">
             <select name="hotlist_mode" class="form-control form-control-sm" style="max-width:420px;">
               <option value="hibrido" {{ 'selected' if viatura.hotlist_mode == 'hibrido' }}>Híbrido — Pi OU QG fazem o match (recomendado)</option>
@@ -703,7 +704,7 @@ document.getElementById('form-config').addEventListener('submit', function(e) {
 
   fetch(`/api/viaturas/${VIATURA_ID}/config`, {
     method: 'POST',
-    headers: {'Content-Type': 'application/json'},
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken()},
     body: JSON.stringify(config),
   })
   .then(r => r.json())
@@ -723,7 +724,10 @@ function sincronizar() {
   btn.disabled = true;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Sincronizando...';
 
-  fetch(`/api/viaturas/${VIATURA_ID}/config/sync`, {method: 'POST'})
+  fetch(`/api/viaturas/${VIATURA_ID}/config/sync`, {
+    method: 'POST',
+    headers: {'X-CSRFToken': getCsrfToken()},
+  })
     .then(r => r.json())
     .then(d => {
       btn.disabled = false;

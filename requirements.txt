@@ -7,3 +7,5 @@ werkzeug
 requests
 gevent
 psycopg2-binary
+Flask-WTF>=1.2
+Flask-Limiter>=3.5

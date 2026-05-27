@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from models import db, Usuario, MotivoHotlist, EventoSistema
+from extensions import csrf, limiter
 
 
 def create_app():
@@ -45,6 +46,11 @@ def create_app():
     app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=8)
 
     db.init_app(app)
+
+    # S-13: CSRF em todos os formulários HTML
+    csrf.init_app(app)
+    # S-14: Rate limiting (limites definidos por view em routes/auth.py)
+    limiter.init_app(app)
 
     login_manager = LoginManager()
     login_manager.init_app(app)

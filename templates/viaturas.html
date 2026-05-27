@@ -89,6 +89,7 @@
       </div>
       <div class="card-body py-3">
         <form method="POST" action="{{ url_for('dashboard.criar_viatura') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <div class="form-group mb-2">
             <label class="mb-1" style="font-size:.85rem;">ID da Viatura <span class="text-danger">*</span></label>
             <input type="text" name="viatura_id" class="form-control form-control-sm"
@@ -131,7 +132,7 @@ function enviarComando(viaturaId, comando) {
   if (!confirm(`Enviar comando "${comando}" para ${viaturaId}?`)) return;
   fetch(`/api/viaturas/${viaturaId}/comando`, {
     method: 'POST',
-    headers: {'Content-Type': 'application/json'},
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken()},
     body: JSON.stringify({comando}),
   })
   .then(r => r.json())

@@ -400,6 +400,7 @@
     {% endwith %}
 
     <form action="{{ url_for('auth.login') }}" method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <label class="form-label">Usuário</label>
       <input type="text" name="username" class="form-control-dark"
              placeholder="Digite seu usuário" required>

@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, redirect, url_for, request, flash
 from flask_login import login_user, logout_user, login_required, current_user
 from models import Usuario
+from extensions import limiter
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -16,6 +17,7 @@ def _redirect_seguro(next_url: str | None) -> str:
 
 
 @auth_bp.route("/login", methods=["GET", "POST"])
+@limiter.limit("5 per minute", exempt_when=lambda: request.method != "POST")
 def login():
     if current_user.is_authenticated:
         return redirect(url_for("dashboard.index"))
@@ -34,8 +36,9 @@ def login():
     return render_template("login.html")
 
 
-@auth_bp.route("/logout")
+@auth_bp.route("/logout", methods=["POST"])
 @login_required
 def logout():
+    # S-11: logout via POST — evita que links externos façam logout via GET
     logout_user()
     return redirect(url_for("auth.login"))

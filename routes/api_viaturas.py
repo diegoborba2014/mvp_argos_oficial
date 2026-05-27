@@ -6,6 +6,7 @@ from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
 
 from models import db, Viatura
+from extensions import csrf
 
 api_viaturas_bp = Blueprint("api_viaturas", __name__)
 
@@ -155,6 +156,7 @@ def hotlist_sync_get(viatura_id):
 
 
 @api_viaturas_bp.route("/api/viaturas/<viatura_id>/hotlist/ack", methods=["POST"])
+@csrf.exempt  # S-13: Pi autentica via X-API-Key, não via sessão de browser
 def hotlist_ack(viatura_id):
     """Pi confirma que aplicou a hotlist; QG limpa flag pendente."""
     err = _api_key_required()

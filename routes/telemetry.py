@@ -8,6 +8,7 @@ from flask import Blueprint, request, jsonify, Response, current_app
 from flask_login import login_required
 
 from models import db, Viatura, Deteccao, Heartbeat, Hotlist, EventoSistema
+from extensions import csrf
 
 # Eventos gerados há mais de 2 horas são aceitos (200 OK, Pi remove do buffer)
 # mas descartados silenciosamente — não salvos no banco.
@@ -79,6 +80,7 @@ def _evento_antigo(payload: dict) -> bool:
 # ──────────────────────────────────────────────────────────────────────────────
 
 @telemetry_bp.route("/api/argos/telemetry", methods=["POST"])
+@csrf.exempt  # S-13: Pi autentica via X-API-Key, não via sessão de browser
 def receber_telemetria():
     api_key = current_app.config.get("QG_API_KEY")
     if request.headers.get("X-API-Key", "") != api_key:
