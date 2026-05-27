@@ -5,6 +5,7 @@ import threading
 from datetime import datetime, timezone, timedelta
 
 from flask import Blueprint, request, jsonify, Response, current_app
+from flask_login import login_required
 
 from models import db, Viatura, Deteccao, Heartbeat, Hotlist, EventoSistema
 
@@ -261,6 +262,7 @@ def _salvar_heartbeat(viatura_id: str, p: dict):
 # ──────────────────────────────────────────────────────────────────────────────
 
 @telemetry_bp.route("/api/stream")
+@login_required
 def sse_stream():
     def event_stream(q: queue.Queue):
         yield "data: {\"status\": \"connected\"}\n\n"
