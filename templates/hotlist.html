@@ -74,8 +74,8 @@
                   <form method="POST" style="display:inline;">
                     <input type="hidden" name="acao" value="remover">
                     <input type="hidden" name="placa" value="{{ item.placa }}">
-                    <button type="submit" class="btn btn-xs btn-outline-danger"
-                            onclick="return confirm('Remover {{ item.placa }} da hotlist?')">
+                    <button type="submit" class="btn btn-xs btn-outline-danger btn-remover-placa"
+                            data-placa="{{ item.placa }}">
                       <i class="fas fa-trash-alt"></i>
                     </button>
                   </form>
@@ -187,8 +187,8 @@
             <form method="POST" style="margin:0;">
               <input type="hidden" name="acao" value="remover_motivo">
               <input type="hidden" name="motivo_id" value="{{ m.id }}">
-              <button type="submit" class="btn btn-xs btn-outline-danger"
-                      onclick="return confirm('Remover motivo \'{{ m.nome }}\'?')"
+              <button type="submit" class="btn btn-xs btn-outline-danger btn-remover-motivo"
+                      data-nome="{{ m.nome }}"
                       title="Remover motivo" style="padding:1px 6px;">
                 <i class="fas fa-times"></i>
               </button>
@@ -234,6 +234,25 @@
 
 {% block extra_js %}
 <script>
+// S-10: confirmação via data-* — evita XSS ao interpolar placa/motivo no onclick inline
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('.btn-remover-placa').forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
+      if (!confirm('Remover ' + this.dataset.placa + ' da hotlist?')) {
+        e.preventDefault();
+      }
+    });
+  });
+
+  document.querySelectorAll('.btn-remover-motivo').forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
+      if (!confirm('Remover motivo "' + this.dataset.nome + '"?')) {
+        e.preventDefault();
+      }
+    });
+  });
+});
+
 function sincronizarTodas() {
   const btn = document.getElementById('btn-sync');
   const res = document.getElementById('sync-resultado');

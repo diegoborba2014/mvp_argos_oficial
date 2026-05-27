@@ -89,6 +89,10 @@ def create_app():
 
     @app.route("/healthz")
     def healthz():
+        # S-7: restringir a admins autenticados — expõe estrutura interna do banco
+        from flask_login import current_user
+        if not current_user.is_authenticated or not current_user.is_admin():
+            return {"erro": "acesso negado"}, 403
         from sqlalchemy import text
         resultado = {}
         tabelas = ["viaturas", "hotlist", "deteccoes", "heartbeats", "usuarios"]

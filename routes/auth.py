@@ -5,6 +5,16 @@ from models import Usuario
 auth_bp = Blueprint("auth", __name__)
 
 
+def _redirect_seguro(next_url: str | None) -> str:
+    """S-5: valida parâmetro 'next' para evitar Open Redirect.
+    Aceita apenas URLs relativas que começam com '/' e não com '//'.
+    Qualquer outra coisa (http://evil.com, //evil.com, javascript:) é descartada.
+    """
+    if next_url and next_url.startswith("/") and not next_url.startswith("//"):
+        return next_url
+    return url_for("dashboard.index")
+
+
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
     if current_user.is_authenticated:
@@ -17,8 +27,7 @@ def login():
 
         if usuario and usuario.check_password(senha):
             login_user(usuario, remember=True)
-            next_page = request.args.get("next")
-            return redirect(next_page or url_for("dashboard.index"))
+            return redirect(_redirect_seguro(request.args.get("next")))
 
         flash("Usuário ou senha inválidos.", "danger")
 
