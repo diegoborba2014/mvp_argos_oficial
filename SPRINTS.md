@@ -66,6 +66,31 @@
 
 ---
 
+## Revisão em Campo ⏳ AGUARDANDO PI DISPONÍVEL
+
+Executar quando o Pi estiver disponível e conectado ao sistema.
+
+### RV-1 — Validar tela de detalhes da leitura (Sprint 4.2)
+- [ ] Confirmar que `latitude` / `longitude` exibidos no detalhe correspondem à posição da viatura **no momento da leitura** (não do heartbeat anterior)
+- [ ] Confirmar que `marca`, `modelo`, `cor`, `tipo_veiculo` chegam preenchidos do Pi
+- [ ] Confirmar que `velocidade`, `direção` e `score` aparecem com valores reais
+- [ ] Verificar mini-mapa: pin cai no local correto da leitura
+
+### RV-2 — Validar hotlist com prioridade/motivo (Sprint 4.4)
+- [ ] Cadastrar uma placa de teste na hotlist com prioridade **Alta** e motivo **Roubo**
+- [ ] Passar o veículo em frente à câmera e confirmar que o alerta tático é gerado
+- [ ] Confirmar badge de prioridade 🔴 ALTA visível na tela de Hotlist
+- [ ] Confirmar observação e motivo aparecem corretamente na listagem
+
+### RV-3 — Validar trajetória investigativa (Sprint 4.1)
+- [ ] Gerar ao menos 3 leituras com GPS em locais diferentes
+- [ ] Acessar `/investigacao`, filtrar pela placa de teste
+- [ ] Confirmar polyline teal conectando os pontos na ordem correta
+- [ ] Confirmar marcador ▶ verde no primeiro avistamento e ■ laranja no último
+- [ ] Clicar em item da lista e confirmar que abre popup no mapa
+
+---
+
 ## Sprint Pi-A Pi-side — Deploy no Pi ⏳ AGUARDANDO PI DISPONÍVEL
 
 Arquivos prontos em `RASPBERRY/src/` e `RASPBERRY/config/`. Deploy via SCP:
@@ -281,6 +306,7 @@ Tela `/auditoria` (só admin) com filtro de período e usuário.
 - [x] Hotlist com prioridade (Alta/Média/Baixa), motivo e observação (Sprint 4.4)
 
 ### Pendentes ⏳
+- [ ] **Revisão em campo com Pi** — RV-1 (detalhe leitura), RV-2 (hotlist), RV-3 (trajetória)
 - [ ] Deploy Sprint Pi-A Pi-side (aguardando Pi disponível)
 - [x] Trajetória investigativa — GPS path por placa/marca/modelo/cor/hora (Sprint 4.1)
 - [x] Tela de detalhes individual de leitura (Sprint 4.2)
