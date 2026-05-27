@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% block title %}Retenção de Dados{% endblock %}
+{% block page_title %}<i class="fas fa-database text-warning mr-2"></i>Retenção de Dados{% endblock %}
+{% block breadcrumb %}<li class="breadcrumb-item active">Retenção</li>{% endblock %}
+
+{% block content %}
+
+{# ── Estatísticas por tabela ──────────────────────────────────────────────── #}
+<div class="row mb-3">
+
+  {# Detecções #}
+  <div class="col-md-4">
+    <div class="card shadow-sm">
+      <div class="card-header py-2" style="background:#1a1d23;color:#fff;">
+        <strong><i class="fas fa-car mr-1 text-primary"></i> Detecções</strong>
+      </div>
+      <div class="card-body py-3" style="font-size:.88rem;">
+        <p class="mb-1">
+          <span class="text-muted">Total de registros:</span>
+          <strong class="float-right">{{ stats.deteccoes.total | default(0) }}</strong>
+        </p>
+        <p class="mb-1">
+          <span class="text-muted">Mais antigo:</span>
+          <span class="float-right">
+            {{ stats.deteccoes.mais_antigo | brt if stats.deteccoes.mais_antigo else '—' }}
+          </span>
+        </p>
+        <p class="mb-0">
+          <span class="text-muted">Mais recente:</span>
+          <span class="float-right">
+            {{ stats.deteccoes.mais_recente | brt if stats.deteccoes.mais_recente else '—' }}
+          </span>
+        </p>
+        <hr class="my-2">
+        <small class="text-muted">
+          <i class="fas fa-info-circle mr-1"></i>
+          ~{{ (stats.deteccoes.total * 10 / 1024) | round(1) }} MB estimado
+          (10 KB/registro com imagem)
+        </small>
+      </div>
+    </div>
+  </div>
+
+  {# Heartbeats #}
+  <div class="col-md-4">
+    <div class="card shadow-sm">
+      <div class="card-header py-2" style="background:#1a1d23;color:#fff;">
+        <strong><i class="fas fa-heartbeat mr-1 text-warning"></i> Heartbeats</strong>
+      </div>
+      <div class="card-body py-3" style="font-size:.88rem;">
+        <p class="mb-1">
+          <span class="text-muted">Total de registros:</span>
+          <strong class="float-right">{{ stats.heartbeats.total | default(0) }}</strong>
+        </p>
+        <p class="mb-1">
+          <span class="text-muted">Mais antigo:</span>
+          <span class="float-right">
+            {{ stats.heartbeats.mais_antigo | brt if stats.heartbeats.mais_antigo else '—' }}
+          </span>
+        </p>
+        <p class="mb-0">
+          <span class="text-muted">Mais recente:</span>
+          <span class="float-right">
+            {{ stats.heartbeats.mais_recente | brt if stats.heartbeats.mais_recente else '—' }}
+          </span>
+        </p>
+        <hr class="my-2">
+        <small class="text-muted">
+          <i class="fas fa-info-circle mr-1"></i>
+          ~{{ (stats.heartbeats.total * 0.5 / 1024) | round(1) }} MB estimado
+          (~0.5 KB/registro)
+        </small>
+      </div>
+    </div>
+  </div>
+
+  {# Eventos resolvidos #}
+  <div class="col-md-4">
+    <div class="card shadow-sm">
+      <div class="card-header py-2" style="background:#1a1d23;color:#fff;">
+        <strong><i class="fas fa-bell mr-1 text-success"></i> Eventos Resolvidos</strong>
+      </div>
+      <div class="card-body py-3" style="font-size:.88rem;">
+        <p class="mb-1">
+          <span class="text-muted">Total de registros:</span>
+          <strong class="float-right">{{ stats.eventos_resolvidos.total | default(0) }}</strong>
+        </p>
+        <p class="mb-1">
+          <span class="text-muted">Mais antigo:</span>
+          <span class="float-right">
+            {{ stats.eventos_resolvidos.mais_antigo | brt if stats.eventos_resolvidos.mais_antigo else '—' }}
+          </span>
+        </p>
+        <p class="mb-0">
+          <span class="text-muted">Mais recente:</span>
+          <span class="float-right">
+            {{ stats.eventos_resolvidos.mais_recente | brt if stats.eventos_resolvidos.mais_recente else '—' }}
+          </span>
+        </p>
+        <hr class="my-2">
+        <small class="text-muted">
+          <i class="fas fa-lock mr-1"></i>
+          Eventos ativos nunca são deletados
+        </small>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+{# ── Formulário de limpeza ────────────────────────────────────────────────── #}
+<div class="card shadow-sm">
+  <div class="card-header py-2" style="background:#1a1d23;color:#fff;">
+    <strong><i class="fas fa-trash-alt mr-1 text-danger"></i> Limpar Dados Antigos</strong>
+  </div>
+  <div class="card-body">
+
+    <div class="alert alert-warning py-2" style="font-size:.85rem;">
+      <i class="fas fa-exclamation-triangle mr-1"></i>
+      <strong>Atenção:</strong> esta operação é <strong>irreversível</strong>.
+      Os registros deletados não podem ser recuperados.
+      Faça backup antes se necessário.
+    </div>
+
+    <form method="POST" action="{{ url_for('dashboard.admin_retencao_limpar') }}"
+          onsubmit="return confirmarLimpeza(this)">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <div class="form-row align-items-center mb-3">
+        <div class="col-auto">
+          <label class="mb-0" style="font-size:.9rem;">Deletar registros com mais de</label>
+        </div>
+        <div class="col-auto">
+          <input type="number" name="dias" value="180" min="30" max="730"
+                 class="form-control form-control-sm" style="width:90px;">
+        </div>
+        <div class="col-auto">
+          <label class="mb-0" style="font-size:.9rem;">dias (mínimo 30, máximo 730)</label>
+        </div>
+      </div>
+
+      <div class="mb-3" style="font-size:.9rem;">
+        <div class="custom-control custom-checkbox mb-2">
+          <input type="checkbox" class="custom-control-input" id="cb-deteccoes"
+                 name="limpar_deteccoes" value="1" checked>
+          <label class="custom-control-label" for="cb-deteccoes">
+            Detecções
+            <small class="text-muted">({{ stats.deteccoes.total }} registros)</small>
+          </label>
+        </div>
+        <div class="custom-control custom-checkbox mb-2">
+          <input type="checkbox" class="custom-control-input" id="cb-heartbeats"
+                 name="limpar_heartbeats" value="1" checked>
+          <label class="custom-control-label" for="cb-heartbeats">
+            Heartbeats
+            <small class="text-muted">({{ stats.heartbeats.total }} registros)</small>
+          </label>
+        </div>
+        <div class="custom-control custom-checkbox">
+          <input type="checkbox" class="custom-control-input" id="cb-eventos"
+                 name="limpar_eventos" value="1">
+          <label class="custom-control-label" for="cb-eventos">
+            Eventos resolvidos
+            <small class="text-muted">({{ stats.eventos_resolvidos.total }} registros)</small>
+          </label>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-danger">
+        <i class="fas fa-trash-alt mr-1"></i> Executar Limpeza
+      </button>
+      <a href="{{ url_for('dashboard.admin_retencao') }}" class="btn btn-outline-secondary ml-2">
+        <i class="fas fa-sync-alt mr-1"></i> Atualizar contagens
+      </a>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function confirmarLimpeza(form) {
+  const dias = form.dias.value;
+  const tabelas = [];
+  if (form.limpar_deteccoes && form.limpar_deteccoes.checked) tabelas.push('Detecções');
+  if (form.limpar_heartbeats && form.limpar_heartbeats.checked) tabelas.push('Heartbeats');
+  if (form.limpar_eventos && form.limpar_eventos.checked) tabelas.push('Eventos resolvidos');
+  if (tabelas.length === 0) { alert('Selecione ao menos uma tabela.'); return false; }
+  return confirm(
+    `Confirmar limpeza?\n\nTabelas: ${tabelas.join(', ')}\nRegistros com mais de ${dias} dias serão deletados permanentemente.`
+  );
+}
+</script>
+{% endblock %}

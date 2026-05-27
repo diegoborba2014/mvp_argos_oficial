@@ -675,6 +675,61 @@ def salvar_hotlist_mode(viatura_id):
 # Utilitário
 # ──────────────────────────────────────────────────────────────────────────────
 
+@dashboard_bp.route("/admin/retencao")
+@login_required
+def admin_retencao():
+    _admin_required()
+
+    total_det, ant_det, rec_det = db.session.query(
+        func.count(Deteccao.id), func.min(Deteccao.recebido_em), func.max(Deteccao.recebido_em)
+    ).one()
+
+    total_hb, ant_hb, rec_hb = db.session.query(
+        func.count(Heartbeat.id), func.min(Heartbeat.recebido_em), func.max(Heartbeat.recebido_em)
+    ).one()
+
+    total_ev, ant_ev, rec_ev = db.session.query(
+        func.count(EventoSistema.id), func.min(EventoSistema.criado_em), func.max(EventoSistema.criado_em)
+    ).filter(EventoSistema.resolvido == True).one()
+
+    stats = {
+        "deteccoes":          {"total": total_det, "mais_antigo": ant_det, "mais_recente": rec_det},
+        "heartbeats":         {"total": total_hb,  "mais_antigo": ant_hb,  "mais_recente": rec_hb},
+        "eventos_resolvidos": {"total": total_ev,  "mais_antigo": ant_ev,  "mais_recente": rec_ev},
+    }
+    return render_template("retencao.html", stats=stats)
+
+
+@dashboard_bp.route("/admin/retencao/limpar", methods=["POST"])
+@login_required
+def admin_retencao_limpar():
+    _admin_required()
+
+    try:
+        dias = int(request.form.get("dias", 180))
+        dias = max(30, min(730, dias))
+    except (ValueError, TypeError):
+        flash("Valor de dias inválido.", "danger")
+        return redirect(url_for("dashboard.admin_retencao"))
+
+    corte = datetime.utcnow() - timedelta(days=dias)
+    total = 0
+
+    if request.form.get("limpar_deteccoes"):
+        total += Deteccao.query.filter(Deteccao.recebido_em < corte).delete()
+    if request.form.get("limpar_heartbeats"):
+        total += Heartbeat.query.filter(Heartbeat.recebido_em < corte).delete()
+    if request.form.get("limpar_eventos"):
+        total += EventoSistema.query.filter(
+            EventoSistema.criado_em < corte,
+            EventoSistema.resolvido == True,
+        ).delete()
+
+    db.session.commit()
+    flash(f"{total} registro(s) deletados (anteriores a {corte.strftime('%d/%m/%Y')}).", "success")
+    return redirect(url_for("dashboard.admin_retencao"))
+
+
 def _exportar_csv(deteccoes: list, nome: str) -> Response:
     output = io.StringIO()
     writer = csv.writer(output)
