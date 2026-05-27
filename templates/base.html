@@ -51,6 +51,14 @@
           <span id="badge-alertas" class="badge badge-danger badge-alerta-live" style="display:none">0</span>
         </a>
       </li>
+      <!-- Botão mudo/ativo alerta sonoro -->
+      <li class="nav-item mr-2">
+        <a class="nav-link" href="#" id="btn-mute-som"
+           onclick="window.toggleMuteSom && window.toggleMuteSom(); return false;"
+           title="Silenciar / ativar som de alerta">
+          <i id="icone-mute-som" class="fas fa-volume-up" style="color:#00c8dc;"></i>
+        </a>
+      </li>
       <li class="nav-item dropdown">
         <a class="nav-link" data-toggle="dropdown" href="#">
           <i class="fas fa-user-circle"></i>
@@ -224,23 +232,58 @@
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 
 <script>
-// SSE global — alertas táticos: badge navbar + toast + beep
+// ── SSE global: alertas táticos (badge + toast + beep) ───────────────────────
 (function () {
   let alertasNovos = 0;
-  let toastTimer = null;
+  let toastTimer   = null;
+  let muteSom      = localStorage.getItem('argos-mute') === '1';
+
+  // Atualiza ícone do botão mudo/ativo
+  function syncIconeMute() {
+    const ico = document.getElementById('icone-mute-som');
+    if (!ico) return;
+    ico.className  = muteSom ? 'fas fa-volume-mute' : 'fas fa-volume-up';
+    ico.style.color = muteSom ? 'var(--text-muted)' : '#00c8dc';
+    document.getElementById('btn-mute-som').title = muteSom ? 'Ativar som de alerta' : 'Silenciar som de alerta';
+  }
+  syncIconeMute();
+
+  window.toggleMuteSom = function () {
+    muteSom = !muteSom;
+    localStorage.setItem('argos-mute', muteSom ? '1' : '0');
+    syncIconeMute();
+  };
+
+  // Beep tático triplo (880 → 1100 → 880 Hz) via Web Audio API — sem arquivo externo
+  function playBeepTatico() {
+    if (muteSom) return;
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      [[880, 0], [1100, 0.18], [880, 0.36]].forEach(function ([freq, delay]) {
+        const osc  = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'square';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.2, ctx.currentTime + delay);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.14);
+        osc.start(ctx.currentTime + delay);
+        osc.stop(ctx.currentTime + delay + 0.15);
+      });
+    } catch (e) { /* áudio bloqueado pelo navegador */ }
+  }
 
   const source = new EventSource('/api/stream');
 
   source.addEventListener('new_detection', function (e) {
     const d = JSON.parse(e.data);
-    if (!d.alerta_tatico) return;
+    if (!d.alerta_tatico) return;  // som e toast SOMENTE em match na hotlist
 
+    // Badge navbar
     alertasNovos++;
     const badge = document.getElementById('badge-alertas');
-    if (badge) {
-      badge.textContent = alertasNovos;
-      badge.style.display = '';
-    }
+    if (badge) { badge.textContent = alertasNovos; badge.style.display = ''; }
 
     // Toast
     const toast = document.getElementById('alerta-toast');
@@ -249,26 +292,14 @@
       document.getElementById('toast-meta-text').textContent =
         (d.viatura_id || '') + ' • ' + (d.recebido_em || '');
       toast.classList.add('show');
-      // Reinicia barra de progresso
       const bar = toast.querySelector('.toast-progress');
       if (bar) { bar.style.animation = 'none'; bar.offsetWidth; bar.style.animation = ''; }
       clearTimeout(toastTimer);
       toastTimer = setTimeout(function () { toast.classList.remove('show'); }, 8000);
     }
 
-    // Beep tático
-    try {
-      const ctx = new AudioContext();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.frequency.value = 880;
-      gain.gain.setValueAtTime(0.3, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.4);
-    } catch (err) { /* sem áudio disponível */ }
+    // Beep tático — só match na hotlist
+    playBeepTatico();
   });
 })();
 </script>

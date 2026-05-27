@@ -186,17 +186,12 @@ Retorno JSON:
 
 ---
 
-### 4.3 — Alerta Sonoro no Painel
+### 4.3 — Alerta Sonoro no Painel ✅ CONCLUÍDA
 
-**Objetivo:** quando chegar evento SSE `new_detection` com `alerta_tatico: true`, tocar um som de alerta no navegador.
-
-**Arquivo a modificar:** `templates/base.html` (ou `dashboard.html`)
-
-**Implementação:**
-- `<audio id="snd-alerta" src="/static/alerta.mp3" preload="auto"></audio>`
-- No handler SSE de `new_detection`: `if (data.alerta_tatico) document.getElementById('snd-alerta').play()`
-- Adicionar arquivo `static/alerta.mp3` (beep curto tático ~1s)
-- Botão mudo/desmudo no dashboard para o operador controlar
+- `templates/base.html`: beep tático triplo (880→1100→880 Hz) via Web Audio API — sem arquivo externo
+- Som dispara **somente** em `alerta_tatico: true` (match na hotlist)
+- Botão mudo/ativo na navbar (ícone 🔊/🔇) com estado persistido em `localStorage`
+- Toast e badge navbar já existentes — mantidos
 
 ---
 
@@ -269,6 +264,79 @@ Tela `/auditoria` (só admin) com filtro de período e usuário.
 
 ---
 
+## Sprint 6 — Monitoramento de Eventos do Sistema ⏳ PLANEJADA
+
+**Objetivo:** detectar e notificar falhas operacionais em tempo real — perda de comunicação com o Pi, falha da câmera/LPR, perda de sinal GPS, temperatura alta, buffer crescendo.
+
+---
+
+### 6.1 — QG-side (App Web)
+
+**Modelo `EventoSistema`** (nova tabela):
+```python
+class EventoSistema(db.Model):
+    id          = db.Column(db.Integer, primary_key=True)
+    viatura_id  = db.Column(db.String(64), index=True)
+    tipo        = db.Column(db.String(32))   # ver tabela abaixo
+    severidade  = db.Column(db.String(8))    # "critico" | "aviso" | "info"
+    detalhe     = db.Column(db.Text)
+    resolvido   = db.Column(db.Boolean, default=False)
+    criado_em   = db.Column(db.DateTime, default=_utcnow)
+```
+
+**Tipos de evento e thresholds:**
+
+| Tipo | Condição | Severidade |
+|---|---|---|
+| `pi_offline` | Sem heartbeat há >5 min | Crítico |
+| `pi_reconectado` | Heartbeat após offline | Info |
+| `lpr_offline` | `lpr_health = 0` ou `None` | Crítico |
+| `lpr_degradado` | `lpr_health < 70%` | Aviso |
+| `gps_sem_sinal` | `satellites < 4` ou `gps_status` ≠ "3D Fix" | Aviso |
+| `gps_restaurado` | GPS volta ao normal após sem sinal | Info |
+| `buffer_crescendo` | `buffer_pendente > 50` detecções | Aviso |
+| `cpu_quente` | `cpu_temp_c > 80°C` | Aviso |
+| `camera_erro` | Enviado explicitamente pelo Pi | Crítico |
+
+**Detecção automática no QG** (via análise dos heartbeats recebidos em `telemetry.py`):
+- `_verificar_eventos(viatura_id, payload)` — chamada após `_salvar_heartbeat()`
+- Compara valores do heartbeat com thresholds
+- Gera `EventoSistema` se condição nova (não gera duplicata enquanto evento não resolvido)
+- Broadcast SSE `system_event` para todos os clientes conectados
+
+**Tela `/eventos`** (admin):
+- Filtros: viatura, tipo, severidade, período
+- Tabela com ícone de severidade, tipo, detalhe, data, status (resolvido/ativo)
+- Badge na navbar com contagem de eventos críticos ativos (não resolvidos)
+
+**Widget no Dashboard** (card "Saúde da Frota"):
+- Linha por viatura: ícones de status para Pi, LPR, GPS, Temp, Buffer
+- Verde = OK, amarelo = aviso, vermelho = crítico, cinza = sem dados
+
+---
+
+### 6.2 — Pi-side (ajustes no código)
+
+Os campos já enviados nos heartbeats cobrem a maioria dos eventos. Ajustes necessários:
+
+**Enviar eventos explícitos** (novo tipo de payload `tipo: "evento"`):
+- **Falha de câmera**: quando `camera_server.py` ou o stream HTTP cair → enviar `tipo: "evento"`, `subtipo: "camera_erro"`
+- **GPS fix perdido/recuperado**: quando `gps_status` muda de/para "3D Fix" → enviar evento de transição
+- **LPR parou**: quando Health Score cai para 0 por >30s (camera travada) → enviar `subtipo: "lpr_offline"`
+
+**Heartbeat — campos a confirmar:**
+- `lpr_health`: já enviado (0.0–1.0)
+- `cpu_temp_c`: já enviado
+- `buffer_pendente`: já enviado (contagem de eventos no OfflineBuffer)
+- `gps_status`: já enviado (`""`, `"2D Fix"`, `"3D Fix"`)
+- `satellites`: já enviado
+
+**Arquivos a modificar no Pi:**
+- `src/main.py` — `_salvar_heartbeat()` + nova thread `EventMonitor`
+- `src/qg_sender.py` — suporte a `tipo: "evento"` no payload enviado ao QG
+
+---
+
 ## Sprint Pi-B — Comandos + Config + Imagens ⏳ PLANEJADA
 
 **Pré-requisito:** Sprint Pi-A Pi-side concluída
@@ -304,14 +372,14 @@ Tela `/auditoria` (só admin) com filtro de período e usuário.
 - [x] Mapa com posição das viaturas em tempo real + trajetória por heartbeat
 - [x] Filtros histórico: viatura, placa, data, só alertas
 - [x] Hotlist com prioridade (Alta/Média/Baixa), motivo e observação (Sprint 4.4)
+- [x] Trajetória investigativa — GPS path por placa/marca/modelo/cor/hora (Sprint 4.1)
+- [x] Tela de detalhes individual de leitura (Sprint 4.2)
+- [x] Alerta sonoro tático (beep triplo, botão mudo, somente match hotlist) (Sprint 4.3)
 
 ### Pendentes ⏳
 - [ ] **Revisão em campo com Pi** — RV-1 (detalhe leitura), RV-2 (hotlist), RV-3 (trajetória)
 - [ ] Deploy Sprint Pi-A Pi-side (aguardando Pi disponível)
-- [x] Trajetória investigativa — GPS path por placa/marca/modelo/cor/hora (Sprint 4.1)
-- [x] Tela de detalhes individual de leitura (Sprint 4.2)
-- [ ] Alerta sonoro no painel (Sprint 4.3)
-- [x] Hotlist com prioridade/motivo/observação (Sprint 4.4)
+- [ ] Monitoramento de eventos — Pi offline, LPR, GPS, CPU, buffer (Sprint 6.1 QG + 6.2 Pi)
 - [ ] Revisão GPS↔Leitura (Sprint 5.2)
 - [ ] Trilha de auditoria de ações (Sprint 5.1)
 - [ ] Política de retenção de dados históricos (Sprint 5.3)
