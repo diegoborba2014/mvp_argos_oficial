@@ -19,8 +19,8 @@ def _utcnow():
 
 def _marcar_hotlist_pendente():
     """Sinaliza para todas as viaturas ativas que a hotlist mudou."""
-    for v in Viatura.query.filter_by(ativa=True).all():
-        v.hotlist_pendente = True
+    # P-6: 1 UPDATE bulk em vez de N UPDATEs individuais
+    Viatura.query.filter_by(ativa=True).update({"hotlist_pendente": True})
 
 
 def _verificar_pi_offline():
