@@ -544,10 +544,10 @@ Sem isso, o Pi usa o código antigo e **não envia imagens** ao QG.
 - [ ] S-5: Open Redirect no login → validar parâmetro `next`
 - [x] S-6: `/api/stream` SSE sem autenticação → `@login_required` ✅ `495d9b6`
 - [ ] S-7: `/healthz` exposto publicamente → restringir ou remover
-- [ ] S-8/S-9: XSS via `innerHTML` no feed SSE e popups Leaflet → `escapeHtml()`
+- [x] S-8/S-9: XSS via `innerHTML` no feed SSE e popups Leaflet → `escapeHtml()` ✅ `0b78ce3`
 - [ ] S-10: XSS no `confirm()` da hotlist → `data-placa` + `dataset`
 - [ ] S-11: Logout via GET → mudar para POST + CSRF token
-- [ ] S-12: Cookies de sessão sem flags SECURE/HTTPONLY/SAMESITE
+- [x] S-12: Cookies de sessão com flags SECURE/HTTPONLY/SAMESITE/lifetime 8h ✅ `0b78ce3`
 - [ ] S-13: Sem CSRF em formulários → instalar Flask-WTF
 - [ ] S-14: Login sem rate limiting → instalar Flask-Limiter
 - [ ] S-15: CSV import sem limite de tamanho → limitar a 500 KB + validar placa
