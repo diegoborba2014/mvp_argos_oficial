@@ -169,6 +169,13 @@
 
 {% block extra_js %}
 <script>
+// S-9: escapa caracteres HTML antes de inserir via innerHTML / bindPopup
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g,
+    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#x27;'}[c]));
+}
+
 // ── Mapa ──────────────────────────────────────────────────────────────────────
 let invMapa = null;
 let polyline = null;
@@ -216,11 +223,11 @@ function fazerMarcador(p, idx, total) {
   });
 
   const popup = `
-    <strong style="font-family:monospace;letter-spacing:2px;font-size:.9rem;color:${cor};">${p.placa}</strong>
+    <strong style="font-family:monospace;letter-spacing:2px;font-size:.9rem;color:${cor};">${escapeHtml(p.placa)}</strong>
     ${p.alerta_tatico ? '<span style="color:#dc3545;font-size:.7rem;font-weight:700;"> ⚠ ALERTA</span>' : ''}
-    <br><small style="color:var(--text-muted);">${p.recebido_em}</small>
-    <br><small>${p.viatura_id}</small>
-    ${p.marca ? `<br><small style="color:var(--text-dim);">${p.marca} ${p.modelo} ${p.cor}</small>` : ''}
+    <br><small style="color:var(--text-muted);">${escapeHtml(p.recebido_em)}</small>
+    <br><small>${escapeHtml(p.viatura_id)}</small>
+    ${p.marca ? `<br><small style="color:var(--text-dim);">${escapeHtml(p.marca)} ${escapeHtml(p.modelo)} ${escapeHtml(p.cor)}</small>` : ''}
     <br><small>Velocidade: <strong>${p.velocidade.toFixed(0)} km/h</strong> · Score: <strong>${(p.score*100).toFixed(0)}%</strong></small>
     <br><a href="/leituras/${p.id}" style="font-size:.72rem;color:var(--teal);">Ver detalhe →</a>
   `;
@@ -278,11 +285,11 @@ function renderizarLista(pontos) {
         <div class="ponto-num" style="background:${cor};color:#fff;">${primeiro ? '▶' : ultimo ? '■' : i+1}</div>
         <div style="flex:1;min-width:0;">
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-            <span class="ponto-placa">${p.placa}</span>
+            <span class="ponto-placa">${escapeHtml(p.placa)}</span>
             ${p.alerta_tatico ? '<span class="ponto-alerta">⚠ ALERTA</span>' : ''}
           </div>
-          <div class="ponto-meta">${p.recebido_em}</div>
-          <div class="ponto-meta">${p.viatura_id}${p.marca ? ' · ' + p.marca + ' ' + p.modelo : ''}</div>
+          <div class="ponto-meta">${escapeHtml(p.recebido_em)}</div>
+          <div class="ponto-meta">${escapeHtml(p.viatura_id)}${p.marca ? ' · ' + escapeHtml(p.marca) + ' ' + escapeHtml(p.modelo) : ''}</div>
         </div>
         <a href="/leituras/${p.id}" onclick="event.stopPropagation()"
            style="font-size:.7rem;color:var(--teal);flex-shrink:0;align-self:center;">

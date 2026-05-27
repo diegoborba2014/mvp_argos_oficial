@@ -287,6 +287,13 @@
 
 {% block extra_js %}
 <script>
+// S-8: escapa caracteres HTML antes de inserir via innerHTML
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g,
+    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#x27;'}[c]));
+}
+
 (function () {
   const tbody = document.getElementById('feed-body');
   const sseStatus = document.getElementById('sse-status');
@@ -340,10 +347,10 @@
     tr.onclick = () => location.href = `/leituras/${d.id}`;
     tr.innerHTML = `
       <td class="p-1" style="vertical-align:middle;" onclick="event.stopPropagation()">${imgHtml}</td>
-      <td><small>${d.recebido_em}</small></td>
-      <td><small>${d.viatura_id}</small></td>
-      <td><span class="placa-badge ${alerta ? 'bg-danger text-white' : ''}">${d.placa}</span></td>
-      <td><small>${d.marca || ''} ${d.modelo || ''} ${d.cor || ''}</small></td>
+      <td><small>${escapeHtml(d.recebido_em)}</small></td>
+      <td><small>${escapeHtml(d.viatura_id)}</small></td>
+      <td><span class="placa-badge ${alerta ? 'bg-danger text-white' : ''}">${escapeHtml(d.placa)}</span></td>
+      <td><small>${escapeHtml(d.marca)} ${escapeHtml(d.modelo)} ${escapeHtml(d.cor)}</small></td>
       <td><small>${(d.velocidade || 0).toFixed(0)} km/h</small></td>
       <td><small>${((d.score || 0) * 100).toFixed(0)}%</small></td>
       <td>${alerta ? '<span class="badge badge-danger">ALERTA</span>' : '<span class="badge badge-secondary">OK</span>'}</td>

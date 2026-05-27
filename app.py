@@ -36,6 +36,14 @@ def create_app():
     app.config["SQLALCHEMY_DATABASE_URI"] = db_url
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
+    # S-12: cookies de sessão com flags de segurança
+    # SESSION_COOKIE_SECURE só funciona em HTTPS — desativar em dev local (FLASK_DEBUG=1)
+    _producao = os.getenv("FLASK_DEBUG", "0") != "1"
+    app.config["SESSION_COOKIE_SECURE"] = _producao   # HTTPS only em produção
+    app.config["SESSION_COOKIE_HTTPONLY"] = True       # JS não acessa o cookie
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"     # bloqueia envio cross-site
+    app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=8)
+
     db.init_app(app)
 
     login_manager = LoginManager()
