@@ -537,7 +537,7 @@ Sem isso, o Pi usa o código antigo e **não envia imagens** ao QG.
 ### Pendentes ⏳
 
 #### 🔴 Segurança — Sprint 7.1 (fazer antes de ir ao campo)
-- [ ] S-1/S-2/S-3: Secrets e senhas hardcoded → variáveis de ambiente obrigatórias
+- [x] S-1/S-2/S-3: Secrets e senhas hardcoded → variáveis de ambiente obrigatórias ✅ `4e6f4f8`
 - [ ] S-4: `debug=True` hardcoded → controle por env var
 - [ ] S-5: Open Redirect no login → validar parâmetro `next`
 - [ ] S-6: `/api/stream` SSE sem autenticação → `@login_required`
