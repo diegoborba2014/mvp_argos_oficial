@@ -140,19 +140,7 @@
             </tr>
           </thead>
           <tbody>
-            {% for v in viaturas %}
-            {% set hb = v.heartbeat %}
-            {% set pi_ok = v.online %}
-            {% set lpr_ok = hb and hb.lpr_health is not none and hb.lpr_health >= 0.70 %}
-            {% set lpr_warn = hb and hb.lpr_health is not none and hb.lpr_health > 0 and hb.lpr_health < 0.70 %}
-            {% set lpr_crit = hb and hb.lpr_health is not none and hb.lpr_health == 0.0 %}
-            {% set gps_ok = hb and hb.satellites is not none and hb.satellites >= 4 %}
-            {% set gps_warn = hb and hb.satellites is not none and hb.satellites < 4 %}
-            {% set cpu_crit = hb and hb.cpu_temp_c and hb.cpu_temp_c > 80 %}
-            {% set cpu_warn = hb and hb.cpu_temp_c and hb.cpu_temp_c > 65 and not cpu_crit %}
-            {% set buf_warn = hb and hb.buffer_pendente and hb.buffer_pendente > 50 %}
-
-            {# ícones de status #}
+            {# P-9: macro fora do loop — definida uma vez, não a cada iteração #}
             {% macro icone(ok, warn, crit, label_ok='', label_warn='', label_crit='') %}
               {% if crit %}
                 <i class="fas fa-circle text-danger" title="{{ label_crit }}"></i>
@@ -164,6 +152,17 @@
                 <i class="fas fa-circle text-secondary" title="Sem dados"></i>
               {% endif %}
             {% endmacro %}
+            {% for v in viaturas %}
+            {% set hb = v.heartbeat %}
+            {% set pi_ok = v.online %}
+            {% set lpr_ok = hb and hb.lpr_health is not none and hb.lpr_health >= 0.70 %}
+            {% set lpr_warn = hb and hb.lpr_health is not none and hb.lpr_health > 0 and hb.lpr_health < 0.70 %}
+            {% set lpr_crit = hb and hb.lpr_health is not none and hb.lpr_health == 0.0 %}
+            {% set gps_ok = hb and hb.satellites is not none and hb.satellites >= 4 %}
+            {% set gps_warn = hb and hb.satellites is not none and hb.satellites < 4 %}
+            {% set cpu_crit = hb and hb.cpu_temp_c and hb.cpu_temp_c > 80 %}
+            {% set cpu_warn = hb and hb.cpu_temp_c and hb.cpu_temp_c > 65 and not cpu_crit %}
+            {% set buf_warn = hb and hb.buffer_pendente and hb.buffer_pendente > 50 %}
 
             <tr style="{{ 'background:rgba(220,53,69,.06);' if v.tem_critico else ('background:rgba(243,156,18,.04);' if v.tem_aviso else '') }}">
               <td style="font-weight:600;">

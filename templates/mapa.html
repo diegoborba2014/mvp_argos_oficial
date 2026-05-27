@@ -108,6 +108,7 @@ function atualizarMapa() {
       document.getElementById('mapa-ultima').textContent = new Date().toLocaleTimeString('pt-BR');
 
       data.viaturas.forEach(v => {
+        if (!v.latitude || !v.longitude) return;
         const icon = v.online ? iconOnline : iconOffline;
         if (marcadores[v.viatura_id]) {
           marcadores[v.viatura_id].setLatLng([v.latitude, v.longitude]);
@@ -136,6 +137,7 @@ function atualizarMapa() {
       marcadoresAlerta.forEach(m => mapa.removeLayer(m));
       marcadoresAlerta.length = 0;
       data.alertas.forEach(a => {
+        if (!a.latitude || !a.longitude) return;
         const popup = `<strong style="color:var(--red)">⚠ ALERTA TÁTICO</strong><br>
           <span class="placa-popup">${a.placa}</span><br>
           ${a.viatura_id}<br>

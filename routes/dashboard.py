@@ -17,6 +17,14 @@ def _utcnow():
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
+def _parse_data(s: str):
+    """Converte 'YYYY-MM-DD' → datetime ou None se vazio/inválido."""
+    try:
+        return datetime.strptime(s, "%Y-%m-%d") if s else None
+    except ValueError:
+        return None
+
+
 def _marcar_hotlist_pendente():
     """Sinaliza para todas as viaturas ativas que a hotlist mudou."""
     # P-6: 1 UPDATE bulk em vez de N UPDATEs individuais
@@ -179,10 +187,14 @@ def alertas():
         q = q.filter_by(viatura_id=viatura_id)
     if placa:
         q = q.filter(Deteccao.placa.contains(placa))
-    if data_inicio:
-        q = q.filter(Deteccao.recebido_em >= datetime.strptime(data_inicio, "%Y-%m-%d"))
-    if data_fim:
-        q = q.filter(Deteccao.recebido_em < datetime.strptime(data_fim, "%Y-%m-%d") + timedelta(days=1))
+    dt_inicio = _parse_data(data_inicio)
+    dt_fim = _parse_data(data_fim)
+    if dt_inicio:
+        q = q.filter(Deteccao.recebido_em >= dt_inicio)
+    if dt_fim:
+        q = q.filter(Deteccao.recebido_em < dt_fim + timedelta(days=1))
+    if (data_inicio and not dt_inicio) or (data_fim and not dt_fim):
+        flash("Data inválida — filtro de data ignorado.", "warning")
 
     resultados = q.order_by(Deteccao.recebido_em.desc()).limit(500).all()
     viaturas = Viatura.query.filter_by(ativa=True).all()
@@ -219,10 +231,14 @@ def leituras():
         q = q.filter(Deteccao.placa.contains(placa))
     if so_alertas:
         q = q.filter_by(alerta_tatico=True)
-    if data_inicio:
-        q = q.filter(Deteccao.recebido_em >= datetime.strptime(data_inicio, "%Y-%m-%d"))
-    if data_fim:
-        q = q.filter(Deteccao.recebido_em < datetime.strptime(data_fim, "%Y-%m-%d") + timedelta(days=1))
+    dt_inicio = _parse_data(data_inicio)
+    dt_fim = _parse_data(data_fim)
+    if dt_inicio:
+        q = q.filter(Deteccao.recebido_em >= dt_inicio)
+    if dt_fim:
+        q = q.filter(Deteccao.recebido_em < dt_fim + timedelta(days=1))
+    if (data_inicio and not dt_inicio) or (data_fim and not dt_fim):
+        flash("Data inválida — filtro de data ignorado.", "warning")
 
     if request.args.get("export") == "csv":
         return _exportar_csv(q.order_by(Deteccao.recebido_em.desc()).all(), "leituras")
@@ -585,10 +601,12 @@ def api_investigacao_trajeto():
         q = q.filter(Deteccao.cor.ilike(f"%{cor}%"))
     if tipo_veiculo:
         q = q.filter(Deteccao.tipo_veiculo.ilike(f"%{tipo_veiculo}%"))
-    if data_inicio:
-        q = q.filter(Deteccao.recebido_em >= datetime.strptime(data_inicio, "%Y-%m-%d"))
-    if data_fim:
-        q = q.filter(Deteccao.recebido_em < datetime.strptime(data_fim, "%Y-%m-%d") + timedelta(days=1))
+    dt_inicio = _parse_data(data_inicio)
+    dt_fim = _parse_data(data_fim)
+    if dt_inicio:
+        q = q.filter(Deteccao.recebido_em >= dt_inicio)
+    if dt_fim:
+        q = q.filter(Deteccao.recebido_em < dt_fim + timedelta(days=1))
     if hora_inicio:
         try:
             q = q.filter(extract("hour", Deteccao.recebido_em) >= int(hora_inicio))
