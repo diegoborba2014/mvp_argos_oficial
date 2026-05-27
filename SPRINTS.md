@@ -476,20 +476,14 @@ Deve ser feita **antes** de qualquer operação em campo ou exposição da URL p
 | `APP_WEB/templates/alertas.html` | Thumbnail 36px na listagem; ícone câmera-slash quando sem imagem |
 | `APP_WEB/templates/detalhe_leitura.html` | Card "Imagem da Placa" com borda vermelha (visível só em alertas) |
 
-**Para fazer o deploy:**
-```bash
-# QG (Railway) — inicializar git e fazer push
-git init
-git add APP_WEB/
-git commit -m "feat: imagem da placa em alertas táticos (Sprint Pi-B imagens)"
-git push railway main
+**Deploy QG:** ✅ Commitado e pushado — commit `ef3961d` — Railway reconstrói automaticamente. Migration da coluna `imagem_placa` roda no próximo boot.
 
-# Pi — copiar webhook_handler.py atualizado
+**Deploy Pi:** ⏳ PENDENTE — aguardando Pi disponível.
+```bash
 scp RASPBERRY/src/webhook_handler.py diego@100.127.61.22:~/argos/src/
 ssh diego@100.127.61.22 "sudo systemctl restart argos"
 ```
-
-**Observação:** a migration roda automaticamente no próximo boot do QG após o deploy.
+Sem isso, o Pi usa o código antigo e **não envia imagens** ao QG (as imagens da placa ficam só na RAM local do Pi).
 
 ---
 
@@ -565,4 +559,4 @@ ssh diego@100.127.61.22 "sudo systemctl restart argos"
 - [ ] Backup configurado do banco (Sprint 5.4)
 - [ ] Comandos polling Pi-side (Sprint Pi-B)
 - [ ] Config polling Pi-side (Sprint Pi-B)
-- [ ] Imagens das detecções — código pronto, **aguarda deploy QG + Pi** (Sprint Pi-B)
+- [ ] Imagens da placa em alertas — **QG deployado** (`ef3961d`), **Pi pendente SCP** (Sprint Pi-B)

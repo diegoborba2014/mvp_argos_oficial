@@ -234,6 +234,7 @@
           <table class="table table-sm table-hover mb-0">
             <thead style="position:sticky;top:0;background:#343a40;color:#fff;">
               <tr>
+                <th style="width:50px;"></th>
                 <th style="width:150px;">Data/Hora</th>
                 <th>Viatura</th>
                 <th>Placa</th>
@@ -245,7 +246,20 @@
             </thead>
             <tbody id="feed-body">
               {% for d in ultimas_deteccoes %}
-              <tr class="{{ 'item-placa-alerta' if d.alerta_tatico else '' }}">
+              <tr class="{{ 'item-placa-alerta' if d.alerta_tatico else '' }}"
+                  style="cursor:pointer;" onclick="location.href='{{ url_for('dashboard.detalhe_leitura', leitura_id=d.id) }}'">
+                <td onclick="event.stopPropagation()" class="p-1" style="vertical-align:middle;">
+                  {% if d.imagem_placa %}
+                  <img src="{{ url_for('dashboard.imagem_placa', leitura_id=d.id) }}"
+                       alt="{{ d.placa }}"
+                       style="height:34px;border-radius:3px;border:1px solid rgba(255,255,255,.1);"
+                       onerror="this.style.display='none'">
+                  {% else %}
+                  <span style="color:var(--text-muted);font-size:.7rem;" title="Imagem não disponível">
+                    <i class="fas fa-camera-slash"></i>
+                  </span>
+                  {% endif %}
+                </td>
                 <td><small>{{ d.recebido_em | brt }}</small></td>
                 <td><small>{{ d.viatura_id }}</small></td>
                 <td><span class="placa-badge {{ 'bg-danger' if d.alerta_tatico else '' }}">{{ d.placa }}</span></td>
@@ -314,9 +328,18 @@
       kpiAlertasEl.textContent = totalAlertas;
     }
 
+    const imgHtml = d.tem_imagem
+      ? `<img src="/leituras/${d.id}/imagem_placa"
+               style="height:34px;border-radius:3px;border:1px solid rgba(255,255,255,.1);"
+               onerror="this.style.display='none'">`
+      : `<i class="fas fa-camera-slash" style="color:var(--text-muted);font-size:.75rem;" title="Sem imagem"></i>`;
+
     const tr = document.createElement('tr');
     tr.className = (alerta ? 'item-placa-alerta' : '') + ' feed-new-row';
+    tr.style.cursor = 'pointer';
+    tr.onclick = () => location.href = `/leituras/${d.id}`;
     tr.innerHTML = `
+      <td class="p-1" style="vertical-align:middle;" onclick="event.stopPropagation()">${imgHtml}</td>
       <td><small>${d.recebido_em}</small></td>
       <td><small>${d.viatura_id}</small></td>
       <td><span class="placa-badge ${alerta ? 'bg-danger text-white' : ''}">${d.placa}</span></td>

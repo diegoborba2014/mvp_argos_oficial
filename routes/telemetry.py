@@ -112,12 +112,11 @@ def receber_telemetria():
 
     if tipo == "heartbeat":
         _salvar_heartbeat(viatura_id, payload)
+        db.session.commit()
     else:
         deteccao = _salvar_deteccao(viatura_id, payload, viatura)
-        db.session.flush()
+        db.session.commit()  # commit antes do broadcast — garante que imagem já está no banco
         _broadcast("new_detection", deteccao.to_dict())
-
-    db.session.commit()
 
     return jsonify({"status": "ok"}), 200
 
