@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from models import db, Usuario
+from models import db, Usuario, MotivoHotlist
 
 
 def create_app():
@@ -91,6 +91,7 @@ def create_app():
         db.create_all()
         _migrar_schema()
         _seed_usuarios()
+        _seed_motivos()
 
     return app
 
@@ -133,6 +134,19 @@ def _seed_usuarios():
     operador.set_password("operador2026")
 
     db.session.add_all([admin, operador])
+    db.session.commit()
+
+
+def _seed_motivos():
+    """Cria motivos padrão na tabela motivos_hotlist se ainda estiver vazia."""
+    if MotivoHotlist.query.first():
+        return
+
+    padroes = [
+        "Roubo", "Furto", "Mandado de Busca", "Investigação",
+        "Suspeito", "Busca e Apreensão", "Receptação", "Tráfico",
+    ]
+    db.session.add_all([MotivoHotlist(nome=m) for m in padroes])
     db.session.commit()
 
 

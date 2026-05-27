@@ -6,7 +6,7 @@ from flask import Blueprint, render_template, request, jsonify, Response, abort,
 from flask_login import login_required, current_user
 from sqlalchemy import func, extract
 
-from models import db, Viatura, Deteccao, Heartbeat, Hotlist
+from models import db, Viatura, Deteccao, Heartbeat, Hotlist, MotivoHotlist
 
 
 def _utcnow():
@@ -360,6 +360,21 @@ def hotlist():
                 _marcar_hotlist_pendente()
                 db.session.commit()
 
+        elif acao == "adicionar_motivo":
+            nome = request.form.get("nome_motivo", "").strip()
+            if nome and not MotivoHotlist.query.filter_by(nome=nome).first():
+                db.session.add(MotivoHotlist(nome=nome))
+                db.session.commit()
+            return redirect(url_for("dashboard.hotlist"))
+
+        elif acao == "remover_motivo":
+            motivo_id = request.form.get("motivo_id")
+            item_m = MotivoHotlist.query.get(motivo_id)
+            if item_m:
+                db.session.delete(item_m)
+                db.session.commit()
+            return redirect(url_for("dashboard.hotlist"))
+
     if request.args.get("export") == "csv":
         items = Hotlist.query.filter_by(ativa=True).order_by(Hotlist.prioridade, Hotlist.placa).all()
         output = io.StringIO()
@@ -374,7 +389,8 @@ def hotlist():
         )
 
     items = Hotlist.query.order_by(Hotlist.prioridade, Hotlist.placa).all()
-    return render_template("hotlist.html", hotlist=items)
+    motivos = MotivoHotlist.query.order_by(MotivoHotlist.nome).all()
+    return render_template("hotlist.html", hotlist=items, motivos=motivos)
 
 
 @dashboard_bp.route("/leituras/<int:leitura_id>")

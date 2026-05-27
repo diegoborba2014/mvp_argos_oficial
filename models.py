@@ -132,6 +132,18 @@ class Hotlist(db.Model):
     criado_em = db.Column(db.DateTime, default=_utcnow)
 
 
+class MotivoHotlist(db.Model):
+    """Motivos cadastráveis pelo admin para uso na Hotlist."""
+    __tablename__ = "motivos_hotlist"
+
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(64), unique=True, nullable=False)
+    criado_em = db.Column(db.DateTime, default=_utcnow)
+
+    def __repr__(self):
+        return f"<MotivoHotlist {self.nome}>"
+
+
 class Usuario(UserMixin, db.Model):
     __tablename__ = "usuarios"
 

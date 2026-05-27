@@ -89,6 +89,17 @@ Executar quando o Pi estiver disponível e conectado ao sistema.
 - [ ] Confirmar marcador ▶ verde no primeiro avistamento e ■ laranja no último
 - [ ] Clicar em item da lista e confirmar que abre popup no mapa
 
+### RV-4 — Validar alerta sonoro e motivos dinâmicos (Sprint 4.3 + 4.5)
+- [ ] Cadastrar uma placa de teste na hotlist
+- [ ] Passar o veículo em frente à câmera e confirmar que o beep tático (triplo 880→1100→880 Hz) dispara no navegador
+- [ ] Confirmar que leituras normais (sem match na hotlist) **não** disparam som
+- [ ] Testar botão mudo (🔇) na navbar: verificar que silencia o beep e persiste após recarregar página
+- [ ] Confirmar que o badge de alertas pisca na navbar ao receber alerta tático
+- [ ] Validar toast de alerta: exibe placa, viatura e horário corretamente
+- [ ] Cadastrar motivo personalizado (ex: "Foragido") na tela Hotlist
+- [ ] Confirmar que o motivo aparece no datalist ao adicionar nova placa
+- [ ] Remover motivo personalizado e confirmar que desaparece da lista
+
 ---
 
 ## Sprint Pi-A Pi-side — Deploy no Pi ⏳ AGUARDANDO PI DISPONÍVEL
@@ -192,6 +203,16 @@ Retorno JSON:
 - Som dispara **somente** em `alerta_tatico: true` (match na hotlist)
 - Botão mudo/ativo na navbar (ícone 🔊/🔇) com estado persistido em `localStorage`
 - Toast e badge navbar já existentes — mantidos
+
+---
+
+### 4.5 — Motivos Dinâmicos na Hotlist ✅ CONCLUÍDA
+**Commit:** pendente push
+
+- `models.py`: novo modelo `MotivoHotlist` (tabela `motivos_hotlist`, campo `nome` único)
+- `app.py`: `_seed_motivos()` — popula 8 motivos padrão (Roubo, Furto, Mandado de Busca, Investigação, Suspeito, Busca e Apreensão, Receptação, Tráfico)
+- `routes/dashboard.py`: importa `MotivoHotlist`; trata `acao == "adicionar_motivo"` e `acao == "remover_motivo"`; passa `motivos` ao template
+- `templates/hotlist.html`: datalist `motivos-sugeridos` gerado dinamicamente via `{% for m in motivos %}`; novo card "Motivos Cadastrados" com lista + botão remover + campo para adicionar novo motivo
 
 ---
 
@@ -375,9 +396,10 @@ Os campos já enviados nos heartbeats cobrem a maioria dos eventos. Ajustes nece
 - [x] Trajetória investigativa — GPS path por placa/marca/modelo/cor/hora (Sprint 4.1)
 - [x] Tela de detalhes individual de leitura (Sprint 4.2)
 - [x] Alerta sonoro tático (beep triplo, botão mudo, somente match hotlist) (Sprint 4.3)
+- [x] Motivos dinâmicos na hotlist — CRUD via UI, sem deploy (Sprint 4.5)
 
 ### Pendentes ⏳
-- [ ] **Revisão em campo com Pi** — RV-1 (detalhe leitura), RV-2 (hotlist), RV-3 (trajetória)
+- [ ] **Revisão em campo com Pi** — RV-1 (detalhe leitura), RV-2 (hotlist), RV-3 (trajetória), RV-4 (alerta sonoro + motivos)
 - [ ] Deploy Sprint Pi-A Pi-side (aguardando Pi disponível)
 - [ ] Monitoramento de eventos — Pi offline, LPR, GPS, CPU, buffer (Sprint 6.1 QG + 6.2 Pi)
 - [ ] Revisão GPS↔Leitura (Sprint 5.2)

@@ -125,14 +125,9 @@
                    placeholder="Ex: Roubo, Investigação, Mandado"
                    list="motivos-sugeridos" maxlength="64">
             <datalist id="motivos-sugeridos">
-              <option value="Roubo">
-              <option value="Furto">
-              <option value="Mandado de Busca">
-              <option value="Investigação">
-              <option value="Suspeito">
-              <option value="Busca e Apreensão">
-              <option value="Receptação">
-              <option value="Tráfico">
+              {% for m in motivos %}
+              <option value="{{ m.nome }}">
+              {% endfor %}
             </datalist>
           </div>
 
@@ -172,6 +167,45 @@
           </div>
           <button type="submit" class="btn btn-sm btn-warning btn-block">
             <i class="fas fa-file-import mr-1"></i>Importar
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Gerenciar Motivos -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-header py-2" style="background:#343a40;color:#fff;">
+        <h3 class="card-title mb-0"><i class="fas fa-tags mr-1 text-info"></i>Motivos Cadastrados</h3>
+      </div>
+      <div class="card-body p-2">
+        <!-- Lista de motivos -->
+        <div style="max-height:160px;overflow-y:auto;margin-bottom:.5rem;">
+          {% for m in motivos %}
+          <div class="d-flex align-items-center justify-content-between py-1"
+               style="border-bottom:1px solid rgba(255,255,255,.06);">
+            <span style="font-size:.82rem;">{{ m.nome }}</span>
+            <form method="POST" style="margin:0;">
+              <input type="hidden" name="acao" value="remover_motivo">
+              <input type="hidden" name="motivo_id" value="{{ m.id }}">
+              <button type="submit" class="btn btn-xs btn-outline-danger"
+                      onclick="return confirm('Remover motivo \'{{ m.nome }}\'?')"
+                      title="Remover motivo" style="padding:1px 6px;">
+                <i class="fas fa-times"></i>
+              </button>
+            </form>
+          </div>
+          {% else %}
+          <p class="text-muted text-center mb-0" style="font-size:.78rem;">Nenhum motivo cadastrado.</p>
+          {% endfor %}
+        </div>
+        <!-- Adicionar novo motivo -->
+        <form method="POST" class="d-flex" style="gap:.4rem;">
+          <input type="hidden" name="acao" value="adicionar_motivo">
+          <input type="text" name="nome_motivo" class="form-control form-control-sm"
+                 placeholder="Novo motivo..." maxlength="64" required
+                 style="font-size:.82rem;">
+          <button type="submit" class="btn btn-sm btn-info" style="white-space:nowrap;">
+            <i class="fas fa-plus"></i>
           </button>
         </form>
       </div>
