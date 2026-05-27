@@ -96,7 +96,7 @@ def _migrar_schema():
                 conn.execute(text(sql))
                 conn.commit()
             except Exception:
-                pass
+                conn.rollback()  # PostgreSQL exige rollback antes do próximo statement
 
 
 def _seed_usuarios():
