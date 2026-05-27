@@ -1,0 +1,373 @@
+{% extends "base.html" %}
+{% block title %}Investigação{% endblock %}
+{% block page_title %}
+  <i class="fas fa-search-location mr-2" style="color:#a29bfe;"></i>Trajetória Investigativa
+{% endblock %}
+{% block breadcrumb %}<li class="breadcrumb-item active">Investigação</li>{% endblock %}
+
+{% block extra_css %}
+<style>
+  #inv-mapa { height: 100%; min-height: 520px; border-radius: 0 0 6px 6px; }
+  .inv-container { display:flex; gap:12px; align-items:flex-start; }
+  .inv-lista-col  { width:35%; flex-shrink:0; }
+  .inv-mapa-col   { flex:1; }
+
+  /* Lista de pontos */
+  .ponto-item {
+    display:flex; align-items:flex-start; gap:8px;
+    padding:7px 10px; border-bottom:1px solid rgba(255,255,255,.06);
+    cursor:pointer; transition:background .15s;
+  }
+  .ponto-item:hover { background:rgba(255,255,255,.05); }
+  .ponto-item.active { background:rgba(162,155,254,.12); border-left:3px solid #a29bfe; }
+  .ponto-num {
+    min-width:22px; height:22px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:.65rem; font-weight:700; flex-shrink:0; margin-top:1px;
+  }
+  .ponto-placa  { font-family:var(--font-mono); font-size:.85rem; font-weight:700; }
+  .ponto-meta   { font-size:.72rem; color:var(--text-muted); }
+  .ponto-alerta { color:var(--red); font-size:.68rem; font-weight:700; }
+
+  /* Filtros compactos */
+  .filtro-grid {
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap:6px;
+  }
+  .filtro-grid .form-group { margin-bottom:0; }
+
+  /* Stats bar */
+  .stat-chip {
+    display:inline-flex; align-items:center; gap:5px;
+    background:rgba(255,255,255,.06); border-radius:20px;
+    padding:3px 10px; font-size:.75rem; color:var(--text-muted);
+    margin-right:6px;
+  }
+  .stat-chip strong { color:var(--text); }
+
+  @media (max-width: 900px) {
+    .inv-container { flex-direction: column; }
+    .inv-lista-col  { width:100%; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Filtros ── -->
+<div class="card mb-3">
+  <div class="card-header py-2 d-flex justify-content-between align-items-center">
+    <h3 class="card-title mb-0"><i class="fas fa-filter mr-1"></i>Filtros</h3>
+    <button class="btn btn-sm btn-outline-secondary" type="button"
+            data-toggle="collapse" data-target="#filtros-body">
+      <i class="fas fa-chevron-down"></i>
+    </button>
+  </div>
+  <div class="collapse show" id="filtros-body">
+    <div class="card-body py-2">
+      <form id="form-filtros">
+        <div class="filtro-grid mb-2">
+          <div class="form-group">
+            <label style="font-size:.72rem;color:var(--text-muted);">Placa</label>
+            <input id="f-placa" type="text" class="form-control form-control-sm"
+                   placeholder="ABC ou ABC1D23" style="font-family:var(--font-mono);text-transform:uppercase;">
+          </div>
+          <div class="form-group">
+            <label style="font-size:.72rem;color:var(--text-muted);">Marca</label>
+            <input id="f-marca" type="text" class="form-control form-control-sm" placeholder="Ex: Toyota">
+          </div>
+          <div class="form-group">
+            <label style="font-size:.72rem;color:var(--text-muted);">Modelo</label>
+            <input id="f-modelo" type="text" class="form-control form-control-sm" placeholder="Ex: Corolla">
+          </div>
+          <div class="form-group">
+            <label style="font-size:.72rem;color:var(--text-muted);">Cor</label>
+            <input id="f-cor" type="text" class="form-control form-control-sm" placeholder="Ex: Prata">
+          </div>
+          <div class="form-group">
+            <label style="font-size:.72rem;color:var(--text-muted);">Tipo</label>
+            <input id="f-tipo" type="text" class="form-control form-control-sm" placeholder="Ex: Car">
+          </div>
+          <div class="form-group">
+            <label style="font-size:.72rem;color:var(--text-muted);">Data início</label>
+            <input id="f-data-ini" type="date" class="form-control form-control-sm">
+          </div>
+          <div class="form-group">
+            <label style="font-size:.72rem;color:var(--text-muted);">Data fim</label>
+            <input id="f-data-fim" type="date" class="form-control form-control-sm">
+          </div>
+          <div class="form-group">
+            <label style="font-size:.72rem;color:var(--text-muted);">Hora início (0–23)</label>
+            <input id="f-hora-ini" type="number" min="0" max="23" class="form-control form-control-sm" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label style="font-size:.72rem;color:var(--text-muted);">Hora fim (0–23)</label>
+            <input id="f-hora-fim" type="number" min="0" max="23" class="form-control form-control-sm" placeholder="23">
+          </div>
+        </div>
+        <div class="d-flex align-items-center gap-2" style="gap:8px;">
+          <button type="submit" class="btn btn-sm btn-primary">
+            <i class="fas fa-search mr-1"></i>Buscar Trajetória
+          </button>
+          <button type="button" class="btn btn-sm btn-secondary" id="btn-limpar">
+            <i class="fas fa-times mr-1"></i>Limpar
+          </button>
+          <span id="stats-bar" class="ml-2" style="display:none;"></span>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ── Resultado ── -->
+<div id="resultado-area" style="display:none;">
+  <div class="inv-container">
+
+    <!-- Lista -->
+    <div class="inv-lista-col">
+      <div class="card" style="height:100%;">
+        <div class="card-header py-2" style="background:#1a1d23;color:#fff;">
+          <h3 class="card-title mb-0" style="font-size:.85rem;">
+            <i class="fas fa-list mr-1"></i>
+            <span id="lista-titulo">Detecções</span>
+          </h3>
+        </div>
+        <div id="lista-pontos" style="max-height:540px;overflow-y:auto;"></div>
+      </div>
+    </div>
+
+    <!-- Mapa -->
+    <div class="inv-mapa-col">
+      <div class="card">
+        <div class="card-header py-2 d-flex justify-content-between align-items-center"
+             style="background:#1a1d23;color:#fff;">
+          <h3 class="card-title mb-0" style="font-size:.85rem;">
+            <i class="fas fa-route mr-1 text-success"></i>Trajetória
+          </h3>
+          <button class="btn btn-xs btn-outline-light" id="btn-fitbounds" title="Centralizar mapa">
+            <i class="fas fa-compress-arrows-alt"></i>
+          </button>
+        </div>
+        <div class="card-body p-0" style="height:540px;">
+          <div id="inv-mapa"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Vazio inicial -->
+<div id="empty-area" class="text-center py-5" style="color:var(--text-muted);">
+  <i class="fas fa-search-location fa-3x mb-3 d-block" style="opacity:.2;color:#a29bfe;"></i>
+  <p style="font-size:.9rem;">Preencha os filtros e clique em <strong>Buscar Trajetória</strong><br>
+  para visualizar o caminho percorrido por um veículo.</p>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── Mapa ──────────────────────────────────────────────────────────────────────
+let invMapa = null;
+let polyline = null;
+let marcadores = [];
+let pontosGlobais = [];
+
+function iniciarMapa() {
+  if (invMapa) return;
+  invMapa = L.map('inv-mapa', { zoomControl: true }).setView([-15.78, -47.93], 5);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© CARTO © OSM',
+    subdomains: 'abcd', maxZoom: 19,
+  }).addTo(invMapa);
+}
+
+function limparMapa() {
+  marcadores.forEach(m => invMapa.removeLayer(m));
+  marcadores = [];
+  if (polyline) { invMapa.removeLayer(polyline); polyline = null; }
+}
+
+function fazerMarcador(p, idx, total) {
+  const primeiro = idx === 0;
+  const ultimo   = idx === total - 1;
+  const cor = p.alerta_tatico ? '#dc3545'
+            : primeiro       ? '#00b894'
+            : ultimo         ? '#e17055'
+            : '#a29bfe';
+  const tamanho = (primeiro || ultimo) ? 18 : 13;
+  const num = idx + 1;
+  const icon = L.divIcon({
+    html: `<div style="
+      background:${cor};
+      width:${tamanho}px;height:${tamanho}px;
+      border-radius:50%;
+      border:2px solid rgba(255,255,255,.75);
+      display:flex;align-items:center;justify-content:center;
+      font-size:${tamanho > 14 ? '.52rem' : '.45rem'};
+      font-weight:700;color:#fff;
+      box-shadow:0 0 6px ${cor};
+    ">${primeiro ? '▶' : ultimo ? '■' : num}</div>`,
+    iconSize: [tamanho, tamanho],
+    iconAnchor: [tamanho/2, tamanho/2],
+    className: '',
+  });
+
+  const popup = `
+    <strong style="font-family:monospace;letter-spacing:2px;font-size:.9rem;color:${cor};">${p.placa}</strong>
+    ${p.alerta_tatico ? '<span style="color:#dc3545;font-size:.7rem;font-weight:700;"> ⚠ ALERTA</span>' : ''}
+    <br><small style="color:var(--text-muted);">${p.recebido_em}</small>
+    <br><small>${p.viatura_id}</small>
+    ${p.marca ? `<br><small style="color:var(--text-dim);">${p.marca} ${p.modelo} ${p.cor}</small>` : ''}
+    <br><small>Velocidade: <strong>${p.velocidade.toFixed(0)} km/h</strong> · Score: <strong>${(p.score*100).toFixed(0)}%</strong></small>
+    <br><a href="/leituras/${p.id}" style="font-size:.72rem;color:var(--teal);">Ver detalhe →</a>
+  `;
+
+  return L.marker([p.lat, p.lon], { icon })
+    .bindPopup(popup, { className: 'argos-popup', maxWidth: 240 });
+}
+
+function renderizarMapa(pontos) {
+  iniciarMapa();
+  limparMapa();
+  if (!pontos.length) return;
+
+  // Polyline teal
+  const latlngs = pontos.map(p => [p.lat, p.lon]);
+  polyline = L.polyline(latlngs, { color: '#00c8dc', weight: 2.5, opacity: .7, dashArray: '6 4' })
+    .addTo(invMapa);
+
+  // Marcadores
+  pontos.forEach((p, i) => {
+    const m = fazerMarcador(p, i, pontos.length).addTo(invMapa);
+    m.on('click', () => destacarItem(i));
+    marcadores.push(m);
+  });
+
+  fitBounds();
+  setTimeout(() => invMapa.invalidateSize(), 200);
+}
+
+function fitBounds() {
+  if (!marcadores.length) return;
+  const bounds = L.latLngBounds(marcadores.map(m => m.getLatLng()));
+  invMapa.fitBounds(bounds, { padding: [30, 30] });
+}
+
+// ── Lista ─────────────────────────────────────────────────────────────────────
+function renderizarLista(pontos) {
+  const container = document.getElementById('lista-pontos');
+  document.getElementById('lista-titulo').textContent = `${pontos.length} ponto(s)`;
+
+  if (!pontos.length) {
+    container.innerHTML = `<div class="text-center py-4" style="color:var(--text-muted);font-size:.82rem;">
+      <i class="fas fa-satellite-dish fa-2x mb-2 d-block" style="opacity:.3;"></i>
+      Nenhum resultado com coordenada GPS.
+    </div>`;
+    return;
+  }
+
+  container.innerHTML = pontos.map((p, i) => {
+    const primeiro = i === 0;
+    const ultimo   = i === pontos.length - 1;
+    const cor = p.alerta_tatico ? '#dc3545' : primeiro ? '#00b894' : ultimo ? '#e17055' : '#a29bfe';
+    return `
+      <div class="ponto-item" id="item-${i}" onclick="destacarItem(${i})">
+        <div class="ponto-num" style="background:${cor};color:#fff;">${primeiro ? '▶' : ultimo ? '■' : i+1}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+            <span class="ponto-placa">${p.placa}</span>
+            ${p.alerta_tatico ? '<span class="ponto-alerta">⚠ ALERTA</span>' : ''}
+          </div>
+          <div class="ponto-meta">${p.recebido_em}</div>
+          <div class="ponto-meta">${p.viatura_id}${p.marca ? ' · ' + p.marca + ' ' + p.modelo : ''}</div>
+        </div>
+        <a href="/leituras/${p.id}" onclick="event.stopPropagation()"
+           style="font-size:.7rem;color:var(--teal);flex-shrink:0;align-self:center;">
+          <i class="fas fa-external-link-alt"></i>
+        </a>
+      </div>
+    `;
+  }).join('');
+}
+
+function destacarItem(idx) {
+  // Lista — scroll e highlight
+  document.querySelectorAll('.ponto-item').forEach(el => el.classList.remove('active'));
+  const el = document.getElementById(`item-${idx}`);
+  if (el) { el.classList.add('active'); el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+
+  // Mapa — abre popup
+  if (marcadores[idx]) {
+    invMapa.setView(marcadores[idx].getLatLng(), Math.max(invMapa.getZoom(), 15));
+    marcadores[idx].openPopup();
+  }
+}
+
+// ── Busca ─────────────────────────────────────────────────────────────────────
+document.getElementById('form-filtros').addEventListener('submit', function(e) {
+  e.preventDefault();
+  buscar();
+});
+
+document.getElementById('btn-limpar').addEventListener('click', function() {
+  ['f-placa','f-marca','f-modelo','f-cor','f-tipo','f-data-ini','f-data-fim','f-hora-ini','f-hora-fim']
+    .forEach(id => document.getElementById(id).value = '');
+  document.getElementById('stats-bar').style.display = 'none';
+  document.getElementById('resultado-area').style.display = 'none';
+  document.getElementById('empty-area').style.display = '';
+});
+
+document.getElementById('btn-fitbounds').addEventListener('click', fitBounds);
+
+function buscar() {
+  const params = new URLSearchParams();
+  const add = (id, key) => { const v = document.getElementById(id).value.trim(); if (v) params.append(key, v); };
+  add('f-placa',    'placa');
+  add('f-marca',    'marca');
+  add('f-modelo',   'modelo');
+  add('f-cor',      'cor');
+  add('f-tipo',     'tipo_veiculo');
+  add('f-data-ini', 'data_inicio');
+  add('f-data-fim', 'data_fim');
+  add('f-hora-ini', 'hora_inicio');
+  add('f-hora-fim', 'hora_fim');
+
+  const btn = document.querySelector('#form-filtros button[type=submit]');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Buscando...';
+
+  fetch('/api/investigacao/trajeto?' + params.toString())
+    .then(r => r.json())
+    .then(data => {
+      pontosGlobais = data.pontos;
+      renderizarLista(data.pontos);
+      renderizarMapa(data.pontos);
+
+      const alertas = data.pontos.filter(p => p.alerta_tatico).length;
+      const statsBar = document.getElementById('stats-bar');
+      statsBar.style.display = '';
+      statsBar.innerHTML = `
+        <span class="stat-chip"><strong>${data.total}</strong> pontos GPS</span>
+        ${alertas ? `<span class="stat-chip" style="color:var(--red);"><strong>${alertas}</strong> alertas</span>` : ''}
+        ${data.total >= 500 ? '<span class="stat-chip" style="color:#f39c12;">⚠ limite 500</span>' : ''}
+      `;
+
+      document.getElementById('resultado-area').style.display = '';
+      document.getElementById('empty-area').style.display = 'none';
+    })
+    .catch(() => alert('Erro ao buscar trajetória. Tente novamente.'))
+    .finally(() => {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-search mr-1"></i>Buscar Trajetória';
+    });
+}
+
+// input de placa em maiúsculas
+document.getElementById('f-placa').addEventListener('input', function() {
+  this.value = this.value.toUpperCase();
+});
+</script>
+{% endblock %}

@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 from flask import Blueprint, render_template, request, jsonify, Response, abort, redirect, url_for, flash
 from flask_login import login_required, current_user
-from sqlalchemy import func
+from sqlalchemy import func, extract
 
 from models import db, Viatura, Deteccao, Heartbeat, Hotlist
 
@@ -382,6 +382,83 @@ def hotlist():
 def detalhe_leitura(leitura_id):
     d = Deteccao.query.get_or_404(leitura_id)
     return render_template("detalhe_leitura.html", d=d)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Trajetória Investigativa
+# ──────────────────────────────────────────────────────────────────────────────
+
+@dashboard_bp.route("/investigacao")
+@login_required
+def investigacao():
+    viaturas = Viatura.query.filter_by(ativa=True).all()
+    return render_template("investigacao.html", viaturas=viaturas)
+
+
+@dashboard_bp.route("/api/investigacao/trajeto")
+@login_required
+def api_investigacao_trajeto():
+    placa        = request.args.get("placa", "").upper().strip()
+    marca        = request.args.get("marca", "").strip()
+    modelo       = request.args.get("modelo", "").strip()
+    cor          = request.args.get("cor", "").strip()
+    tipo_veiculo = request.args.get("tipo_veiculo", "").strip()
+    data_inicio  = request.args.get("data_inicio", "")
+    data_fim     = request.args.get("data_fim", "")
+    hora_inicio  = request.args.get("hora_inicio", "")
+    hora_fim     = request.args.get("hora_fim", "")
+
+    q = Deteccao.query.filter(
+        Deteccao.latitude.isnot(None),
+        Deteccao.longitude.isnot(None),
+    )
+
+    if placa:
+        q = q.filter(Deteccao.placa.contains(placa))
+    if marca:
+        q = q.filter(Deteccao.marca.ilike(f"%{marca}%"))
+    if modelo:
+        q = q.filter(Deteccao.modelo.ilike(f"%{modelo}%"))
+    if cor:
+        q = q.filter(Deteccao.cor.ilike(f"%{cor}%"))
+    if tipo_veiculo:
+        q = q.filter(Deteccao.tipo_veiculo.ilike(f"%{tipo_veiculo}%"))
+    if data_inicio:
+        q = q.filter(Deteccao.recebido_em >= datetime.strptime(data_inicio, "%Y-%m-%d"))
+    if data_fim:
+        q = q.filter(Deteccao.recebido_em < datetime.strptime(data_fim, "%Y-%m-%d") + timedelta(days=1))
+    if hora_inicio:
+        try:
+            q = q.filter(extract("hour", Deteccao.recebido_em) >= int(hora_inicio))
+        except ValueError:
+            pass
+    if hora_fim:
+        try:
+            q = q.filter(extract("hour", Deteccao.recebido_em) <= int(hora_fim))
+        except ValueError:
+            pass
+
+    deteccoes = q.order_by(Deteccao.recebido_em.asc()).limit(500).all()
+
+    pontos = [
+        {
+            "lat": d.latitude,
+            "lon": d.longitude,
+            "id": d.id,
+            "placa": d.placa,
+            "viatura_id": d.viatura_id,
+            "recebido_em": (d.recebido_em - timedelta(hours=3)).strftime("%d/%m/%Y %H:%M:%S"),
+            "marca": d.marca,
+            "modelo": d.modelo,
+            "cor": d.cor,
+            "score": round(d.score or 0, 2),
+            "velocidade": round(d.velocidade or 0, 1),
+            "alerta_tatico": d.alerta_tatico,
+        }
+        for d in deteccoes
+    ]
+
+    return jsonify({"total": len(pontos), "pontos": pontos})
 
 
 @dashboard_bp.route("/api/hotlist")
