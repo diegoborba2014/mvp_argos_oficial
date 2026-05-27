@@ -445,45 +445,67 @@ Deve ser feita **antes** de qualquer operação em campo ou exposição da URL p
 
 ---
 
-## Sprint Pi-B — Comandos + Config + Imagens ⏳ PLANEJADA
+## Sprint Pi-B — Comandos + Config + Imagens
 
 **Pré-requisito:** Sprint Pi-A Pi-side concluída
 
-### Comandos via polling:
+### Comandos via polling: ⏳ PLANEJADO
 - QG: tabela `ComandoPendente`, endpoints fila + ack
 - Pi: `command_polling.py` — thread 30s
 
-### Config via polling (resolve Sincronizar offline):
+### Config via polling (resolve Sincronizar offline): ⏳ PLANEJADO
 - QG: `GET /api/viaturas/<id>/config/pending`
 - Pi: `config_polling.py` — aplica e confirma ao QG
 
-### Imagens das detecções: ⚙️ IMPLEMENTADA LOCALMENTE — pendente deploy
+---
+
+### Pi-B.1 — Imagens em Alertas Táticos (estrutura BYTEA) ✅ QG CONCLUÍDO
+**Commit QG:** `ef3961d`
 
 **Decisão arquitetural:**
 - Somente o **crop da placa** é enviado ao QG (nunca o frame completo do veículo)
-- A imagem só é enviada quando há **match na hotlist** (`alerta_tatico = True`)
-- Redimensionamento para max 300px de largura via Pillow (JPEG 75%, limite 60 KB) antes de enviar
-
-**Arquivos alterados (código pronto, não deployado):**
+- Redimensionamento para max 300px de largura via Pillow (JPEG 75%, limite 60 KB)
+- Armazenado como **BYTEA** no PostgreSQL (`LargeBinary` no SQLAlchemy) — não TEXT base64
 
 | Arquivo | Alteração |
 |---|---|
-| `RASPBERRY/src/webhook_handler.py` | Função `_thumbnail_placa_b64()`; `imagem_placa` excluída do buffer em leituras normais |
-| `APP_WEB/models.py` | `imagem_placa = LargeBinary` na `Deteccao` (BYTEA no PostgreSQL) |
-| `APP_WEB/app.py` | Migration `ALTER TABLE deteccoes ADD COLUMN imagem_placa BYTEA` no boot |
-| `APP_WEB/routes/telemetry.py` | `_salvar_deteccao()` decodifica base64 → bytes e salva no banco |
-| `APP_WEB/routes/dashboard.py` | Rota `GET /leituras/<id>/imagem_placa` serve JPEG binário |
+| `APP_WEB/models.py` | `imagem_placa = LargeBinary` na `Deteccao` |
+| `APP_WEB/app.py` | Migration `ALTER TABLE deteccoes ADD COLUMN imagem_placa BYTEA` |
+| `APP_WEB/routes/telemetry.py` | `_salvar_deteccao()`: decodifica base64 → bytes e salva |
+| `APP_WEB/routes/dashboard.py` | Rota `GET /leituras/<id>/imagem_placa` serve JPEG binário (`Cache-Control: private, max-age=86400`) |
 | `APP_WEB/templates/alertas.html` | Thumbnail 36px na listagem; ícone câmera-slash quando sem imagem |
-| `APP_WEB/templates/detalhe_leitura.html` | Card "Imagem da Placa" com borda vermelha (visível só em alertas) |
+| `APP_WEB/templates/detalhe_leitura.html` | Card "Imagem da Placa" com borda vermelha |
+| `RASPBERRY/src/webhook_handler.py` | Função `_thumbnail_placa_b64()` com Pillow; crop só enviado em alertas (Pi-B.1) |
 
-**Deploy QG:** ✅ Commitado e pushado — commit `ef3961d` — Railway reconstrói automaticamente. Migration da coluna `imagem_placa` roda no próximo boot.
+---
 
-**Deploy Pi:** ⏳ PENDENTE — aguardando Pi disponível.
+### Pi-B.2 — Imagens em TODAS as Detecções + Thumbnails Dashboard/Leituras ✅ QG CONCLUÍDO
+**Commit QG:** `7e5cd99` — 27/05/2026
+
+**Decisão revisada:** imagem enviada em **todas** as detecções, independente de hotlist match e do modo de operação (Híbrido, Nuvem/Online, Local/Offline).
+
+**Mudanças em relação ao Pi-B.1:**
+
+| Arquivo | Alteração |
+|---|---|
+| `RASPBERRY/src/webhook_handler.py` | Remove condição `if not e_alerta` — `imagem_placa` sempre incluída no buffer |
+| `RASPBERRY/src/offline_buffer.py` | `_persist_to_disk()` exclui `imagem_placa` do disco (~50 MB economizados com 5.000 registros); imagem fica só em memória — se Pi reiniciar offline, evento é reenviado sem foto |
+| `APP_WEB/models.py` | `to_dict()` agora inclui `"tem_imagem": self.imagem_placa is not None` para SSE JS |
+| `APP_WEB/routes/telemetry.py` | **Fix S-16:** `db.session.commit()` movido para ANTES de `_broadcast()` — garante imagem no banco quando browser requisitar |
+| `APP_WEB/templates/dashboard.html` | Nova coluna thumbnail (50px sem header) no Feed ao Vivo: thead + Jinja2 + JS SSE handler com `d.tem_imagem`; linhas clicáveis → detalhe |
+| `APP_WEB/templates/leituras.html` | Nova coluna thumbnail (50px sem header) no Log de Leituras; colspan atualizado para 8 |
+
+**Retrocompatibilidade:** `onerror="this.style.display='none'"` em todos os `<img>` — detecções antigas sem imagem não quebram o layout.
+
+**Impacto de storage:** ~10 KB/detecção × 1.000 leituras/dia = **~10 MB/dia** no PostgreSQL. Sprint 5.3 (retenção de dados) torna-se prioritária.
+
+**Deploy Pi-B (ambos Pi-B.1 e Pi-B.2):** ⏳ PENDENTE — aguardando Pi disponível.
 ```bash
 scp RASPBERRY/src/webhook_handler.py diego@100.127.61.22:~/argos/src/
+scp RASPBERRY/src/offline_buffer.py diego@100.127.61.22:~/argos/src/
 ssh diego@100.127.61.22 "sudo systemctl restart argos"
 ```
-Sem isso, o Pi usa o código antigo e **não envia imagens** ao QG (as imagens da placa ficam só na RAM local do Pi).
+Sem isso, o Pi usa o código antigo e **não envia imagens** ao QG.
 
 ---
 
@@ -508,6 +530,9 @@ Sem isso, o Pi usa o código antigo e **não envia imagens** ao QG (as imagens d
 - [x] Tela de detalhes individual de leitura (Sprint 4.2)
 - [x] Alerta sonoro tático (beep triplo, botão mudo, somente match hotlist) (Sprint 4.3)
 - [x] Motivos dinâmicos na hotlist — CRUD via UI, sem deploy (Sprint 4.5)
+- [x] Imagens da placa (BYTEA) — estrutura QG + rota servir JPEG + thumbnail alertas + card detalhe (Sprint Pi-B.1) — `ef3961d`
+- [x] Imagens em TODAS as detecções + thumbnails Dashboard e Log de Leituras (Sprint Pi-B.2) — `7e5cd99`
+- [x] Fix S-16: `db.session.commit()` antes de `_broadcast()` SSE — `7e5cd99`
 
 ### Pendentes ⏳
 
@@ -524,7 +549,7 @@ Sem isso, o Pi usa o código antigo e **não envia imagens** ao QG (as imagens d
 - [ ] S-13: Sem CSRF em formulários → instalar Flask-WTF
 - [ ] S-14: Login sem rate limiting → instalar Flask-Limiter
 - [ ] S-15: CSV import sem limite de tamanho → limitar a 500 KB + validar placa
-- [ ] S-16: SSE broadcast antes do commit → mover para depois
+- [x] S-16: SSE broadcast antes do commit → movido para depois ✅ `7e5cd99`
 - [ ] S-17: Double-commit em `_verificar_pi_offline()` → remover commit interno
 - [ ] S-18: `target="_blank"` sem `rel="noopener noreferrer"`
 
@@ -559,4 +584,4 @@ Sem isso, o Pi usa o código antigo e **não envia imagens** ao QG (as imagens d
 - [ ] Backup configurado do banco (Sprint 5.4)
 - [ ] Comandos polling Pi-side (Sprint Pi-B)
 - [ ] Config polling Pi-side (Sprint Pi-B)
-- [ ] Imagens da placa em alertas — **QG deployado** (`ef3961d`), **Pi pendente SCP** (Sprint Pi-B)
+- [ ] Imagens da placa no Pi — **QG deployado** (`ef3961d` + `7e5cd99`), **Pi pendente SCP** (Sprint Pi-B.1 + Pi-B.2)
