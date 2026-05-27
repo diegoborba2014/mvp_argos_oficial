@@ -557,8 +557,8 @@ Sem isso, o Pi usa o código antigo e **não envia imagens** ao QG.
 - [x] S-18: `target="_blank"` sem `rel="noopener noreferrer"` → corrigido em alertas + detalhe ✅ `f70a8b4`
 
 #### 🟡 Performance e Qualidade — Sprint 7.2
-- [ ] P-1: Leaflet + ApexCharts carregados globalmente → mover para páginas específicas
-- [ ] P-2: 3 conexões SSE simultâneas → centralizar 1 conexão em `base.html`
+- [x] P-1: Leaflet + ApexCharts → lazy-load em mapa.html, investigacao.html, detalhe_leitura.html, viaturas.html ✅ `10b182e`
+- [x] P-2: SSE centralizado em base.html; dashboard/mapa/alertas escutam via window CustomEvent ✅ `10b182e`
 - [ ] P-3: N+1 queries em `_verificar_pi_offline()` → bulk query
 - [ ] P-4: Hotlist carregada inteira por detecção → query EXISTS no banco
 - [ ] P-5: N queries em `_verificar_eventos()` → carregar de uma vez
