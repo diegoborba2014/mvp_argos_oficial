@@ -535,6 +535,7 @@ Sem isso, o Pi usa o código antigo e **não envia imagens** ao QG.
 - [x] Imagens da placa (BYTEA) — estrutura QG + rota servir JPEG + thumbnail alertas + card detalhe (Sprint Pi-B.1) — `ef3961d`
 - [x] Imagens em TODAS as detecções + thumbnails Dashboard e Log de Leituras (Sprint Pi-B.2) — `7e5cd99`
 - [x] Fix S-16: `db.session.commit()` antes de `_broadcast()` SSE — `7e5cd99`
+- [x] Sprint 7.1 CONCLUÍDA: S-11/S-13/S-14/S-15 — CSRF, logout POST, rate limit, CSV validation — `69fe6cf`
 
 ### Pendentes ⏳
 
@@ -546,11 +547,11 @@ Sem isso, o Pi usa o código antigo e **não envia imagens** ao QG.
 - [x] S-7: `/healthz` exposto publicamente → restrito a admin autenticado ✅ `1e286ae`
 - [x] S-8/S-9: XSS via `innerHTML` no feed SSE e popups Leaflet → `escapeHtml()` ✅ `0b78ce3`
 - [x] S-10: XSS no `confirm()` da hotlist → `data-placa`/`data-nome` + `dataset` ✅ `1e286ae`
-- [ ] S-11: Logout via GET → mudar para POST + CSRF token
+- [x] S-11: Logout via GET → POST com CSRF token em `base.html` + `auth.py` ✅ `69fe6cf`
 - [x] S-12: Cookies de sessão com flags SECURE/HTTPONLY/SAMESITE/lifetime 8h ✅ `0b78ce3`
-- [ ] S-13: Sem CSRF em formulários → instalar Flask-WTF
-- [ ] S-14: Login sem rate limiting → instalar Flask-Limiter
-- [ ] S-15: CSV import sem limite de tamanho → limitar a 500 KB + validar placa
+- [x] S-13: Sem CSRF → Flask-WTF CSRFProtect; `extensions.py`; csrf_token em 8 forms; X-CSRFToken em 4 fetches; @csrf.exempt em endpoints Pi ✅ `69fe6cf`
+- [x] S-14: Login sem rate limiting → Flask-Limiter 5/min por IP, apenas POST ✅ `69fe6cf`
+- [x] S-15: CSV import → limite 500 KB + regex `_PLACA_RE` formato Mercosul/antigo ✅ `69fe6cf`
 - [x] S-16: SSE broadcast antes do commit → movido para depois ✅ `7e5cd99`
 - [x] S-17: Double-commit em `_verificar_pi_offline()` → commit movido para os callers ✅ `f70a8b4`
 - [x] S-18: `target="_blank"` sem `rel="noopener noreferrer"` → corrigido em alertas + detalhe ✅ `f70a8b4`
