@@ -90,13 +90,13 @@ def _migrar_schema():
         "ALTER TABLE hotlist ADD COLUMN prioridade INTEGER DEFAULT 2",
         "ALTER TABLE hotlist ADD COLUMN observacao TEXT DEFAULT ''",
     ]
-    with db.engine.connect() as conn:
-        for sql in migrations:
-            try:
+    for sql in migrations:
+        try:
+            with db.engine.connect() as conn:
                 conn.execute(text(sql))
                 conn.commit()
-            except Exception:
-                conn.rollback()  # PostgreSQL exige rollback antes do próximo statement
+        except Exception:
+            pass  # coluna já existe — ignora e segue
 
 
 def _seed_usuarios():
