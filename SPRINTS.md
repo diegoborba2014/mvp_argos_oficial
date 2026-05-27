@@ -552,8 +552,8 @@ Sem isso, o Pi usa o código antigo e **não envia imagens** ao QG.
 - [ ] S-14: Login sem rate limiting → instalar Flask-Limiter
 - [ ] S-15: CSV import sem limite de tamanho → limitar a 500 KB + validar placa
 - [x] S-16: SSE broadcast antes do commit → movido para depois ✅ `7e5cd99`
-- [ ] S-17: Double-commit em `_verificar_pi_offline()` → remover commit interno
-- [ ] S-18: `target="_blank"` sem `rel="noopener noreferrer"`
+- [x] S-17: Double-commit em `_verificar_pi_offline()` → commit movido para os callers ✅ `f70a8b4`
+- [x] S-18: `target="_blank"` sem `rel="noopener noreferrer"` → corrigido em alertas + detalhe ✅ `f70a8b4`
 
 #### 🟡 Performance e Qualidade — Sprint 7.2
 - [ ] P-1: Leaflet + ApexCharts carregados globalmente → mover para páginas específicas
