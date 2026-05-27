@@ -74,6 +74,7 @@ class Deteccao(db.Model):
     regiao = db.Column(db.String(16), default="")
     alerta_tatico = db.Column(db.Boolean, default=False, index=True)
     camera_id = db.Column(db.String(32), default="")
+    imagem_placa = db.Column(db.LargeBinary, nullable=True)  # Crop da placa (JPEG), somente em alertas táticos
     latitude = db.Column(db.Float, nullable=True)
     longitude = db.Column(db.Float, nullable=True)
     altitude = db.Column(db.Float, nullable=True)

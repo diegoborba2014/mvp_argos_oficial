@@ -504,6 +504,20 @@ def detalhe_leitura(leitura_id):
     return render_template("detalhe_leitura.html", d=d)
 
 
+@dashboard_bp.route("/leituras/<int:leitura_id>/imagem_placa")
+@login_required
+def imagem_placa(leitura_id):
+    """Serve o crop da placa (JPEG binário) para exibição no detalhe do alerta."""
+    d = Deteccao.query.get_or_404(leitura_id)
+    if not d.imagem_placa:
+        abort(404)
+    return Response(
+        d.imagem_placa,
+        mimetype="image/jpeg",
+        headers={"Cache-Control": "private, max-age=86400"},
+    )
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Trajetória Investigativa
 # ──────────────────────────────────────────────────────────────────────────────

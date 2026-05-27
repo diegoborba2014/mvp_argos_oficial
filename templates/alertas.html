@@ -48,6 +48,7 @@
       <table class="table table-sm table-hover mb-0">
         <thead>
           <tr>
+            <th style="width:56px;"></th>
             <th>Data/Hora</th>
             <th>Viatura</th>
             <th>Placa</th>
@@ -61,6 +62,20 @@
           {% for d in deteccoes %}
           <tr class="item-placa-alerta" style="cursor:pointer;"
               onclick="location.href='{{ url_for('dashboard.detalhe_leitura', leitura_id=d.id) }}'">
+            <td onclick="event.stopPropagation()" class="p-1" style="vertical-align:middle;">
+              {% if d.imagem_placa %}
+              <a href="{{ url_for('dashboard.detalhe_leitura', leitura_id=d.id) }}">
+                <img src="{{ url_for('dashboard.imagem_placa', leitura_id=d.id) }}"
+                     alt="{{ d.placa }}"
+                     style="height:36px;border-radius:3px;border:1px solid rgba(220,53,69,.5);"
+                     title="Ver imagem da placa">
+              </a>
+              {% else %}
+              <span style="color:var(--text-muted);font-size:.7rem;" title="Imagem não disponível">
+                <i class="fas fa-camera-slash"></i>
+              </span>
+              {% endif %}
+            </td>
             <td><small>{{ d.recebido_em | brt }}</small></td>
             <td><small><strong>{{ d.viatura_id }}</strong></small></td>
             <td>
@@ -87,7 +102,7 @@
             </td>
           </tr>
           {% else %}
-          <tr><td colspan="7" class="text-center py-4" style="color:var(--text-muted)">Nenhum alerta encontrado.</td></tr>
+          <tr><td colspan="8" class="text-center py-4" style="color:var(--text-muted)">Nenhum alerta encontrado.</td></tr>
           {% endfor %}
         </tbody>
       </table>

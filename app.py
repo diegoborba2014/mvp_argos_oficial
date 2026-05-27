@@ -120,6 +120,7 @@ def _migrar_schema():
         "ALTER TABLE hotlist ADD COLUMN motivo VARCHAR(64) DEFAULT ''",
         "ALTER TABLE hotlist ADD COLUMN prioridade INTEGER DEFAULT 2",
         "ALTER TABLE hotlist ADD COLUMN observacao TEXT DEFAULT ''",
+        "ALTER TABLE deteccoes ADD COLUMN imagem_placa BYTEA",
     ]
     for sql in migrations:
         try:

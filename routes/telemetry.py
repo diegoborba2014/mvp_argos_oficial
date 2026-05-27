@@ -1,3 +1,4 @@
+import base64
 import json
 import queue
 import threading
@@ -131,6 +132,15 @@ def _salvar_deteccao(viatura_id: str, p: dict, viatura: Viatura) -> Deteccao:
         hotlist_placas = {h.placa for h in Hotlist.query.filter_by(ativa=True).all()}
         alerta = pi_alerta or (placa in hotlist_placas)
 
+    # Decode imagem_placa (base64 → bytes) — presente apenas em alertas táticos
+    imagem_placa_bytes = None
+    imagem_b64 = p.get("imagem_placa")
+    if imagem_b64:
+        try:
+            imagem_placa_bytes = base64.b64decode(imagem_b64)
+        except Exception:
+            pass
+
     d = Deteccao(
         viatura_id=viatura_id,
         placa=placa,
@@ -145,6 +155,7 @@ def _salvar_deteccao(viatura_id: str, p: dict, viatura: Viatura) -> Deteccao:
         regiao=p.get("regiao") or "",
         alerta_tatico=alerta,
         camera_id=p.get("camera_id") or "",
+        imagem_placa=imagem_placa_bytes,
         latitude=p.get("latitude"),
         longitude=p.get("longitude"),
         altitude=p.get("altitude"),

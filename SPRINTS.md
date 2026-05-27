@@ -387,6 +387,64 @@ Os campos já enviados nos heartbeats cobrem a maioria dos eventos. Ajustes nece
 
 ---
 
+## Sprint 7 — Correções de Segurança, Qualidade e Performance ⏳ PLANEJADA
+
+> Originada da revisão técnica completa realizada em 27/05/2026 (três agentes paralelos: backend, frontend/UX, segurança/arquitetura). Todos os itens abaixo são bugs reais encontrados em código de produção.
+
+---
+
+### 7.1 — Segurança Crítica 🔴 PRIORIDADE MÁXIMA
+
+Deve ser feita **antes** de qualquer operação em campo ou exposição da URL pública a terceiros.
+
+| # | Problema | Arquivo | Solução |
+|---|---|---|---|
+| S-1 | `SECRET_KEY` hardcoded com fallback público `"dev-secret-key-mude-em-prod"` | `app.py` | `os.environ["SECRET_KEY"]` — levantar `ValueError` se ausente |
+| S-2 | `QG_API_KEY` hardcoded com fallback `"argos-key-dev"` | `app.py`, `api_viaturas.py` | Idem — somente via env var |
+| S-3 | Senha admin padrão `"admin123"` hardcoded no seed | `app.py` | Ler de `ADMIN_PASSWORD` env var; gerar aleatória se ausente e logar no boot |
+| S-4 | `debug=True` hardcoded no `app.run()` | `app.py` | `debug=os.getenv("FLASK_DEBUG","0")=="1"` |
+| S-5 | Open Redirect no login — parâmetro `next` não é validado | `routes/dashboard.py` | Validar com `is_safe_url()` (checar que começa com `/` e não tem `//`) |
+| S-6 | `/api/stream` (SSE) sem autenticação — qualquer pessoa na internet ouve alertas táticos | `routes/api_stream.py` | Adicionar `@login_required` |
+| S-7 | `/healthz` expõe estrutura do banco sem autenticação | `app.py` | Restringir a `127.0.0.1` OU adicionar `@login_required` OU remover |
+| S-8 | XSS via `innerHTML` no feed SSE do dashboard — `d.placa`, `d.marca`, `d.modelo`, `d.cor`, `d.viatura_id` não são escapados | `templates/dashboard.html` | Criar `escapeHtml()` em JS e aplicar em todos os campos interpolados via `innerHTML` |
+| S-9 | XSS nos popups Leaflet de `investigacao.html` — dados da detecção concatenados diretamente no HTML do popup | `templates/investigacao.html` | Aplicar `escapeHtml()` em todos os campos antes de montar o popup |
+| S-10 | XSS em `confirm()` na hotlist — `'${placa}'` sem escape, placa pode conter aspas simples | `templates/hotlist.html` | Usar atributo `data-placa` no botão e ler via `dataset` em JS |
+| S-11 | Logout via GET (`/logout`) — vulnerável a CSRF (link externo pode deslogar usuário) | `routes/dashboard.py`, `templates/base.html` | Mudar para `POST` com form; adicionar CSRF token |
+| S-12 | Cookies de sessão sem flags de segurança | `app.py` | Adicionar: `SESSION_COOKIE_SECURE=True`, `SESSION_COOKIE_HTTPONLY=True`, `SESSION_COOKIE_SAMESITE="Lax"`, `PERMANENT_SESSION_LIFETIME=timedelta(hours=8)` |
+| S-13 | Sem proteção CSRF em nenhum formulário POST (Flask-WTF não instalado) | todos os templates | Instalar `Flask-WTF`, habilitar `CSRFProtect(app)`, adicionar `{{ form.hidden_tag() }}` ou meta tag + JS |
+| S-14 | Sem rate limiting no login — brute force ilimitado | `routes/dashboard.py` | Instalar `Flask-Limiter`; aplicar `@limiter.limit("5/minute")` na rota `/login` |
+| S-15 | CSV import sem limite de tamanho — DoS: upload de arquivo de 100 MB trava o servidor | `routes/dashboard.py` | Verificar `len(content) > 500_000` antes de processar; validar formato de placa com regex |
+| S-16 | SSE broadcast ANTES do `db.session.commit()` em `telemetry.py` — cliente recebe dado que pode não ter sido gravado | `routes/telemetry.py` | Mover `_broadcast()` para DEPOIS do `db.session.commit()` |
+| S-17 | `_verificar_pi_offline()` chama `db.session.commit()` dentro de rota que pode já ter transação em andamento — risco de double-commit ou rollback silencioso | `routes/dashboard.py` | Remover `db.session.commit()` da função; deixar o commit para o caller da rota |
+| S-18 | Links com `target="_blank"` sem `rel="noopener noreferrer"` — tab-napping | vários templates | Adicionar `rel="noopener noreferrer"` em todos os `target="_blank"` |
+
+---
+
+### 7.2 — Performance, Qualidade e UX Técnico 🟡
+
+| # | Problema | Arquivo | Solução |
+|---|---|---|---|
+| P-1 | Leaflet (~143 KB) + ApexCharts (~1,1 MB) carregados em **todas** as páginas via `base.html` — páginas sem mapa pagam 1,2 MB desnecessários | `templates/base.html` | Mover para `{% block extra_css/js %}` — incluir apenas em `mapa.html`, `investigacao.html`, `detalhe_leitura.html` e `viaturas.html` |
+| P-2 | 3 conexões SSE simultâneas abertas pelo mesmo navegador — `base.html` + `dashboard.html` + `mapa.html` criam cada um seu `EventSource` | `templates/base.html`, `dashboard.html`, `mapa.html` | Centralizar **uma** conexão em `base.html`; `dashboard.html` e `mapa.html` escutam evento JS customizado em vez de criar novo `EventSource` |
+| P-3 | N+1 queries em `_verificar_pi_offline()` — faz `v.ultimo_heartbeat()` (1 query) para cada viatura em loop | `routes/dashboard.py` | Carregar todos os últimos heartbeats em uma única query com `GROUP BY viatura_id` antes do loop |
+| P-4 | Hotlist carregada inteira na memória a cada detecção — `Hotlist.query.filter_by(ativa=True).all()` para fazer match de uma placa | `routes/telemetry.py` | Usar `db.session.query(db.exists().where(...)).scalar()` — retorna bool sem trazer registros |
+| P-5 | N queries em `_verificar_eventos()` — para cada tipo de evento, faz uma query separada no banco | `routes/telemetry.py` | Carregar todos eventos abertos da viatura de uma vez: `EventoSistema.query.filter_by(viatura_id=vid, resolvido=False).all()` e fazer lookup em memória |
+| P-6 | `_marcar_hotlist_pendente()` atualiza cada viatura em loop individual — N UPDATEs separados | `routes/dashboard.py` | Usar `Viatura.query.filter_by(ativa=True).update({"hotlist_pendente": True})` — 1 UPDATE bulk |
+| P-7 | `strptime` sem try/except em filtros de data — crash 500 se operador digitar data inválida | `routes/dashboard.py` | Envolver em `try/except ValueError` e ignorar filtro inválido com flash de aviso |
+| P-8 | Mapa crasha quando viatura não tem GPS — `L.marker([null, null])` lança exceção | `templates/mapa.html` | Adicionar `if (!v.latitude || !v.longitude) return;` antes de criar o marcador |
+| P-9 | Macro `icone()` definida **dentro** do `{% for v in viaturas %}` — redefinida a cada iteração | `templates/dashboard.html` | Mover a definição `{% macro icone(...) %}` para fora do loop `{% for %}` |
+| P-10 | CSV export sem LIMIT — exportar 500 mil registros pode travar o servidor | `routes/dashboard.py` | Adicionar `.limit(50_000)` na query de export OU implementar export paginado com aviso |
+| P-11 | `fetch()` do botão Sincronizar Config e do histórico sem `.catch()` — erros de rede silenciosos para o operador | `templates/config_viatura.html`, `templates/investigacao.html` | Adicionar `.catch(err => ...)` com mensagem visual de erro |
+| P-12 | Badge "OK" no feed SSE do dashboard (JavaScript) vs "NORMAL" no template Jinja2 — inconsistência visual | `templates/dashboard.html` | Padronizar para "NORMAL" no JS também |
+| P-13 | `lazy="dynamic"` depreciado no SQLAlchemy 2.x — gera `LegacyAPIWarning` nos logs | `models.py` | Substituir por `lazy="write_only"` (ou `lazy="select"` se a relação for lida) |
+| P-14 | `.query.get(id)` depreciado no SQLAlchemy 2.x — quebra na versão 3.x | vários arquivos em `routes/` | Substituir por `db.session.get(Model, id)` em todos os usos |
+| P-15 | Sem PRG (Post/Redirect/Get) nas ações da hotlist — F5 repete a última ação POST | `routes/dashboard.py` | Adicionar `return redirect(url_for("dashboard.hotlist"))` após toda ação POST bem-sucedida |
+| P-16 | Sem SRI (Subresource Integrity) nos assets CDN — CDN comprometido = XSS universal | `templates/base.html` | Adicionar `integrity="sha384-..."` e `crossorigin="anonymous"` nas tags `<link>` e `<script>` dos CDNs |
+| P-17 | Sem índices compostos no banco para queries frequentes | `models.py` | Adicionar `Index("ix_evento_resolvido_sev", "resolvido", "severidade")` em `EventoSistema`; `Index("ix_deteccao_viatura_ts", "viatura_id", "recebido_em")` em `Deteccao` |
+| P-18 | Card-footer das viaturas com `background: #f8f9fa` (branco) — destoante do tema escuro do sistema | `templates/viaturas.html` | Substituir por `background: #1a1d23; color: #adb5bd` |
+
+---
+
 ## Sprint Pi-B — Comandos + Config + Imagens ⏳ PLANEJADA
 
 **Pré-requisito:** Sprint Pi-A Pi-side concluída
@@ -399,9 +457,39 @@ Os campos já enviados nos heartbeats cobrem a maioria dos eventos. Ajustes nece
 - QG: `GET /api/viaturas/<id>/config/pending`
 - Pi: `config_polling.py` — aplica e confirma ao QG
 
-### Imagens das detecções:
-- QG: `imagem_veiculo` / `imagem_placa` (TEXT base64) na `Deteccao`; thumbnails 80×60px em alertas e leituras
-- Pi: `qg_sender.py` envia imagens em base64 (max 100KB)
+### Imagens das detecções: ⚙️ IMPLEMENTADA LOCALMENTE — pendente deploy
+
+**Decisão arquitetural:**
+- Somente o **crop da placa** é enviado ao QG (nunca o frame completo do veículo)
+- A imagem só é enviada quando há **match na hotlist** (`alerta_tatico = True`)
+- Redimensionamento para max 300px de largura via Pillow (JPEG 75%, limite 60 KB) antes de enviar
+
+**Arquivos alterados (código pronto, não deployado):**
+
+| Arquivo | Alteração |
+|---|---|
+| `RASPBERRY/src/webhook_handler.py` | Função `_thumbnail_placa_b64()`; `imagem_placa` excluída do buffer em leituras normais |
+| `APP_WEB/models.py` | `imagem_placa = LargeBinary` na `Deteccao` (BYTEA no PostgreSQL) |
+| `APP_WEB/app.py` | Migration `ALTER TABLE deteccoes ADD COLUMN imagem_placa BYTEA` no boot |
+| `APP_WEB/routes/telemetry.py` | `_salvar_deteccao()` decodifica base64 → bytes e salva no banco |
+| `APP_WEB/routes/dashboard.py` | Rota `GET /leituras/<id>/imagem_placa` serve JPEG binário |
+| `APP_WEB/templates/alertas.html` | Thumbnail 36px na listagem; ícone câmera-slash quando sem imagem |
+| `APP_WEB/templates/detalhe_leitura.html` | Card "Imagem da Placa" com borda vermelha (visível só em alertas) |
+
+**Para fazer o deploy:**
+```bash
+# QG (Railway) — inicializar git e fazer push
+git init
+git add APP_WEB/
+git commit -m "feat: imagem da placa em alertas táticos (Sprint Pi-B imagens)"
+git push railway main
+
+# Pi — copiar webhook_handler.py atualizado
+scp RASPBERRY/src/webhook_handler.py diego@100.127.61.22:~/argos/src/
+ssh diego@100.127.61.22 "sudo systemctl restart argos"
+```
+
+**Observação:** a migration roda automaticamente no próximo boot do QG após o deploy.
 
 ---
 
@@ -428,14 +516,53 @@ Os campos já enviados nos heartbeats cobrem a maioria dos eventos. Ajustes nece
 - [x] Motivos dinâmicos na hotlist — CRUD via UI, sem deploy (Sprint 4.5)
 
 ### Pendentes ⏳
+
+#### 🔴 Segurança — Sprint 7.1 (fazer antes de ir ao campo)
+- [ ] S-1/S-2/S-3: Secrets e senhas hardcoded → variáveis de ambiente obrigatórias
+- [ ] S-4: `debug=True` hardcoded → controle por env var
+- [ ] S-5: Open Redirect no login → validar parâmetro `next`
+- [ ] S-6: `/api/stream` SSE sem autenticação → `@login_required`
+- [ ] S-7: `/healthz` exposto publicamente → restringir ou remover
+- [ ] S-8/S-9: XSS via `innerHTML` no feed SSE e popups Leaflet → `escapeHtml()`
+- [ ] S-10: XSS no `confirm()` da hotlist → `data-placa` + `dataset`
+- [ ] S-11: Logout via GET → mudar para POST + CSRF token
+- [ ] S-12: Cookies de sessão sem flags SECURE/HTTPONLY/SAMESITE
+- [ ] S-13: Sem CSRF em formulários → instalar Flask-WTF
+- [ ] S-14: Login sem rate limiting → instalar Flask-Limiter
+- [ ] S-15: CSV import sem limite de tamanho → limitar a 500 KB + validar placa
+- [ ] S-16: SSE broadcast antes do commit → mover para depois
+- [ ] S-17: Double-commit em `_verificar_pi_offline()` → remover commit interno
+- [ ] S-18: `target="_blank"` sem `rel="noopener noreferrer"`
+
+#### 🟡 Performance e Qualidade — Sprint 7.2
+- [ ] P-1: Leaflet + ApexCharts carregados globalmente → mover para páginas específicas
+- [ ] P-2: 3 conexões SSE simultâneas → centralizar 1 conexão em `base.html`
+- [ ] P-3: N+1 queries em `_verificar_pi_offline()` → bulk query
+- [ ] P-4: Hotlist carregada inteira por detecção → query EXISTS no banco
+- [ ] P-5: N queries em `_verificar_eventos()` → carregar de uma vez
+- [ ] P-6: `_marcar_hotlist_pendente()` N UPDATEs → 1 UPDATE bulk
+- [ ] P-7: `strptime` sem try/except → tratar data inválida com flash
+- [ ] P-8: Mapa crasha sem GPS → guard `if (!v.latitude || !v.longitude)`
+- [ ] P-9: Macro `icone()` dentro do loop → mover para fora do `{% for %}`
+- [ ] P-10: CSV export sem LIMIT → limitar a 50.000 registros
+- [ ] P-11: `fetch()` sem `.catch()` no Sincronizar e histórico
+- [ ] P-12: Badge "OK" vs "NORMAL" inconsistente → padronizar para "NORMAL"
+- [ ] P-13: `lazy="dynamic"` depreciado → `lazy="write_only"`
+- [ ] P-14: `.query.get()` depreciado → `db.session.get()`
+- [ ] P-15: Sem PRG nas ações da hotlist → `redirect()` após POST
+- [ ] P-16: Sem SRI nos assets CDN → adicionar `integrity=` hash
+- [ ] P-17: Sem índices compostos → adicionar em `EventoSistema` e `Deteccao`
+- [ ] P-18: Card-footer das viaturas branco → tema escuro
+
+#### ⏳ Outros pendentes
 - [ ] **Revisão em campo com Pi** — RV-1 (detalhe leitura), RV-2 (hotlist), RV-3 (trajetória), RV-4 (alerta sonoro + motivos)
 - [ ] Deploy Sprint Pi-A Pi-side (aguardando Pi disponível)
-- [x] Monitoramento de eventos QG-side — Pi offline, LPR, GPS, CPU, buffer (Sprint 6.1)
 - [ ] Monitoramento de eventos Pi-side — eventos explícitos câmera/GPS/LPR (Sprint 6.2)
+- [ ] UX Review da tela Hotlist — busca, edição inline, toggle ativo/inativo (Sprint 4.6)
 - [ ] Revisão GPS↔Leitura (Sprint 5.2)
 - [ ] Trilha de auditoria de ações (Sprint 5.1)
 - [ ] Política de retenção de dados históricos (Sprint 5.3)
 - [ ] Backup configurado do banco (Sprint 5.4)
 - [ ] Comandos polling Pi-side (Sprint Pi-B)
 - [ ] Config polling Pi-side (Sprint Pi-B)
-- [ ] Imagens das detecções (Sprint Pi-B)
+- [ ] Imagens das detecções — código pronto, **aguarda deploy QG + Pi** (Sprint Pi-B)
