@@ -6,6 +6,7 @@ from datetime import datetime, timezone, timedelta
 
 from flask import Blueprint, request, jsonify, Response, current_app
 from flask_login import login_required
+from sqlalchemy import exists
 
 from models import db, Viatura, Deteccao, Heartbeat, Hotlist, EventoSistema
 from extensions import csrf
@@ -131,8 +132,11 @@ def _salvar_deteccao(viatura_id: str, p: dict, viatura: Viatura) -> Deteccao:
     # Hotlist match: verifica no QG quando modo é híbrido ou nuvem
     alerta = pi_alerta
     if viatura.hotlist_mode in ("hibrido", "nuvem"):
-        hotlist_placas = {h.placa for h in Hotlist.query.filter_by(ativa=True).all()}
-        alerta = pi_alerta or (placa in hotlist_placas)
+        # P-4: exists() em vez de carregar toda a hotlist na memória a cada detecção
+        qg_alerta = db.session.query(
+            exists().where(Hotlist.placa == placa).where(Hotlist.ativa == True)
+        ).scalar()
+        alerta = pi_alerta or bool(qg_alerta)
 
     # Decode imagem_placa (base64 → bytes) — presente apenas em alertas táticos
     imagem_placa_bytes = None

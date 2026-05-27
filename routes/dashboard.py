@@ -31,12 +31,26 @@ def _verificar_pi_offline():
     agora = _utcnow()
     corte = agora - timedelta(minutes=5)
 
-    for v in Viatura.query.filter_by(ativa=True).all():
-        hb = v.ultimo_heartbeat()
+    viaturas = Viatura.query.filter_by(ativa=True).all()
+    if not viaturas:
+        return
+
+    ids = [v.viatura_id for v in viaturas]
+    # P-3: 2 queries fixas em vez de 2N (uma por viatura)
+    ultimos = _ultimos_heartbeats(ids)
+    ev_map = {
+        ev.viatura_id: ev
+        for ev in EventoSistema.query.filter(
+            EventoSistema.viatura_id.in_(ids),
+            EventoSistema.tipo == "pi_offline",
+            EventoSistema.resolvido == False,
+        ).all()
+    }
+
+    for v in viaturas:
+        hb = ultimos.get(v.viatura_id)
         offline = not hb or hb.recebido_em < corte
-        ev_aberto = EventoSistema.query.filter_by(
-            viatura_id=v.viatura_id, tipo="pi_offline", resolvido=False
-        ).first()
+        ev_aberto = ev_map.get(v.viatura_id)
 
         if offline and not ev_aberto:
             ultimo = hb.recebido_em.strftime("%d/%m %H:%M") if hb else "nunca"
