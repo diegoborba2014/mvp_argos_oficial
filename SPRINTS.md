@@ -397,6 +397,8 @@ Os campos já enviados nos heartbeats cobrem a maioria dos eventos. Ajustes nece
 
 Deve ser feita **antes** de qualquer operação em campo ou exposição da URL pública a terceiros.
 
+**Lição aprendida (S-1/S-2/S-3):** Sempre configurar as env vars no Railway **antes** de fazer push do código que remove fallbacks. O `.env` local é gitignored — Railway não o lê. O `QG_API_KEY` deve manter o mesmo valor que o Pi usa. Grep em todos os arquivos para encontrar todos os usos do secret antes de declarar concluído (estava em 3 arquivos: `app.py`, `telemetry.py`, `api_viaturas.py`).
+
 | # | Problema | Arquivo | Solução |
 |---|---|---|---|
 | S-1 | `SECRET_KEY` hardcoded com fallback público `"dev-secret-key-mude-em-prod"` | `app.py` | `os.environ["SECRET_KEY"]` — levantar `ValueError` se ausente |
@@ -538,9 +540,9 @@ Sem isso, o Pi usa o código antigo e **não envia imagens** ao QG.
 
 #### 🔴 Segurança — Sprint 7.1 (fazer antes de ir ao campo)
 - [x] S-1/S-2/S-3: Secrets e senhas hardcoded → variáveis de ambiente obrigatórias ✅ `4e6f4f8`
-- [ ] S-4: `debug=True` hardcoded → controle por env var
+- [x] S-4: `debug=True` hardcoded → `os.getenv("FLASK_DEBUG","0")=="1"` ✅ `495d9b6`
 - [ ] S-5: Open Redirect no login → validar parâmetro `next`
-- [ ] S-6: `/api/stream` SSE sem autenticação → `@login_required`
+- [x] S-6: `/api/stream` SSE sem autenticação → `@login_required` ✅ `495d9b6`
 - [ ] S-7: `/healthz` exposto publicamente → restringir ou remover
 - [ ] S-8/S-9: XSS via `innerHTML` no feed SSE e popups Leaflet → `escapeHtml()`
 - [ ] S-10: XSS no `confirm()` da hotlist → `data-placa` + `dataset`
