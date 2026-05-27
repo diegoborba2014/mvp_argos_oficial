@@ -559,22 +559,22 @@ Sem isso, o Pi usa o código antigo e **não envia imagens** ao QG.
 #### 🟡 Performance e Qualidade — Sprint 7.2
 - [x] P-1: Leaflet + ApexCharts → lazy-load em mapa.html, investigacao.html, detalhe_leitura.html, viaturas.html ✅ `10b182e`
 - [x] P-2: SSE centralizado em base.html; dashboard/mapa/alertas escutam via window CustomEvent ✅ `10b182e`
-- [ ] P-3: N+1 queries em `_verificar_pi_offline()` → bulk query
-- [ ] P-4: Hotlist carregada inteira por detecção → query EXISTS no banco
-- [ ] P-5: N queries em `_verificar_eventos()` → carregar de uma vez
-- [ ] P-6: `_marcar_hotlist_pendente()` N UPDATEs → 1 UPDATE bulk
-- [ ] P-7: `strptime` sem try/except → tratar data inválida com flash
-- [ ] P-8: Mapa crasha sem GPS → guard `if (!v.latitude || !v.longitude)`
-- [ ] P-9: Macro `icone()` dentro do loop → mover para fora do `{% for %}`
-- [ ] P-10: CSV export sem LIMIT → limitar a 50.000 registros
-- [ ] P-11: `fetch()` sem `.catch()` no Sincronizar e histórico
-- [ ] P-12: Badge "OK" vs "NORMAL" inconsistente → padronizar para "NORMAL"
-- [ ] P-13: `lazy="dynamic"` depreciado → `lazy="write_only"`
-- [ ] P-14: `.query.get()` depreciado → `db.session.get()`
-- [ ] P-15: Sem PRG nas ações da hotlist → `redirect()` após POST
-- [ ] P-16: Sem SRI nos assets CDN → adicionar `integrity=` hash
-- [ ] P-17: Sem índices compostos → adicionar em `EventoSistema` e `Deteccao`
-- [ ] P-18: Card-footer das viaturas branco → tema escuro
+- [x] P-3: N+1 queries em `_verificar_pi_offline()` → 2 queries fixas: `_ultimos_heartbeats()` (GROUP BY) + EventoSistema IN ✅ `e0fd9dd`
+- [x] P-4: Hotlist carregada inteira por detecção → `exists().where(placa==X)` — indexed lookup, seguro para múltiplas viaturas simultâneas ✅ `e0fd9dd`
+- [x] P-5: N queries em `_verificar_eventos()` → 1 query no início + ev_map em memória; remove `_resolver_evento()` ✅ `f95836a`
+- [x] P-6: `_marcar_hotlist_pendente()` N UPDATEs → 1 bulk UPDATE ✅ `f95836a`
+- [x] P-7: `strptime` sem try/except → helper `_parse_data()` + flash em alertas/leituras ✅ `5b997ed`
+- [x] P-8: Mapa crasha sem GPS → guard `if (!v.latitude || !v.longitude) return;` em viaturas + alertas ✅ `5b997ed`
+- [x] P-9: Macro `icone()` dentro do loop → movida para antes do `{% for %}` ✅ `5b997ed`
+- [x] P-10: CSV export sem LIMIT → `.limit(50_000)` em leituras ✅ `e790cf3`
+- [x] P-11: `fetch()` sem `.catch()` no histórico de viaturas → alerta de erro ✅ `e790cf3`
+- [x] P-12: Badge "OK" no feed JS → "NORMAL" (consistente com Jinja2) ✅ `e790cf3`
+- [x] P-13: `lazy="dynamic"` depreciado → `lazy="select"`; `ultimo_heartbeat()` usa query explícita ✅ `e790cf3`
+- [x] P-14: `.query.get()` depreciado → `db.session.get()` em user_loader e hotlist ✅ `e790cf3`
+- [x] P-15: Sem PRG nas ações adicionar/remover/importar_csv hotlist → `redirect()` após commit ✅ `e790cf3`
+- [ ] P-16: Sem SRI nos assets CDN → pendente (requer hashes verificados para não quebrar prod)
+- [x] P-17: Índices compostos em `EventoSistema`, `Deteccao`, `Heartbeat` → `__table_args__` + `CREATE INDEX IF NOT EXISTS` ✅ `e790cf3`
+- [x] P-18: Card-footer de viaturas.html branco (`#f8f9fa`) → tema escuro (`#1a1d23`) ✅ `e790cf3`
 
 #### ⏳ Outros pendentes
 - [ ] **Revisão em campo com Pi** — RV-1 (detalhe leitura), RV-2 (hotlist), RV-3 (trajetória), RV-4 (alerta sonoro + motivos)
