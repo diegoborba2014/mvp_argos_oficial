@@ -132,6 +132,25 @@ class Hotlist(db.Model):
     criado_em = db.Column(db.DateTime, default=_utcnow)
 
 
+class EventoSistema(db.Model):
+    """Eventos operacionais do sistema: Pi offline, LPR degradado, GPS sem sinal, etc."""
+    __tablename__ = "eventos_sistema"
+
+    id = db.Column(db.Integer, primary_key=True)
+    viatura_id = db.Column(db.String(64), nullable=False, index=True)
+    # Tipos: pi_offline | pi_reconectado | lpr_offline | lpr_degradado |
+    #        gps_sem_sinal | gps_restaurado | buffer_crescendo | cpu_quente | camera_erro
+    tipo = db.Column(db.String(32), nullable=False, index=True)
+    severidade = db.Column(db.String(8), nullable=False)  # "critico" | "aviso" | "info"
+    detalhe = db.Column(db.Text, default="")
+    resolvido = db.Column(db.Boolean, default=False, index=True)
+    resolvido_em = db.Column(db.DateTime, nullable=True)
+    criado_em = db.Column(db.DateTime, default=_utcnow, index=True)
+
+    def __repr__(self):
+        return f"<EventoSistema {self.tipo} {self.viatura_id} {'OK' if self.resolvido else 'ATIVO'}>"
+
+
 class MotivoHotlist(db.Model):
     """Motivos cadastráveis pelo admin para uso na Hotlist."""
     __tablename__ = "motivos_hotlist"

@@ -51,6 +51,19 @@
           <span id="badge-alertas" class="badge badge-danger badge-alerta-live" style="display:none">0</span>
         </a>
       </li>
+      <!-- Eventos do sistema -->
+      {% if current_user.is_admin() %}
+      <li class="nav-item mr-2">
+        <a class="nav-link" href="{{ url_for('dashboard.eventos') }}" title="Eventos do sistema">
+          <i class="fas fa-heartbeat" style="color:{% if eventos_criticos_count > 0 %}#f39c12{% else %}#6c757d{% endif %};"></i>
+          {% if eventos_criticos_count > 0 %}
+          <span id="badge-eventos" class="badge badge-warning">{{ eventos_criticos_count }}</span>
+          {% else %}
+          <span id="badge-eventos" class="badge badge-warning" style="display:none">0</span>
+          {% endif %}
+        </a>
+      </li>
+      {% endif %}
       <!-- Botão mudo/ativo alerta sonoro -->
       <li class="nav-item mr-2">
         <a class="nav-link" href="#" id="btn-mute-som"
@@ -153,6 +166,17 @@
             <a href="{{ url_for('dashboard.hotlist') }}" class="nav-link {% if request.endpoint == 'dashboard.hotlist' %}active{% endif %}">
               <i class="nav-icon fas fa-clipboard-list"></i>
               <p>Hotlist</p>
+            </a>
+          </li>
+
+          <li class="nav-item">
+            <a href="{{ url_for('dashboard.eventos') }}" class="nav-link {% if request.endpoint == 'dashboard.eventos' %}active{% endif %}">
+              <i class="nav-icon fas fa-heartbeat" style="color:#f39c12;"></i>
+              <p>Eventos
+                {% if eventos_criticos_count > 0 %}
+                <span class="badge badge-warning badge-pill float-right">{{ eventos_criticos_count }}</span>
+                {% endif %}
+              </p>
             </a>
           </li>
           {% endif %}
@@ -300,6 +324,19 @@
 
     // Beep tático — só match na hotlist
     playBeepTatico();
+  });
+
+  // Evento operacional do sistema (LPR, GPS, Pi offline, CPU, Buffer)
+  source.addEventListener('system_event', function (e) {
+    const d = JSON.parse(e.data);
+    if (d.severidade === 'critico') {
+      const badge = document.getElementById('badge-eventos');
+      if (badge) {
+        const count = (parseInt(badge.textContent) || 0) + 1;
+        badge.textContent = count;
+        badge.style.display = '';
+      }
+    }
   });
 })();
 </script>

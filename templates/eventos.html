@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% block title %}Eventos do Sistema{% endblock %}
+{% block page_title %}<i class="fas fa-heartbeat text-warning mr-2"></i>Eventos do Sistema{% endblock %}
+{% block breadcrumb %}<li class="breadcrumb-item active">Eventos</li>{% endblock %}
+
+{% block content %}
+
+{# ── Mapeamentos para labels e ícones ──────────────────────────────────────── #}
+{% set tipo_label = {
+  'pi_offline':       'Pi Offline',
+  'pi_reconectado':   'Pi Reconectado',
+  'lpr_offline':      'LPR Offline',
+  'lpr_degradado':    'LPR Degradado',
+  'gps_sem_sinal':    'GPS Sem Sinal',
+  'gps_restaurado':   'GPS Restaurado',
+  'buffer_crescendo': 'Buffer Crescendo',
+  'cpu_quente':       'CPU Quente',
+  'camera_erro':      'Erro de Câmera',
+} %}
+
+{% set tipo_icon = {
+  'pi_offline':       'fas fa-wifi',
+  'pi_reconectado':   'fas fa-wifi',
+  'lpr_offline':      'fas fa-camera',
+  'lpr_degradado':    'fas fa-camera',
+  'gps_sem_sinal':    'fas fa-map-marker-alt',
+  'gps_restaurado':   'fas fa-map-marker-alt',
+  'buffer_crescendo': 'fas fa-inbox',
+  'cpu_quente':       'fas fa-thermometer-full',
+  'camera_erro':      'fas fa-video',
+} %}
+
+{% set sev_cls = {'critico': 'danger', 'aviso': 'warning', 'info': 'info'} %}
+
+{# ── Filtros ──────────────────────────────────────────────────────────────── #}
+<div class="card shadow-sm mb-3">
+  <div class="card-header py-2" style="background:#1a1d23;color:#fff;">
+    <h3 class="card-title mb-0"><i class="fas fa-filter mr-1"></i>Filtros</h3>
+  </div>
+  <div class="card-body py-2">
+    <form method="GET" class="form-inline flex-wrap" style="gap:.5rem;">
+      <select name="viatura_id" class="form-control form-control-sm">
+        <option value="">Todas as viaturas</option>
+        {% for v in viaturas_ativas %}
+        <option value="{{ v.viatura_id }}" {{ 'selected' if filtros.viatura_id == v.viatura_id }}>
+          {{ v.viatura_id }}
+        </option>
+        {% endfor %}
+      </select>
+
+      <select name="tipo" class="form-control form-control-sm">
+        <option value="">Todos os tipos</option>
+        {% for t, l in tipo_label.items() %}
+        <option value="{{ t }}" {{ 'selected' if filtros.tipo == t }}>{{ l }}</option>
+        {% endfor %}
+      </select>
+
+      <select name="severidade" class="form-control form-control-sm">
+        <option value="">Todas as severidades</option>
+        <option value="critico"  {{ 'selected' if filtros.severidade == 'critico' }}>🔴 Crítico</option>
+        <option value="aviso"    {{ 'selected' if filtros.severidade == 'aviso' }}>🟡 Aviso</option>
+        <option value="info"     {{ 'selected' if filtros.severidade == 'info' }}>🔵 Info</option>
+      </select>
+
+      <select name="apenas_ativos" class="form-control form-control-sm">
+        <option value="1" {{ 'selected' if filtros.apenas_ativos == '1' }}>Apenas ativos</option>
+        <option value="0" {{ 'selected' if filtros.apenas_ativos == '0' }}>Todos (incl. resolvidos)</option>
+      </select>
+
+      <button type="submit" class="btn btn-sm btn-primary">
+        <i class="fas fa-search mr-1"></i>Filtrar
+      </button>
+      <a href="{{ url_for('dashboard.eventos') }}" class="btn btn-sm btn-outline-secondary">
+        <i class="fas fa-times mr-1"></i>Limpar
+      </a>
+    </form>
+  </div>
+</div>
+
+{# ── Tabela de eventos ────────────────────────────────────────────────────── #}
+<div class="card shadow-sm">
+  <div class="card-header d-flex justify-content-between align-items-center py-2"
+       style="background:#1a1d23;color:#fff;">
+    <h3 class="card-title mb-0">
+      <i class="fas fa-list mr-1"></i>{{ eventos | length }} evento(s)
+      {% if filtros.apenas_ativos == '1' %}<small class="text-muted ml-1" style="font-size:.7rem;">ativos</small>{% endif %}
+    </h3>
+    <div>
+      <span class="badge badge-danger mr-1">
+        {{ eventos | selectattr('severidade', 'equalto', 'critico') | list | length }} crítico(s)
+      </span>
+      <span class="badge badge-warning">
+        {{ eventos | selectattr('severidade', 'equalto', 'aviso') | list | length }} aviso(s)
+      </span>
+    </div>
+  </div>
+  <div class="card-body p-0">
+    <div style="overflow-x:auto;">
+      <table class="table table-sm table-hover mb-0" style="font-size:.82rem;">
+        <thead style="background:#343a40;color:#fff;position:sticky;top:0;">
+          <tr>
+            <th style="width:90px;">Severidade</th>
+            <th>Tipo</th>
+            <th style="width:160px;">Viatura</th>
+            <th>Detalhe</th>
+            <th style="width:145px;">Detectado (BRT)</th>
+            <th style="width:90px;">Status</th>
+            <th style="width:60px;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ev in eventos %}
+          {% set sc = sev_cls.get(ev.severidade, 'secondary') %}
+          {% set icon = tipo_icon.get(ev.tipo, 'fas fa-bell') %}
+          {% set label = tipo_label.get(ev.tipo, ev.tipo | replace('_', ' ')) %}
+          <tr style="{{ 'background:rgba(220,53,69,.06);' if not ev.resolvido and ev.severidade == 'critico' else ('background:rgba(243,156,18,.04);' if not ev.resolvido and ev.severidade == 'aviso' else 'opacity:.65;') if ev.resolvido else '' }}">
+            <td>
+              <span class="badge badge-{{ sc }}" style="font-size:.72rem;min-width:58px;">
+                {{ ev.severidade | upper }}
+              </span>
+            </td>
+            <td>
+              <i class="{{ icon }} mr-1 text-{{ sc }}"></i>
+              <strong>{{ label }}</strong>
+            </td>
+            <td>
+              <span style="font-family:monospace;font-size:.85rem;">{{ ev.viatura_id }}</span>
+            </td>
+            <td class="text-muted" style="max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
+                title="{{ ev.detalhe }}">
+              {{ ev.detalhe or '—' }}
+            </td>
+            <td>
+              <small>{{ ev.criado_em | brt }}</small>
+            </td>
+            <td>
+              {% if ev.resolvido %}
+                <span class="badge badge-success" style="font-size:.7rem;">RESOLVIDO</span>
+                {% if ev.resolvido_em %}
+                <br><small class="text-muted" style="font-size:.68rem;">{{ ev.resolvido_em | brt }}</small>
+                {% endif %}
+              {% else %}
+                <span class="badge badge-{{ sc }} badge-alerta-live" style="font-size:.7rem;">ATIVO</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if not ev.resolvido %}
+              <form method="POST" action="{{ url_for('dashboard.resolver_evento', evento_id=ev.id) }}"
+                    style="display:inline;">
+                <input type="hidden" name="apenas_ativos" value="{{ filtros.apenas_ativos }}">
+                <input type="hidden" name="viatura_id" value="{{ filtros.viatura_id }}">
+                <button type="submit" class="btn btn-xs btn-outline-success"
+                        title="Marcar como resolvido"
+                        onclick="return confirm('Marcar evento como resolvido?')">
+                  <i class="fas fa-check"></i>
+                </button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="7" class="text-center text-muted py-4">
+              <i class="fas fa-check-circle fa-2x mb-2 text-success d-block"></i>
+              Nenhum evento{% if filtros.apenas_ativos == '1' %} ativo{% endif %} encontrado.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# ── Legenda de tipos ─────────────────────────────────────────────────────── #}
+<div class="card shadow-sm mt-3">
+  <div class="card-header py-2" style="background:#1a1d23;color:#fff;">
+    <h3 class="card-title mb-0" style="font-size:.85rem;">
+      <i class="fas fa-info-circle mr-1"></i>Legenda — Tipos de evento e thresholds
+    </h3>
+  </div>
+  <div class="card-body py-2">
+    <div class="row" style="font-size:.78rem;">
+      <div class="col-md-6">
+        <table class="table table-sm table-borderless mb-0">
+          <tr><th style="width:140px;">Tipo</th><th>Condição de disparo</th></tr>
+          <tr>
+            <td><span class="badge badge-danger">Pi Offline</span></td>
+            <td>Sem heartbeat há mais de 5 minutos</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-danger">LPR Offline</span></td>
+            <td>LPR Health = 0% (câmera travada)</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-warning">LPR Degradado</span></td>
+            <td>LPR Health abaixo de 70%</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-warning">GPS Sem Sinal</span></td>
+            <td>Menos de 4 satélites visíveis</td>
+          </tr>
+        </table>
+      </div>
+      <div class="col-md-6">
+        <table class="table table-sm table-borderless mb-0">
+          <tr><th style="width:160px;">Tipo</th><th>Condição de disparo</th></tr>
+          <tr>
+            <td><span class="badge badge-warning">Buffer Crescendo</span></td>
+            <td>Mais de 50 detecções em fila local no Pi</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-warning">CPU Quente</span></td>
+            <td>Temperatura do processador acima de 80°C</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-danger">Erro de Câmera</span></td>
+            <td>Enviado explicitamente pelo Pi</td>
+          </tr>
+          <tr>
+            <td><i class="fas fa-check-circle text-success mr-1"></i> Auto-resolução</td>
+            <td>Eventos fecham automaticamente quando condição normaliza</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

@@ -206,6 +206,34 @@ Retorno JSON:
 
 ---
 
+### 4.6 — UX Review da Tela Hotlist ⏳ PLANEJADA
+
+**Objetivo:** revisar a tela `/hotlist` sob a perspectiva de um operador policial que usa o sistema em campo, com foco em usabilidade, clareza visual e eficiência operacional.
+
+**Problemas identificados:**
+
+| # | Problema | Impacto | Solução proposta |
+|---|---|---|---|
+| 1 | Sem busca na tabela | Difícil achar placa quando lista cresce | Campo de filtro instantâneo em JS (sem recarregar) |
+| 2 | Sem edição inline | Alterar motivo/prioridade exige remover e re-adicionar | Modal ou linha expansível com form de edição |
+| 3 | Sem toggle ativo/inativo | Só tem "remover" — sem desativar temporariamente | Botão toggle (ativa/inativa) separado do botão excluir |
+| 4 | Coluna direita sobrecarregada | 4 cards empilhados geram muito scroll em telas menores | Reorganizar: tabs ou accordion na coluna direita |
+| 5 | Sem flash messages de confirmação | Após adicionar/remover, nenhum feedback visual | `flash()` do Flask com categoria success/danger |
+| 6 | Validação de placa fraca | Aceita qualquer 7 chars; não valida Mercosul/formato antigo | Regex no cliente e servidor (AAA1234 ou AAA1A23) |
+| 7 | Sem contador por prioridade | Não dá para ver rapidamente "quantas Alta?" | Mini-badges no cabeçalho: 🔴 3 🟡 12 ⚪ 5 |
+| 8 | Botão excluir muito exposto | Fácil clicar por acidente na operação | Confirm dialog já existe, mas mover para ícone menor |
+| 9 | Sem paginação ou virtualização | Com >200 placas, tabela fica pesada | Paginação ou scroll virtual no front |
+| 10 | Importação CSV sem feedback de linha | Ao importar, não mostra quantas foram adicionadas vs ignoradas | Retornar contagem: N adicionadas, N duplicatas ignoradas |
+
+**Critérios de aceite:**
+- [ ] Operador consegue encontrar uma placa em <5s em lista com 100 entradas
+- [ ] Operador consegue alterar prioridade de uma placa sem remover e re-adicionar
+- [ ] Feedback visual imediato após qualquer ação (adicionar/remover/editar/importar)
+- [ ] Validação de formato de placa no formulário impede entradas inválidas
+- [ ] Contadores por prioridade visíveis no cabeçalho sem rolar a página
+
+---
+
 ### 4.5 — Motivos Dinâmicos na Hotlist ✅ CONCLUÍDA
 **Commit:** pendente push
 
@@ -285,13 +313,14 @@ Tela `/auditoria` (só admin) com filtro de período e usuário.
 
 ---
 
-## Sprint 6 — Monitoramento de Eventos do Sistema ⏳ PLANEJADA
+## Sprint 6 — Monitoramento de Eventos do Sistema
 
 **Objetivo:** detectar e notificar falhas operacionais em tempo real — perda de comunicação com o Pi, falha da câmera/LPR, perda de sinal GPS, temperatura alta, buffer crescendo.
 
 ---
 
-### 6.1 — QG-side (App Web)
+### 6.1 — QG-side (App Web) ✅ CONCLUÍDA
+**Commit:** pendente push
 
 **Modelo `EventoSistema`** (nova tabela):
 ```python
@@ -401,7 +430,8 @@ Os campos já enviados nos heartbeats cobrem a maioria dos eventos. Ajustes nece
 ### Pendentes ⏳
 - [ ] **Revisão em campo com Pi** — RV-1 (detalhe leitura), RV-2 (hotlist), RV-3 (trajetória), RV-4 (alerta sonoro + motivos)
 - [ ] Deploy Sprint Pi-A Pi-side (aguardando Pi disponível)
-- [ ] Monitoramento de eventos — Pi offline, LPR, GPS, CPU, buffer (Sprint 6.1 QG + 6.2 Pi)
+- [x] Monitoramento de eventos QG-side — Pi offline, LPR, GPS, CPU, buffer (Sprint 6.1)
+- [ ] Monitoramento de eventos Pi-side — eventos explícitos câmera/GPS/LPR (Sprint 6.2)
 - [ ] Revisão GPS↔Leitura (Sprint 5.2)
 - [ ] Trilha de auditoria de ações (Sprint 5.1)
 - [ ] Política de retenção de dados históricos (Sprint 5.3)

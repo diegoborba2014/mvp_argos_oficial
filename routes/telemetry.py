@@ -5,7 +5,7 @@ from datetime import datetime, timezone, timedelta
 
 from flask import Blueprint, request, jsonify, Response, current_app
 
-from models import db, Viatura, Deteccao, Heartbeat, Hotlist
+from models import db, Viatura, Deteccao, Heartbeat, Hotlist, EventoSistema
 
 # Eventos gerados há mais de 2 horas são aceitos (200 OK, Pi remove do buffer)
 # mas descartados silenciosamente — não salvos no banco.
@@ -156,6 +156,65 @@ def _salvar_deteccao(viatura_id: str, p: dict, viatura: Viatura) -> Deteccao:
     return d
 
 
+def _resolver_evento(viatura_id: str, tipo: str):
+    """Marca como resolvido o evento aberto (se existir) daquele tipo/viatura."""
+    ev = EventoSistema.query.filter_by(viatura_id=viatura_id, tipo=tipo, resolvido=False).first()
+    if ev:
+        ev.resolvido = True
+        ev.resolvido_em = datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _verificar_eventos(viatura_id: str, hb: Heartbeat):
+    """Gera e resolve EventoSistema automaticamente a cada heartbeat recebido."""
+
+    def _abrir(tipo, severidade, detalhe):
+        if not EventoSistema.query.filter_by(viatura_id=viatura_id, tipo=tipo, resolvido=False).first():
+            db.session.add(EventoSistema(
+                viatura_id=viatura_id, tipo=tipo,
+                severidade=severidade, detalhe=detalhe,
+            ))
+            _broadcast("system_event", {
+                "viatura_id": viatura_id, "tipo": tipo,
+                "severidade": severidade, "detalhe": detalhe,
+            })
+
+    # Pi reconectado: se havia evento pi_offline aberto, resolve-o
+    _resolver_evento(viatura_id, "pi_offline")
+
+    # ── LPR ──────────────────────────────────────────────────────────────────
+    if hb.lpr_health is not None:
+        if hb.lpr_health == 0.0:
+            _abrir("lpr_offline", "critico", "LPR Health = 0% — câmera pode estar travada")
+            _resolver_evento(viatura_id, "lpr_degradado")
+        elif hb.lpr_health < 0.70:
+            _resolver_evento(viatura_id, "lpr_offline")
+            _abrir("lpr_degradado", "aviso", f"LPR Health = {hb.lpr_health * 100:.0f}%")
+        else:
+            _resolver_evento(viatura_id, "lpr_offline")
+            _resolver_evento(viatura_id, "lpr_degradado")
+
+    # ── GPS ───────────────────────────────────────────────────────────────────
+    if hb.satellites is not None:
+        if hb.satellites < 4:
+            _abrir("gps_sem_sinal", "aviso", f"Apenas {hb.satellites} satélite(s) visível(is)")
+        else:
+            _resolver_evento(viatura_id, "gps_sem_sinal")
+
+    # ── Buffer crescendo ──────────────────────────────────────────────────────
+    if hb.buffer_pendente is not None:
+        if hb.buffer_pendente > 50:
+            _abrir("buffer_crescendo", "aviso", f"{hb.buffer_pendente} eventos aguardando envio")
+        else:
+            _resolver_evento(viatura_id, "buffer_crescendo")
+
+    # ── CPU quente ────────────────────────────────────────────────────────────
+    if hb.cpu_temp_c is not None:
+        if hb.cpu_temp_c > 80:
+            _abrir("cpu_quente", "aviso", f"Temperatura CPU: {hb.cpu_temp_c:.1f}°C")
+        else:
+            _resolver_evento(viatura_id, "cpu_quente")
+
+
 def _salvar_heartbeat(viatura_id: str, p: dict):
     gps = p.get("gps", {})
     hb = Heartbeat(
@@ -182,6 +241,9 @@ def _salvar_heartbeat(viatura_id: str, p: dict):
         "cpu_temp_c": p.get("cpu_temp_c"),
         "buffer_pendente": p.get("buffer_pendente", 0),
     })
+
+    # Verifica eventos operacionais com base nos dados do heartbeat
+    _verificar_eventos(viatura_id, hb)
 
 
 # ──────────────────────────────────────────────────────────────────────────────

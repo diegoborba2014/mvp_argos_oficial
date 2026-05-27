@@ -6,7 +6,7 @@ from flask import Blueprint, render_template, request, jsonify, Response, abort,
 from flask_login import login_required, current_user
 from sqlalchemy import func, extract
 
-from models import db, Viatura, Deteccao, Heartbeat, Hotlist, MotivoHotlist
+from models import db, Viatura, Deteccao, Heartbeat, Hotlist, MotivoHotlist, EventoSistema
 
 
 def _utcnow():
@@ -17,6 +17,36 @@ def _marcar_hotlist_pendente():
     """Sinaliza para todas as viaturas ativas que a hotlist mudou."""
     for v in Viatura.query.filter_by(ativa=True).all():
         v.hotlist_pendente = True
+
+
+def _verificar_pi_offline():
+    """
+    Gera/resolve eventos pi_offline para viaturas sem heartbeat há >5 min.
+    Chamado ao carregar o dashboard e a tela de eventos.
+    """
+    agora = _utcnow()
+    corte = agora - timedelta(minutes=5)
+
+    for v in Viatura.query.filter_by(ativa=True).all():
+        hb = v.ultimo_heartbeat()
+        offline = not hb or hb.recebido_em < corte
+        ev_aberto = EventoSistema.query.filter_by(
+            viatura_id=v.viatura_id, tipo="pi_offline", resolvido=False
+        ).first()
+
+        if offline and not ev_aberto:
+            ultimo = hb.recebido_em.strftime("%d/%m %H:%M") if hb else "nunca"
+            db.session.add(EventoSistema(
+                viatura_id=v.viatura_id,
+                tipo="pi_offline",
+                severidade="critico",
+                detalhe=f"Último heartbeat: {ultimo}",
+            ))
+        elif not offline and ev_aberto:
+            ev_aberto.resolvido = True
+            ev_aberto.resolvido_em = agora
+
+    db.session.commit()
 
 
 def _ultimos_heartbeats(viatura_ids=None):
@@ -56,18 +86,34 @@ def index():
     agora = _utcnow()
     inicio_hoje = datetime.combine(agora.date(), datetime.min.time())
 
+    _verificar_pi_offline()
+
     viaturas_db = Viatura.query.filter_by(ativa=True).all()
     hbs = _ultimos_heartbeats([v.viatura_id for v in viaturas_db])
+
+    # Eventos ativos por viatura para o widget de saúde
+    ev_abertos = (
+        EventoSistema.query
+        .filter_by(resolvido=False)
+        .all()
+    )
+    ev_por_viatura = {}
+    for ev in ev_abertos:
+        ev_por_viatura.setdefault(ev.viatura_id, []).append(ev)
 
     viaturas = []
     for v in viaturas_db:
         hb = hbs.get(v.viatura_id)
         online = bool(hb and (agora - hb.recebido_em).total_seconds() < 300)
+        evs = ev_por_viatura.get(v.viatura_id, [])
         viaturas.append({
             "viatura_id": v.viatura_id,
             "descricao": v.descricao,
             "online": online,
             "heartbeat": hb,
+            "eventos": evs,
+            "tem_critico": any(e.severidade == "critico" for e in evs),
+            "tem_aviso": any(e.severidade == "aviso" for e in evs),
         })
 
     alertas_hoje = Deteccao.query.filter(
@@ -288,6 +334,64 @@ def api_historico_viatura(viatura_id):
         }
         for hb in heartbeats
     ])
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Hotlist
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Eventos do sistema (Sprint 6)
+# ──────────────────────────────────────────────────────────────────────────────
+
+@dashboard_bp.route("/eventos")
+@login_required
+def eventos():
+    _admin_required()
+    _verificar_pi_offline()
+
+    viatura_id = request.args.get("viatura_id", "")
+    tipo = request.args.get("tipo", "")
+    severidade = request.args.get("severidade", "")
+    apenas_ativos = request.args.get("apenas_ativos", "1")
+
+    q = EventoSistema.query
+    if viatura_id:
+        q = q.filter_by(viatura_id=viatura_id)
+    if tipo:
+        q = q.filter_by(tipo=tipo)
+    if severidade:
+        q = q.filter_by(severidade=severidade)
+    if apenas_ativos == "1":
+        q = q.filter_by(resolvido=False)
+
+    lista = q.order_by(EventoSistema.criado_em.desc()).limit(300).all()
+    viaturas_ativas = Viatura.query.filter_by(ativa=True).order_by(Viatura.viatura_id).all()
+
+    return render_template(
+        "eventos.html",
+        eventos=lista,
+        viaturas_ativas=viaturas_ativas,
+        filtros={
+            "viatura_id": viatura_id,
+            "tipo": tipo,
+            "severidade": severidade,
+            "apenas_ativos": apenas_ativos,
+        },
+    )
+
+
+@dashboard_bp.route("/eventos/<int:evento_id>/resolver", methods=["POST"])
+@login_required
+def resolver_evento(evento_id):
+    _admin_required()
+    ev = EventoSistema.query.get_or_404(evento_id)
+    ev.resolvido = True
+    ev.resolvido_em = _utcnow()
+    db.session.commit()
+    return redirect(url_for("dashboard.eventos", **{
+        k: v for k, v in request.form.items() if k != "csrf_token"
+    }))
 
 
 # ──────────────────────────────────────────────────────────────────────────────

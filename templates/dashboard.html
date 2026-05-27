@@ -111,6 +111,112 @@
   {% endfor %}
 </div>
 
+<!-- Saúde da Frota -->
+{% if viaturas %}
+<div class="row mb-3">
+  <div class="col-12">
+    <div class="card shadow-sm">
+      <div class="card-header d-flex justify-content-between align-items-center py-2" style="background:#1a1d23;color:#fff;">
+        <h3 class="card-title mb-0">
+          <i class="fas fa-heartbeat mr-2 text-warning"></i>Saúde da Frota
+        </h3>
+        {% if current_user.is_admin() %}
+        <a href="{{ url_for('dashboard.eventos') }}" class="btn btn-xs btn-outline-warning">
+          Ver todos os eventos
+        </a>
+        {% endif %}
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0" style="font-size:.82rem;">
+          <thead style="background:#2c2f3a;color:#adb5bd;">
+            <tr>
+              <th style="width:180px;">Viatura</th>
+              <th class="text-center" style="width:60px;">Pi</th>
+              <th class="text-center" style="width:60px;">LPR</th>
+              <th class="text-center" style="width:60px;">GPS</th>
+              <th class="text-center" style="width:60px;">CPU</th>
+              <th class="text-center" style="width:70px;">Buffer</th>
+              <th>Eventos ativos</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for v in viaturas %}
+            {% set hb = v.heartbeat %}
+            {% set pi_ok = v.online %}
+            {% set lpr_ok = hb and hb.lpr_health is not none and hb.lpr_health >= 0.70 %}
+            {% set lpr_warn = hb and hb.lpr_health is not none and hb.lpr_health > 0 and hb.lpr_health < 0.70 %}
+            {% set lpr_crit = hb and hb.lpr_health is not none and hb.lpr_health == 0.0 %}
+            {% set gps_ok = hb and hb.satellites is not none and hb.satellites >= 4 %}
+            {% set gps_warn = hb and hb.satellites is not none and hb.satellites < 4 %}
+            {% set cpu_crit = hb and hb.cpu_temp_c and hb.cpu_temp_c > 80 %}
+            {% set cpu_warn = hb and hb.cpu_temp_c and hb.cpu_temp_c > 65 and not cpu_crit %}
+            {% set buf_warn = hb and hb.buffer_pendente and hb.buffer_pendente > 50 %}
+
+            {# ícones de status #}
+            {% macro icone(ok, warn, crit, label_ok='', label_warn='', label_crit='') %}
+              {% if crit %}
+                <i class="fas fa-circle text-danger" title="{{ label_crit }}"></i>
+              {% elif warn %}
+                <i class="fas fa-circle text-warning" title="{{ label_warn }}"></i>
+              {% elif ok %}
+                <i class="fas fa-circle text-success" title="{{ label_ok }}"></i>
+              {% else %}
+                <i class="fas fa-circle text-secondary" title="Sem dados"></i>
+              {% endif %}
+            {% endmacro %}
+
+            <tr style="{{ 'background:rgba(220,53,69,.06);' if v.tem_critico else ('background:rgba(243,156,18,.04);' if v.tem_aviso else '') }}">
+              <td style="font-weight:600;">
+                <i class="fas fa-car mr-1 text-muted" style="font-size:.75rem;"></i>{{ v.viatura_id }}
+              </td>
+              <td class="text-center">
+                {{ icone(pi_ok, false, not pi_ok and hb is not none, 'Online', '', 'Offline') }}
+              </td>
+              <td class="text-center">
+                {{ icone(lpr_ok, lpr_warn, lpr_crit, 'LPR OK', 'LPR degradado', 'LPR offline') }}
+              </td>
+              <td class="text-center">
+                {{ icone(gps_ok, gps_warn, false, 'GPS 3D Fix', 'GPS fraco', '') }}
+              </td>
+              <td class="text-center">
+                {% if hb and hb.cpu_temp_c %}
+                  <span class="{{ 'text-danger' if cpu_crit else ('text-warning' if cpu_warn else 'text-success') }}"
+                        title="{{ '%.1f' | format(hb.cpu_temp_c) }}°C">
+                    {{ '%.0f' | format(hb.cpu_temp_c) }}°
+                  </span>
+                {% else %}
+                  <span class="text-secondary">—</span>
+                {% endif %}
+              </td>
+              <td class="text-center">
+                {% if hb %}
+                  <span class="{{ 'text-warning font-weight-bold' if buf_warn else 'text-muted' }}">
+                    {{ hb.buffer_pendente or 0 }}
+                  </span>
+                {% else %}
+                  <span class="text-secondary">—</span>
+                {% endif %}
+              </td>
+              <td>
+                {% for ev in v.eventos %}
+                  {% set sc = {'critico': 'danger', 'aviso': 'warning', 'info': 'info'}.get(ev.severidade, 'secondary') %}
+                  <span class="badge badge-{{ sc }} mr-1" style="font-size:.68rem;">
+                    {{ ev.tipo | replace('_', ' ') }}
+                  </span>
+                {% else %}
+                  <span class="text-muted" style="font-size:.75rem;">Nenhum</span>
+                {% endfor %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <!-- Feed ao vivo -->
 <div class="row">
   <div class="col-12">

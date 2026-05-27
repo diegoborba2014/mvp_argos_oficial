@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from models import db, Usuario, MotivoHotlist
+from models import db, Usuario, MotivoHotlist, EventoSistema
 
 
 def create_app():
@@ -54,6 +54,15 @@ def create_app():
         if dt is None:
             return "--"
         return (dt - timedelta(hours=3)).strftime("%d/%m/%Y %H:%M:%S")
+
+    @app.context_processor
+    def inject_contadores():
+        """Injeta contadores globais em todos os templates (badge do navbar)."""
+        try:
+            criticos = EventoSistema.query.filter_by(resolvido=False, severidade="critico").count()
+        except Exception:
+            criticos = 0
+        return {"eventos_criticos_count": criticos}
 
     @app.route("/healthz")
     def healthz():
