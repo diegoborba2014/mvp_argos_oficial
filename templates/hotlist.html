@@ -11,40 +11,65 @@
       <div class="card-header d-flex justify-content-between align-items-center py-2" style="background:#1a1d23;color:#fff;">
         <h3 class="card-title mb-0">
           <i class="fas fa-list mr-1"></i>{{ hotlist | length }} placa(s)
+          <small class="ml-2 text-muted" style="font-size:.7rem;">ordenado por prioridade</small>
         </h3>
         <a href="{{ url_for('dashboard.hotlist', export='csv') }}" class="btn btn-sm btn-outline-light">
           <i class="fas fa-file-csv mr-1"></i> Exportar CSV
         </a>
       </div>
       <div class="card-body p-0">
-        <div style="max-height:500px;overflow-y:auto;">
-          <table class="table table-sm table-hover table-striped mb-0">
-            <thead style="background:#343a40;color:#fff;position:sticky;top:0;">
+        <div style="max-height:560px;overflow-y:auto;">
+          <table class="table table-sm table-hover mb-0">
+            <thead style="background:#343a40;color:#fff;position:sticky;top:0;font-size:.8rem;">
               <tr>
+                <th style="width:30px;">#</th>
                 <th>Placa</th>
-                <th>Descrição</th>
+                <th>Motivo</th>
+                <th>Descrição / Observação</th>
                 <th>Status</th>
-                <th>Cadastrado em</th>
+                <th>Cadastrado</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
               {% for item in hotlist %}
-              <tr>
+              {% set pri_label = {1:'ALTA', 2:'MÉDIA', 3:'BAIXA'}.get(item.prioridade, 'MÉDIA') %}
+              {% set pri_cls = {1:'danger', 2:'warning', 3:'secondary'}.get(item.prioridade, 'warning') %}
+              <tr style="{{ 'background:rgba(220,53,69,.07);' if item.prioridade == 1 else '' }}">
+                <td class="text-center">
+                  <span class="badge badge-{{ pri_cls }}" title="Prioridade {{ pri_label }}"
+                        style="font-size:.65rem;min-width:42px;">{{ pri_label }}</span>
+                </td>
                 <td>
                   <span style="font-family:monospace;font-size:.95rem;font-weight:700;
                                background:{{ '#dc3545' if item.ativa else '#6c757d' }};color:#fff;
-                               padding:2px 8px;border-radius:4px;">
+                               padding:2px 8px;border-radius:4px;white-space:nowrap;">
                     {{ item.placa }}
                   </span>
                 </td>
-                <td><small>{{ item.descricao or '—' }}</small></td>
+                <td>
+                  {% if item.motivo %}
+                    <span class="badge badge-dark" style="font-size:.7rem;">{{ item.motivo }}</span>
+                  {% else %}
+                    <span class="text-muted" style="font-size:.8rem;">—</span>
+                  {% endif %}
+                </td>
+                <td style="max-width:220px;">
+                  <div style="font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ item.descricao }}">
+                    {{ item.descricao or '—' }}
+                  </div>
+                  {% if item.observacao %}
+                  <div class="text-muted" style="font-size:.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ item.observacao }}">
+                    <i class="fas fa-sticky-note" style="color:#f39c12;"></i> {{ item.observacao }}
+                  </div>
+                  {% endif %}
+                </td>
                 <td>
                   <span class="badge badge-{{ 'danger' if item.ativa else 'secondary' }}">
                     {{ 'ATIVA' if item.ativa else 'INATIVA' }}
                   </span>
                 </td>
-                <td><small>{{ item.criado_em.strftime('%d/%m/%Y') }}</small></td>
+                <td><small class="text-muted">{{ item.criado_em.strftime('%d/%m/%Y') }}</small></td>
                 <td>
                   <form method="POST" style="display:inline;">
                     <input type="hidden" name="acao" value="remover">
@@ -57,7 +82,7 @@
                 </td>
               </tr>
               {% else %}
-              <tr><td colspan="5" class="text-center text-muted py-3">Hotlist vazia.</td></tr>
+              <tr><td colspan="7" class="text-center text-muted py-3">Hotlist vazia.</td></tr>
               {% endfor %}
             </tbody>
           </table>
@@ -72,23 +97,59 @@
     <!-- Adicionar placa -->
     <div class="card shadow-sm mb-3">
       <div class="card-header py-2" style="background:#343a40;color:#fff;">
-        <h3 class="card-title"><i class="fas fa-plus mr-1"></i>Adicionar Placa</h3>
+        <h3 class="card-title mb-0"><i class="fas fa-plus mr-1"></i>Adicionar Placa</h3>
       </div>
       <div class="card-body">
         <form method="POST">
           <input type="hidden" name="acao" value="adicionar">
-          <div class="form-group">
-            <label style="font-size:.85rem;">Placa</label>
+
+          <div class="form-group mb-2">
+            <label style="font-size:.8rem;font-weight:600;">Placa *</label>
             <input type="text" name="placa" class="form-control form-control-sm"
                    placeholder="ABC1D23" pattern="[A-Za-z0-9]{7}" maxlength="7" required
-                   style="font-family:monospace;font-size:1rem;text-transform:uppercase;font-weight:700;">
+                   style="font-family:monospace;font-size:1.1rem;text-transform:uppercase;font-weight:700;letter-spacing:2px;">
           </div>
-          <div class="form-group">
-            <label style="font-size:.85rem;">Descrição (opcional)</label>
-            <input type="text" name="descricao" class="form-control form-control-sm" placeholder="Ex: Veículo suspeito">
+
+          <div class="form-group mb-2">
+            <label style="font-size:.8rem;font-weight:600;">Prioridade</label>
+            <select name="prioridade" class="form-control form-control-sm">
+              <option value="1">🔴 Alta — Risco imediato</option>
+              <option value="2" selected>🟡 Média — Monitoramento ativo</option>
+              <option value="3">⚪ Baixa — Referência</option>
+            </select>
           </div>
+
+          <div class="form-group mb-2">
+            <label style="font-size:.8rem;font-weight:600;">Motivo</label>
+            <input type="text" name="motivo" class="form-control form-control-sm"
+                   placeholder="Ex: Roubo, Investigação, Mandado"
+                   list="motivos-sugeridos" maxlength="64">
+            <datalist id="motivos-sugeridos">
+              <option value="Roubo">
+              <option value="Furto">
+              <option value="Mandado de Busca">
+              <option value="Investigação">
+              <option value="Suspeito">
+              <option value="Busca e Apreensão">
+              <option value="Receptação">
+              <option value="Tráfico">
+            </datalist>
+          </div>
+
+          <div class="form-group mb-2">
+            <label style="font-size:.8rem;font-weight:600;">Descrição</label>
+            <input type="text" name="descricao" class="form-control form-control-sm"
+                   placeholder="Ex: Veículo Corolla prata" maxlength="256">
+          </div>
+
+          <div class="form-group mb-3">
+            <label style="font-size:.8rem;font-weight:600;">Observações</label>
+            <textarea name="observacao" class="form-control form-control-sm" rows="2"
+                      placeholder="Informações adicionais para a equipe operacional..."></textarea>
+          </div>
+
           <button type="submit" class="btn btn-sm btn-danger btn-block">
-            <i class="fas fa-plus mr-1"></i>Adicionar
+            <i class="fas fa-plus mr-1"></i>Adicionar à Hotlist
           </button>
         </form>
       </div>
@@ -97,10 +158,13 @@
     <!-- Importar CSV -->
     <div class="card shadow-sm mb-3">
       <div class="card-header py-2" style="background:#343a40;color:#fff;">
-        <h3 class="card-title"><i class="fas fa-upload mr-1"></i>Importar CSV</h3>
+        <h3 class="card-title mb-0"><i class="fas fa-upload mr-1"></i>Importar CSV</h3>
       </div>
       <div class="card-body">
-        <p class="text-muted" style="font-size:.8rem;">Formato: <code>PLACA,descricao</code> (uma por linha)</p>
+        <p class="text-muted" style="font-size:.75rem;">
+          Colunas: <code>PLACA, descricao, motivo, prioridade</code><br>
+          <span style="color:#aaa;">As duas últimas são opcionais.</span>
+        </p>
         <form method="POST" enctype="multipart/form-data">
           <input type="hidden" name="acao" value="importar_csv">
           <div class="form-group">
@@ -116,14 +180,15 @@
     <!-- Sincronizar -->
     <div class="card shadow-sm">
       <div class="card-header py-2" style="background:#1a1d23;color:#fff;">
-        <h3 class="card-title"><i class="fas fa-sync mr-1 text-success"></i>Sincronizar</h3>
+        <h3 class="card-title mb-0"><i class="fas fa-sync mr-1 text-success"></i>Sincronizar com Pi</h3>
       </div>
       <div class="card-body">
-        <p class="text-muted" style="font-size:.8rem;">
-          Envia a hotlist atual para todas as viaturas ativas via <code>POST /api/hotlist</code>.
+        <p class="text-muted" style="font-size:.78rem;">
+          As viaturas com Pi online buscam atualizações automaticamente a cada 30s.<br>
+          Use este botão para forçar a sincronização imediata.
         </p>
         <button class="btn btn-sm btn-success btn-block" id="btn-sync" onclick="sincronizarTodas()">
-          <i class="fas fa-broadcast-tower mr-1"></i>Sincronizar com Viaturas
+          <i class="fas fa-broadcast-tower mr-1"></i>Sincronizar Agora
         </button>
         <div id="sync-resultado" class="mt-2" style="font-size:.8rem;"></div>
       </div>
@@ -142,7 +207,6 @@ function sincronizarTodas() {
   btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Sincronizando...';
   res.innerHTML = '';
 
-  // Busca viaturas ativas e sincroniza cada uma
   fetch('/api/mapa/viaturas')
     .then(r => r.json())
     .then(data => {
@@ -156,9 +220,9 @@ function sincronizarTodas() {
         );
 
       Promise.all(promessas).then(resultados => {
-        res.innerHTML = resultados.map(r => `<div>✓ ${r}</div>`).join('') || 'Nenhuma viatura online.';
+        res.innerHTML = resultados.map(r => `<div>✓ ${r}</div>`).join('') || '<span class="text-muted">Nenhuma viatura online no momento.</span>';
         btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-broadcast-tower mr-1"></i>Sincronizar com Viaturas';
+        btn.innerHTML = '<i class="fas fa-broadcast-tower mr-1"></i>Sincronizar Agora';
       });
     });
 }

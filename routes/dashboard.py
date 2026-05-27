@@ -305,13 +305,25 @@ def hotlist():
         if acao == "adicionar":
             placa = request.form.get("placa", "").upper().strip()
             descricao = request.form.get("descricao", "").strip()
+            motivo = request.form.get("motivo", "").strip()
+            observacao = request.form.get("observacao", "").strip()
+            try:
+                prioridade = int(request.form.get("prioridade", 2))
+            except ValueError:
+                prioridade = 2
             if placa:
                 existente = Hotlist.query.filter_by(placa=placa).first()
                 if existente:
                     existente.ativa = True
                     existente.descricao = descricao
+                    existente.motivo = motivo
+                    existente.prioridade = prioridade
+                    existente.observacao = observacao
                 else:
-                    db.session.add(Hotlist(placa=placa, descricao=descricao))
+                    db.session.add(Hotlist(
+                        placa=placa, descricao=descricao,
+                        motivo=motivo, prioridade=prioridade, observacao=observacao,
+                    ))
                 _marcar_hotlist_pendente()
                 db.session.commit()
 
@@ -333,27 +345,35 @@ def hotlist():
                         continue
                     placa = row[0].strip().upper()
                     descricao = row[1].strip() if len(row) > 1 else ""
+                    motivo = row[2].strip() if len(row) > 2 else ""
+                    try:
+                        prioridade = int(row[3].strip()) if len(row) > 3 else 2
+                    except ValueError:
+                        prioridade = 2
                     if placa:
                         existente = Hotlist.query.filter_by(placa=placa).first()
                         if not existente:
-                            db.session.add(Hotlist(placa=placa, descricao=descricao))
+                            db.session.add(Hotlist(
+                                placa=placa, descricao=descricao,
+                                motivo=motivo, prioridade=prioridade,
+                            ))
                 _marcar_hotlist_pendente()
                 db.session.commit()
 
     if request.args.get("export") == "csv":
-        items = Hotlist.query.filter_by(ativa=True).order_by(Hotlist.placa).all()
+        items = Hotlist.query.filter_by(ativa=True).order_by(Hotlist.prioridade, Hotlist.placa).all()
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow(["placa", "descricao"])
+        writer.writerow(["placa", "descricao", "motivo", "prioridade"])
         for item in items:
-            writer.writerow([item.placa, item.descricao])
+            writer.writerow([item.placa, item.descricao, item.motivo, item.prioridade])
         return Response(
             output.getvalue(),
             mimetype="text/csv",
             headers={"Content-Disposition": "attachment; filename=hotlist.csv"},
         )
 
-    items = Hotlist.query.order_by(Hotlist.placa).all()
+    items = Hotlist.query.order_by(Hotlist.prioridade, Hotlist.placa).all()
     return render_template("hotlist.html", hotlist=items)
 
 

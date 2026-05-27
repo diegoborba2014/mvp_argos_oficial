@@ -125,6 +125,9 @@ class Hotlist(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     placa = db.Column(db.String(16), unique=True, nullable=False, index=True)
     descricao = db.Column(db.String(256), default="")
+    motivo = db.Column(db.String(64), default="")
+    prioridade = db.Column(db.Integer, default=2)  # 1=Alta 2=Média 3=Baixa
+    observacao = db.Column(db.Text, default="")
     ativa = db.Column(db.Boolean, default=True)
     criado_em = db.Column(db.DateTime, default=_utcnow)
 
