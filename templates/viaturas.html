@@ -127,6 +127,8 @@
 {% endblock %}
 
 {% block extra_js %}
+<!-- P-1: ApexCharts carregado apenas nas páginas que usam gráficos -->
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script>
 function enviarComando(viaturaId, comando) {
   if (!confirm(`Enviar comando "${comando}" para ${viaturaId}?`)) return;

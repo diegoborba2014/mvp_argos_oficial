@@ -10,6 +10,8 @@
 {% endblock %}
 
 {% block extra_css %}
+<!-- P-1: Leaflet carregado apenas nas páginas que usam mapa -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
   #mini-mapa { height: 280px; border-radius: 0 0 6px 6px; }
   .dado-label  { font-size:.72rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em; margin-bottom:1px; }
@@ -272,6 +274,8 @@
 
 {% block extra_js %}
 {% if d.latitude and d.longitude %}
+<!-- P-1: Leaflet carregado apenas nas páginas que usam mapa -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 const lat = {{ d.latitude }};
 const lon = {{ d.longitude }};

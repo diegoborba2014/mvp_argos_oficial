@@ -311,20 +311,19 @@ function escapeHtml(s) {
   setInterval(atualizarHora, 1000);
   atualizarHora();
 
-  const source = new EventSource('/api/stream');
-
-  source.onopen = function () {
+  // P-2: usa a conexão SSE centralizada de base.html — sem EventSource próprio
+  window.addEventListener('argos:open', function () {
     sseStatus.textContent = 'Conectado';
     sseStatus.className = 'badge badge-success';
-  };
+  });
 
-  source.onerror = function () {
+  window.addEventListener('argos:error', function () {
     sseStatus.textContent = 'Reconectando...';
     sseStatus.className = 'badge badge-warning';
-  };
+  });
 
-  source.addEventListener('new_detection', function (e) {
-    const d = JSON.parse(e.data);
+  window.addEventListener('argos:detection', function (e) {
+    const d = e.detail;
 
     totalLeituras++;
     kpiLeiturasEl.textContent = totalLeituras;

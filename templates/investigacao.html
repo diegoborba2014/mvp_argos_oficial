@@ -6,6 +6,8 @@
 {% block breadcrumb %}<li class="breadcrumb-item active">Investigação</li>{% endblock %}
 
 {% block extra_css %}
+<!-- P-1: Leaflet carregado apenas nas páginas que usam mapa -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
   #inv-mapa { height: 100%; min-height: 520px; border-radius: 0 0 6px 6px; }
   .inv-container { display:flex; gap:12px; align-items:flex-start; }
@@ -168,6 +170,8 @@
 {% endblock %}
 
 {% block extra_js %}
+<!-- P-1: Leaflet carregado apenas nas páginas que usam mapa -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 // S-9: escapa caracteres HTML antes de inserir via innerHTML / bindPopup
 function escapeHtml(s) {

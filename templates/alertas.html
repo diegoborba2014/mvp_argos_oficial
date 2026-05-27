@@ -113,10 +113,10 @@
 
 {% block extra_js %}
 <script>
+// P-2: usa conexão SSE centralizada de base.html — sem EventSource próprio
 // Recarrega ao receber novo alerta (base.html já mostra o toast)
-const sseAlertas = new EventSource('/api/stream');
-sseAlertas.addEventListener('new_detection', function (e) {
-  const d = JSON.parse(e.data);
+window.addEventListener('argos:detection', function (e) {
+  const d = e.detail;
   if (d.alerta_tatico) setTimeout(() => location.reload(), 2500);
 });
 </script>

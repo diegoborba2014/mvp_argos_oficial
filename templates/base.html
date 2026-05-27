@@ -13,9 +13,6 @@
   <!-- AdminLTE 3 -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
 
-  <!-- Leaflet (carregado em todas as páginas, usado apenas no mapa) -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-
   <!-- ARGOS Design System — sobrepõe o AdminLTE -->
   <link rel="stylesheet" href="{{ url_for('static', filename='css/argos-theme.css') }}">
 
@@ -258,10 +255,8 @@
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-
 <script>
+// P-1: Leaflet e ApexCharts removidos daqui — carregados apenas nas páginas que os usam
 // S-13: helper para incluir token CSRF em fetch() POST
 function getCsrfToken() {
   const meta = document.querySelector('meta[name="csrf-token"]');
@@ -312,9 +307,16 @@ function getCsrfToken() {
 
   const source = new EventSource('/api/stream');
 
+  // P-2: propaga status da conexão para páginas que mostram badge de SSE
+  source.onopen  = function () { window.dispatchEvent(new CustomEvent('argos:open')); };
+  source.onerror = function () { window.dispatchEvent(new CustomEvent('argos:error')); };
+
   source.addEventListener('new_detection', function (e) {
     const d = JSON.parse(e.data);
-    if (!d.alerta_tatico) return;  // som e toast SOMENTE em match na hotlist
+    // P-2: re-despacha para dashboard e alertas ouvirem via window (sem EventSource próprio)
+    window.dispatchEvent(new CustomEvent('argos:detection', {detail: d}));
+
+    if (!d.alerta_tatico) return;  // badge/toast/beep somente em alertas táticos
 
     // Badge navbar
     alertasNovos++;
@@ -338,9 +340,16 @@ function getCsrfToken() {
     playBeepTatico();
   });
 
+  // P-2: re-despacha heartbeats para o mapa ouvir
+  source.addEventListener('heartbeat', function (e) {
+    window.dispatchEvent(new CustomEvent('argos:heartbeat', {detail: JSON.parse(e.data)}));
+  });
+
   // Evento operacional do sistema (LPR, GPS, Pi offline, CPU, Buffer)
   source.addEventListener('system_event', function (e) {
     const d = JSON.parse(e.data);
+    // P-2: re-despacha para quem precisar
+    window.dispatchEvent(new CustomEvent('argos:system_event', {detail: d}));
     if (d.severidade === 'critico') {
       const badge = document.getElementById('badge-eventos');
       if (badge) {

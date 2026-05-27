@@ -4,6 +4,8 @@
 {% block breadcrumb %}<li class="breadcrumb-item active">Mapa</li>{% endblock %}
 
 {% block extra_css %}
+<!-- P-1: Leaflet carregado apenas nas páginas que usam mapa -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
   #mapa { height: calc(100vh - 220px); min-height: 500px; border-radius: 0 0 8px 8px; }
   /* Popup escuro matching tema */
@@ -62,6 +64,8 @@
 {% endblock %}
 
 {% block extra_js %}
+<!-- P-1: Leaflet carregado apenas nas páginas que usam mapa -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 const mapa = L.map('mapa', { zoomControl: true }).setView([-15.7801, -47.9292], 5);
 
@@ -149,7 +153,7 @@ function atualizarMapa() {
 atualizarMapa();
 setInterval(atualizarMapa, 60000);
 
-const sseMap = new EventSource('/api/stream');
-sseMap.addEventListener('heartbeat', atualizarMapa);
+// P-2: usa conexão SSE centralizada de base.html — sem EventSource próprio
+window.addEventListener('argos:heartbeat', atualizarMapa);
 </script>
 {% endblock %}
