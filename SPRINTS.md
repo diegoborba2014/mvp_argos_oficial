@@ -294,12 +294,16 @@ Tela `/auditoria` (só admin) com filtro de período e usuário.
 
 ---
 
-### 5.3 — Política de Retenção de Dados
+### 5.3 — Política de Retenção de Dados ✅ CONCLUÍDA
+**Commit:** `c09b57a`
 
-**Objetivo:** evitar crescimento ilimitado do banco em produção.
+**Objetivo:** evitar crescimento ilimitado do banco em produção (~10 MB/dia com imagens).
 
-- Tarefa agendada (cron ou endpoint admin): deletar `Deteccao` e `Heartbeat` com mais de N dias (configurável, ex: 180 dias)
-- Tela de admin com contagem de registros por tabela e botão "Limpar dados antigos"
+**Implementado:**
+- `GET /admin/retencao` — tela admin com 3 cards de stats (total, data mais antiga, data mais recente, estimativa MB) para Detecções, Heartbeats e Eventos Resolvidos
+- `POST /admin/retencao/limpar` — deleta registros anteriores a N dias (30–730, padrão 180); checkboxes por tabela; PRG + confirmação JS; eventos **ativos nunca deletados**
+- Link "Retenção" adicionado na sidebar de admin (`base.html`)
+- Stats em 1 query: `db.session.query(func.count(M.id), func.min(M.campo), func.max(M.campo)).one()`
 
 ---
 
@@ -583,7 +587,7 @@ Sem isso, o Pi usa o código antigo e **não envia imagens** ao QG.
 - [ ] UX Review da tela Hotlist — busca, edição inline, toggle ativo/inativo (Sprint 4.6)
 - [ ] Revisão GPS↔Leitura (Sprint 5.2)
 - [ ] Trilha de auditoria de ações (Sprint 5.1)
-- [ ] Política de retenção de dados históricos (Sprint 5.3)
+- [x] Política de retenção de dados históricos (Sprint 5.3) ✅ `c09b57a`
 - [ ] Backup configurado do banco (Sprint 5.4)
 - [ ] Comandos polling Pi-side (Sprint Pi-B)
 - [ ] Config polling Pi-side (Sprint Pi-B)
