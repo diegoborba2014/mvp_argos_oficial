@@ -128,7 +128,7 @@ class TelemetryService:
 
         except req.exceptions.RequestException as e:
             self.circuit_breaker.record_failure()
-            logger.debug(f"[TELEMETRIA] Erro de rede no heartbeat: {e}")
+            logger.warning(f"[TELEMETRIA] Falha de rede ({type(e).__name__}): {str(e)[:120]}")
         except Exception as e:
             logger.error(f"[TELEMETRIA] Erro interno: {e}")
 
