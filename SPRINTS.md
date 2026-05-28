@@ -576,7 +576,7 @@ Sem isso, o Pi usa o código antigo e **não envia imagens** ao QG.
 - [x] P-13: `lazy="dynamic"` depreciado → `lazy="select"`; `ultimo_heartbeat()` usa query explícita ✅ `e790cf3`
 - [x] P-14: `.query.get()` depreciado → `db.session.get()` em user_loader e hotlist ✅ `e790cf3`
 - [x] P-15: Sem PRG nas ações adicionar/remover/importar_csv hotlist → `redirect()` após commit ✅ `e790cf3`
-- [ ] P-16: Sem SRI nos assets CDN → pendente (requer hashes verificados para não quebrar prod)
+- [x] P-16: Sem SRI nos assets CDN → hashes SHA-384 via `curl|openssl`; URLs AdminLTE fixadas em `@3.2.0`; Bootstrap verificado contra docs oficiais ✅ `f3facc5`
 - [x] P-17: Índices compostos em `EventoSistema`, `Deteccao`, `Heartbeat` → `__table_args__` + `CREATE INDEX IF NOT EXISTS` ✅ `e790cf3`
 - [x] P-18: Card-footer de viaturas.html branco (`#f8f9fa`) → tema escuro (`#1a1d23`) ✅ `e790cf3`
 
