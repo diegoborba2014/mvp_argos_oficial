@@ -12,6 +12,23 @@ def _utcnow():
 db = SQLAlchemy()
 
 
+class Cliente(db.Model):
+    __tablename__ = "clientes"
+
+    id        = db.Column(db.Integer, primary_key=True)
+    nome      = db.Column(db.String(128), nullable=False, unique=True)
+    cnpj_cpf  = db.Column(db.String(20), default="")
+    contato   = db.Column(db.String(128), default="")
+    ativo     = db.Column(db.Boolean, default=True)
+    criado_em = db.Column(db.DateTime, default=_utcnow)
+
+    viaturas = db.relationship("Viatura", backref="cliente", lazy="select")
+    usuarios = db.relationship("Usuario", backref="cliente", lazy="select")
+
+    def __repr__(self):
+        return f"<Cliente {self.nome}>"
+
+
 class Viatura(db.Model):
     __tablename__ = "viaturas"
 
@@ -26,6 +43,7 @@ class Viatura(db.Model):
     hotlist_pendente = db.Column(db.Boolean, default=False)
     hotlist_hash = db.Column(db.String(32), nullable=True)
     ultima_sync_hotlist = db.Column(db.DateTime, nullable=True)
+    cliente_id = db.Column(db.Integer, db.ForeignKey("clientes.id"), nullable=True, index=True)
     criado_em = db.Column(db.DateTime, default=_utcnow)
 
     deteccoes = db.relationship("Deteccao", backref="viatura_ref", lazy="select")
@@ -140,6 +158,7 @@ class Hotlist(db.Model):
     prioridade = db.Column(db.Integer, default=2)  # 1=Alta 2=Média 3=Baixa
     observacao = db.Column(db.Text, default="")
     ativa = db.Column(db.Boolean, default=True)
+    cliente_id = db.Column(db.Integer, db.ForeignKey("clientes.id"), nullable=True, index=True)
     criado_em = db.Column(db.DateTime, default=_utcnow)
 
 
@@ -184,7 +203,9 @@ class Usuario(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
-    perfil = db.Column(db.String(16), default="operador")  # "admin" ou "operador"
+    # perfil: "superadmin" | "admin_cliente" | "operador_cliente" | legado: "admin" | "operador"
+    perfil = db.Column(db.String(16), default="operador")
+    cliente_id = db.Column(db.Integer, db.ForeignKey("clientes.id"), nullable=True, index=True)
     criado_em = db.Column(db.DateTime, default=_utcnow)
 
     def set_password(self, senha):
@@ -194,4 +215,20 @@ class Usuario(UserMixin, db.Model):
         return check_password_hash(self.password_hash, senha)
 
     def is_admin(self):
-        return self.perfil == "admin"
+        return self.perfil in ("admin", "superadmin")
+
+    def is_superadmin(self):
+        return self.perfil in ("admin", "superadmin")
+
+    def is_admin_cliente(self):
+        return self.perfil == "admin_cliente"
+
+    def can_edit_hotlist(self):
+        return self.perfil in ("admin", "superadmin", "admin_cliente")
+
+    def can_manage_equipment(self):
+        return self.is_superadmin()
+
+    def get_cliente_id(self):
+        """None para superadmin (sem filtro); int para usuários de cliente."""
+        return None if self.is_superadmin() else self.cliente_id
