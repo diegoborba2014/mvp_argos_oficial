@@ -160,6 +160,13 @@ def _migrar_schema():
         "CREATE INDEX IF NOT EXISTS ix_deteccoes_alerta_recebido ON deteccoes (alerta_tatico, recebido_em)",
         "CREATE INDEX IF NOT EXISTS ix_deteccoes_viatura_recebido ON deteccoes (viatura_id, recebido_em)",
         "CREATE INDEX IF NOT EXISTS ix_heartbeats_viatura_recebido ON heartbeats (viatura_id, recebido_em)",
+        # Sprint 8.2 — Multi-tenancy: colunas cliente_id (nullable, migração segura)
+        "ALTER TABLE viaturas ADD COLUMN cliente_id INTEGER REFERENCES clientes(id)",
+        "ALTER TABLE usuarios ADD COLUMN cliente_id INTEGER REFERENCES clientes(id)",
+        "ALTER TABLE hotlist ADD COLUMN cliente_id INTEGER REFERENCES clientes(id)",
+        "CREATE INDEX IF NOT EXISTS ix_viaturas_cliente ON viaturas (cliente_id)",
+        "CREATE INDEX IF NOT EXISTS ix_usuarios_cliente ON usuarios (cliente_id)",
+        "CREATE INDEX IF NOT EXISTS ix_hotlist_cliente ON hotlist (cliente_id)",
     ]
     for sql in migrations:
         try:
