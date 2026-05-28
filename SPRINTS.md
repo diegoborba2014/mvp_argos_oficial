@@ -595,7 +595,7 @@ Sem isso, o Pi usa o código antigo e **não envia imagens** ao QG.
 
 ---
 
-## Sprint 8 — Multi-tenancy: Clientes, Usuários e Isolamento de Dados ⏳ PLANEJADA
+## Sprint 8 — Multi-tenancy: Clientes, Usuários e Isolamento de Dados 🔄 EM ANDAMENTO (8.1 ✅ 8.2 ✅)
 
 **Objetivo:** tornar o ARGOS multi-tenant — múltiplos clientes com seus equipamentos, usuários e dados isolados.
 
@@ -611,16 +611,16 @@ Backward compat: `perfil="admin"` → tratado como `superadmin`; `perfil="operad
 
 ### Checklist
 
-#### 8.1 — Modelo de Dados
-- [ ] `models.py` — novo modelo `Cliente` (id, nome, cnpj_cpf, contato, ativo, criado_em)
-- [ ] `models.py` — campo `cliente_id FK` em `Viatura` (nullable)
-- [ ] `models.py` — campo `cliente_id FK` em `Usuario` (nullable)
-- [ ] `models.py` — campo `cliente_id FK` em `Hotlist` (nullable)
-- [ ] `models.py` — métodos em `Usuario`: `is_superadmin()`, `is_admin_cliente()`, `can_edit_hotlist()`, `can_manage_equipment()`, `get_cliente_id()`
-- [ ] `models.py` — índices compostos em `Cliente` (ix_viaturas_cliente, ix_hotlist_cliente, ix_usuarios_cliente)
+#### 8.1 — Modelo de Dados ✅ CONCLUÍDA — commit `8cfee7b`
+- [x] `models.py` — novo modelo `Cliente` (id, nome, cnpj_cpf, contato, ativo, criado_em)
+- [x] `models.py` — campo `cliente_id FK` em `Viatura` (nullable)
+- [x] `models.py` — campo `cliente_id FK` em `Usuario` (nullable)
+- [x] `models.py` — campo `cliente_id FK` em `Hotlist` (nullable)
+- [x] `models.py` — métodos em `Usuario`: `is_superadmin()`, `is_admin_cliente()`, `can_edit_hotlist()`, `can_manage_equipment()`, `get_cliente_id()`
+- [x] `models.py` — índices compostos em `Cliente` (ix_viaturas_cliente, ix_hotlist_cliente, ix_usuarios_cliente)
 
-#### 8.2 — Migrations
-- [ ] `app.py` — 3 `ALTER TABLE` em `_migrar_schema()`: `viaturas`, `usuarios`, `hotlist` + 3 `CREATE INDEX IF NOT EXISTS`
+#### 8.2 — Migrations ✅ CONCLUÍDA — commit `7d3dd6b`
+- [x] `app.py` — 3 `ALTER TABLE` em `_migrar_schema()`: `viaturas`, `usuarios`, `hotlist` + 3 `CREATE INDEX IF NOT EXISTS`
 
 #### 8.3 — Filtro Central e Guards
 - [ ] `routes/dashboard.py` — helper `_viatura_ids_do_usuario()` com cache em `flask.g` + subquery para performance
