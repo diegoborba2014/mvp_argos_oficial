@@ -154,6 +154,7 @@ def _migrar_schema():
         "ALTER TABLE hotlist ADD COLUMN prioridade INTEGER DEFAULT 2",
         "ALTER TABLE hotlist ADD COLUMN observacao TEXT DEFAULT ''",
         "ALTER TABLE deteccoes ADD COLUMN imagem_placa BYTEA",
+        "ALTER TABLE deteccoes ADD COLUMN imagem_veiculo BYTEA",
         # P-17: índices compostos para queries frequentes
         "CREATE INDEX IF NOT EXISTS ix_eventos_viatura_resolvido ON eventos_sistema (viatura_id, resolvido)",
         "CREATE INDEX IF NOT EXISTS ix_eventos_viatura_tipo_resolvido ON eventos_sistema (viatura_id, tipo, resolvido)",

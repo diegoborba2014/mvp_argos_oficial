@@ -20,8 +20,11 @@ webhook_bp = Blueprint("webhook", __name__)
 
 # Tamanho máximo do crop de placa enviado ao QG (em pixels de largura)
 _PLACA_MAX_LARGURA_PX = 300
-# Tamanho máximo em bytes — se ultrapassar, descarta a imagem para não sobrecarregar a rede
 _PLACA_MAX_BYTES = 60_000
+
+# Tamanho máximo do frame completo enviado ao QG em alertas (em pixels de largura)
+_FRAME_MAX_LARGURA_PX = 800
+_FRAME_MAX_BYTES = 150_000
 
 
 def _thumbnail_placa_b64(raw_bytes: bytes) -> str:
@@ -54,6 +57,37 @@ def _thumbnail_placa_b64(raw_bytes: bytes) -> str:
     except Exception as exc:
         logger.warning(f"[WEBHOOK] Erro ao processar thumbnail da placa: {exc}")
         return ""
+
+
+def _thumbnail_frame_b64(raw_bytes: bytes) -> str:
+    """
+    Redimensiona o frame completo da câmera para no máximo _FRAME_MAX_LARGURA_PX de largura
+    e retorna como string base64 para envio ao QG em alertas táticos.
+    """
+    try:
+        from PIL import Image
+        import io as _io
+        img = Image.open(_io.BytesIO(raw_bytes)).convert("RGB")
+        w, h = img.size
+        if w > _FRAME_MAX_LARGURA_PX:
+            ratio = _FRAME_MAX_LARGURA_PX / w
+            img = img.resize((int(w * ratio), int(h * ratio)), Image.LANCZOS)
+        buf = _io.BytesIO()
+        img.save(buf, format="JPEG", quality=65, optimize=True)
+        resultado = buf.getvalue()
+        if len(resultado) > _FRAME_MAX_BYTES:
+            logger.warning(f"[WEBHOOK] Frame ainda grande após resize ({len(resultado)} bytes) — descartando")
+            return ""
+        return base64.b64encode(resultado).decode("utf-8")
+    except ImportError:
+        if len(raw_bytes) <= _FRAME_MAX_BYTES:
+            return base64.b64encode(raw_bytes).decode("utf-8")
+        logger.warning(f"[WEBHOOK] Frame grande ({len(raw_bytes)} bytes) e Pillow indisponível — descartando")
+        return ""
+    except Exception as exc:
+        logger.warning(f"[WEBHOOK] Erro ao processar thumbnail do frame: {exc}")
+        return ""
+
 
 # Referência global ao GPIO (será injetada pelo main.py se necessário,
 # mas para simplificar, usamos uma instância que aponta para a mesma lib lgpio)
@@ -116,12 +150,16 @@ def handle_alpr_webhook():
     direcao      = veiculo_dados.get("direction", 0)
     regiao = resultado.get("region", {}).get("code", "N/D").upper()
 
-    # Imagem do veículo (frame completo) — usada apenas na UI local, nunca enviada ao QG
+    # Frame da câmera — UI local usa versão full quality; QG recebe versão redimensionada (só alertas)
     imagem_veiculo_b64 = ""
+    imagem_veiculo_qg_b64 = ""
     for chave_img in ["upload", "vehicle"]:
         if chave_img in request.files:
             try:
-                imagem_veiculo_b64 = base64.b64encode(request.files[chave_img].read()).decode("utf-8")
+                raw_frame = request.files[chave_img].read()
+                imagem_veiculo_b64 = base64.b64encode(raw_frame).decode("utf-8")
+                if e_alerta:
+                    imagem_veiculo_qg_b64 = _thumbnail_frame_b64(raw_frame)
                 break
             except Exception:
                 pass
@@ -177,12 +215,15 @@ def handle_alpr_webhook():
         # pois `ultima_leitura` foi importada e reatribuí-la localmente não modificaria o dicionário de state.py
         app_state.ultima_leitura.update(novo_estado)
 
-    # Enfileira para envio (com GPS incluído)
-    # imagem_veiculo: nunca enviada ao QG (só para UI local)
-    # imagem_placa:   sempre enviada ao QG (todas as detecções, independente de hotlist)
+    # Enfileira para envio ao QG
+    # imagem_veiculo (full quality): apenas para UI local, excluída do buffer
+    # imagem_placa:                  enviada em todas as detecções
+    # imagem_veiculo (QG, resized):  enviada apenas em alertas táticos
     excluir_buffer = {"imagem_veiculo"}
     evento_buffer = {k: v for k, v in novo_estado.items() if k not in excluir_buffer}
     evento_buffer["viatura_id"] = VIATURA_ID
+    if imagem_veiculo_qg_b64:
+        evento_buffer["imagem_veiculo"] = imagem_veiculo_qg_b64
     buffer.enqueue(evento_buffer)
 
     # Feedback tático físico

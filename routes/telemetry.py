@@ -138,12 +138,20 @@ def _salvar_deteccao(viatura_id: str, p: dict, viatura: Viatura) -> Deteccao:
         ).scalar()
         alerta = pi_alerta or bool(qg_alerta)
 
-    # Decode imagem_placa (base64 → bytes) — presente apenas em alertas táticos
+    # Decode imagens (base64 → bytes)
     imagem_placa_bytes = None
     imagem_b64 = p.get("imagem_placa")
     if imagem_b64:
         try:
             imagem_placa_bytes = base64.b64decode(imagem_b64)
+        except Exception:
+            pass
+
+    imagem_veiculo_bytes = None
+    imagem_veiculo_b64 = p.get("imagem_veiculo")
+    if imagem_veiculo_b64:
+        try:
+            imagem_veiculo_bytes = base64.b64decode(imagem_veiculo_b64)
         except Exception:
             pass
 
@@ -162,6 +170,7 @@ def _salvar_deteccao(viatura_id: str, p: dict, viatura: Viatura) -> Deteccao:
         alerta_tatico=alerta,
         camera_id=p.get("camera_id") or "",
         imagem_placa=imagem_placa_bytes,
+        imagem_veiculo=imagem_veiculo_bytes,
         latitude=p.get("latitude"),
         longitude=p.get("longitude"),
         altitude=p.get("altitude"),

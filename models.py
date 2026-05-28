@@ -98,7 +98,8 @@ class Deteccao(db.Model):
     regiao = db.Column(db.String(16), default="")
     alerta_tatico = db.Column(db.Boolean, default=False, index=True)
     camera_id = db.Column(db.String(32), default="")
-    imagem_placa = db.Column(db.LargeBinary, nullable=True)  # Crop da placa (JPEG), enviado em todas as detecções
+    imagem_placa = db.Column(db.LargeBinary, nullable=True)    # Crop da placa (JPEG), todas as detecções
+    imagem_veiculo = db.Column(db.LargeBinary, nullable=True)  # Frame completo (JPEG), apenas alertas táticos
     latitude = db.Column(db.Float, nullable=True)
     longitude = db.Column(db.Float, nullable=True)
     altitude = db.Column(db.Float, nullable=True)
@@ -120,6 +121,7 @@ class Deteccao(db.Model):
             "velocidade": self.velocidade,
             "alerta_tatico": self.alerta_tatico,
             "tem_imagem": self.imagem_placa is not None,
+            "tem_imagem_veiculo": self.imagem_veiculo is not None,
             "latitude": self.latitude,
             "longitude": self.longitude,
             "recebido_em": (self.recebido_em - timedelta(hours=3)).strftime("%d/%m/%Y %H:%M:%S"),

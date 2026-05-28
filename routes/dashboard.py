@@ -565,6 +565,20 @@ def imagem_placa(leitura_id):
     )
 
 
+@dashboard_bp.route("/leituras/<int:leitura_id>/imagem_veiculo")
+@login_required
+def imagem_veiculo(leitura_id):
+    """Serve o frame completo da câmera (JPEG binário) — disponível apenas em alertas táticos."""
+    d = Deteccao.query.get_or_404(leitura_id)
+    if not d.imagem_veiculo:
+        abort(404)
+    return Response(
+        d.imagem_veiculo,
+        mimetype="image/jpeg",
+        headers={"Cache-Control": "private, max-age=86400"},
+    )
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Trajetória Investigativa
 # ──────────────────────────────────────────────────────────────────────────────
