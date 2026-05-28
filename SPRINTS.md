@@ -102,16 +102,14 @@ Executar quando o Pi estiver disponível e conectado ao sistema.
 
 ---
 
-## Sprint Pi-A Pi-side — Deploy no Pi ⏳ AGUARDANDO PI DISPONÍVEL
+## Sprint Pi-A Pi-side — Deploy no Pi ✅ CONCLUÍDA (28/05/2026)
 
-Arquivos prontos em `RASPBERRY/src/` e `RASPBERRY/config/`. Deploy via SCP:
+Deploy realizado via curl do GitHub (Pi em rede diferente do PC):
+- `hotlist_sync.py` → `/opt/argos/src/`
+- `main.py` (atualizado) → `/opt/argos/src/`
+- `settings.py` → `/opt/argos/config/`
 
-```bash
-scp RASPBERRY/src/hotlist_sync.py diego@100.127.61.22:~/argos/src/
-scp RASPBERRY/src/main.py diego@100.127.61.22:~/argos/src/
-scp RASPBERRY/config/settings.py diego@100.127.61.22:~/argos/config/
-ssh diego@100.127.61.22 "sudo systemctl restart argos"
-```
+**Nota:** Serviço roda de `/opt/argos/`, NÃO de `~/Desktop/LPR_Embarcada_Argos/`.
 
 ---
 
@@ -459,9 +457,10 @@ Deve ser feita **antes** de qualquer operação em campo ou exposição da URL p
 - QG: tabela `ComandoPendente`, endpoints fila + ack
 - Pi: `command_polling.py` — thread 30s
 
-### Config via polling (resolve Sincronizar offline): ⏳ PLANEJADO
-- QG: `GET /api/viaturas/<id>/config/pending`
-- Pi: `config_polling.py` — aplica e confirma ao QG
+### Config via polling: ✅ CONCLUÍDO (28/05/2026)
+- QG: `GET /api/viaturas/<id>/config/pending` + `POST /api/viaturas/<id>/config/ack` — `api_viaturas.py`
+- Pi: `config_polling.py` — polls a cada 60s, aplica em `/opt/stream/config.ini`, reinicia docker LPR, envia ack
+- Botão "Sincronizar" no QG agora mostra mensagem info azul em vez de erro VIATURA_BASE_URL
 
 ---
 
@@ -505,13 +504,7 @@ Deve ser feita **antes** de qualquer operação em campo ou exposição da URL p
 
 **Impacto de storage:** ~10 KB/detecção × 1.000 leituras/dia = **~10 MB/dia** no PostgreSQL. Sprint 5.3 (retenção de dados) torna-se prioritária.
 
-**Deploy Pi-B (ambos Pi-B.1 e Pi-B.2):** ⏳ PENDENTE — aguardando Pi disponível.
-```bash
-scp RASPBERRY/src/webhook_handler.py diego@100.127.61.22:~/argos/src/
-scp RASPBERRY/src/offline_buffer.py diego@100.127.61.22:~/argos/src/
-ssh diego@100.127.61.22 "sudo systemctl restart argos"
-```
-Sem isso, o Pi usa o código antigo e **não envia imagens** ao QG.
+**Deploy Pi-B:** ✅ CONCLUÍDO (28/05/2026) — `webhook_handler.py` + `offline_buffer.py` deployados via curl para `/opt/argos/src/`.
 
 ---
 
