@@ -63,8 +63,8 @@
           <h6><i class="fas fa-info-circle mr-1"></i>Como funciona</h6>
           <small>
             <strong>Salvar no QG</strong> armazena a configuração no banco do servidor.<br>
-            <strong>Sincronizar com Equipamento</strong> envia ao Pi e reinicia o container LPR (~5 s de interrupção).<br>
-            Se o equipamento estiver offline, a config fica <em>pendente</em> e será aplicada automaticamente quando a Sprint Pi-B for implementada.
+            <strong>Sincronizar com Equipamento</strong> enfileira a config — o Pi baixa automaticamente via polling em até 60 s e reinicia o container LPR (~5 s de interrupção).<br>
+            O badge <span class="badge badge-warning">Pendente</span> desaparece quando o Pi confirmar a aplicação.
           </small>
         </div>
 
@@ -732,7 +732,9 @@ function sincronizar() {
     .then(d => {
       btn.disabled = false;
       btn.innerHTML = '<i class="fas fa-sync mr-1"></i>Sincronizar com Equipamento';
-      if (d.status === 'sincronizado') {
+      if (d.status === 'pendente') {
+        mostrarResultado('info', '<i class="fas fa-clock mr-1"></i>' + d.aviso);
+      } else if (d.status === 'sincronizado') {
         atualizarBadge(false, true);
         mostrarResultado('success', '<i class="fas fa-check mr-1"></i>Configuração sincronizada! Container LPR reiniciando (~5 s).');
       } else if (d.aviso) {

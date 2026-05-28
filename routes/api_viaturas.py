@@ -108,21 +108,40 @@ def sincronizar_config(viatura_id):
     viatura = Viatura.query.filter_by(viatura_id=viatura_id).first()
     if not viatura:
         return jsonify({"erro": "viatura não encontrada"}), 404
-    config = viatura.get_config()
-    if not config:
+    if not viatura.get_config():
         return jsonify({"erro": "nenhuma configuração salva para sincronizar"}), 400
-    base_url = os.getenv("VIATURA_BASE_URL", "")
-    if not base_url:
-        return jsonify({"aviso": "VIATURA_BASE_URL não configurada — sincronizacao pendente para Sprint Pi-B", "pendente": True}), 200
-    try:
-        resp = requests.post(f"{base_url}/api/config", json=config, headers=_headers_pi(), timeout=10)
-        if resp.ok:
-            viatura.config_pendente = False
-            db.session.commit()
-            return jsonify({"status": "sincronizado"}), 200
-        return jsonify({"erro": f"Pi retornou {resp.status_code}"}), 502
-    except requests.exceptions.RequestException as e:
-        return jsonify({"erro": f"Pi inacessivel: {str(e)}", "pendente": True}), 502
+    viatura.config_pendente = True
+    db.session.commit()
+    return jsonify({"status": "pendente", "aviso": "Config enfileirada — Pi aplicará em até 60 s via polling"}), 200
+
+
+@api_viaturas_bp.route("/api/viaturas/<viatura_id>/config/pending", methods=["GET"])
+def config_pending_get(viatura_id):
+    """Pi polls: tem config nova para mim?"""
+    err = _api_key_required()
+    if err:
+        return err
+    viatura = Viatura.query.filter_by(viatura_id=viatura_id).first()
+    if not viatura:
+        return jsonify({"erro": "viatura não encontrada"}), 404
+    pendente = bool(viatura.config_pendente)
+    config = viatura.get_config() if pendente else {}
+    return jsonify({"pendente": pendente, "config": config}), 200
+
+
+@api_viaturas_bp.route("/api/viaturas/<viatura_id>/config/ack", methods=["POST"])
+@csrf.exempt
+def config_ack(viatura_id):
+    """Pi confirma que aplicou a config; QG limpa flag pendente."""
+    err = _api_key_required()
+    if err:
+        return err
+    viatura = Viatura.query.filter_by(viatura_id=viatura_id).first()
+    if not viatura:
+        return jsonify({"erro": "viatura não encontrada"}), 404
+    viatura.config_pendente = False
+    db.session.commit()
+    return jsonify({"status": "ok"}), 200
 
 
 # ──────────────────────────────────────────────────────────────────────────────
