@@ -111,24 +111,38 @@ class OfflineBuffer:
                 pendentes = list(self._queue)
 
             enviados = 0
-            for evento in pendentes:
-                if self._enviar_evento(evento):
-                    with self._lock:
-                        try:
-                            self._queue.remove(evento)
-                            enviados += 1
-                        except ValueError:
-                            pass
-                else:
-                    break  # Se falhou, para de tentar (evita flood)
+            try:
+                for evento in pendentes:
+                    resultado = self._enviar_evento(evento)
+                    if resultado is True:
+                        with self._lock:
+                            try:
+                                self._queue.remove(evento)
+                                enviados += 1
+                            except ValueError:
+                                pass
+                    elif resultado is None:
+                        # 4xx — descartar sem bloquear a fila
+                        with self._lock:
+                            try:
+                                self._queue.remove(evento)
+                            except ValueError:
+                                pass
+                    else:
+                        # False — falha de rede, parar e tentar no próximo ciclo
+                        break
+            except Exception as e:
+                logger.error(f"[BUFFER] Erro inesperado no loop de retry: {e}")
 
             if enviados > 0:
                 logger.info(f"[BUFFER] {enviados} evento(s) enviados ao QG.")
                 with self._lock:
                     self._persist_to_disk()
 
-    def _enviar_evento(self, evento: dict) -> bool:
-        """Tenta enviar um único evento ao QG. Retorna True se sucesso."""
+    def _enviar_evento(self, evento: dict):
+        """Tenta enviar um único evento ao QG.
+        Retorna True (sucesso), False (falha de rede — retriable), None (erro 4xx — descartar).
+        """
         headers = {
             "Content-Type": "application/json",
             "X-API-Key": QG_API_KEY,
@@ -141,16 +155,21 @@ class OfflineBuffer:
                 headers=headers,
                 timeout=TELEMETRIA_TIMEOUT_S,
             )
-            sucesso = resp.status_code in (200, 201, 202)
-            self._conectado = sucesso
-            return sucesso
-        except requests.exceptions.ConnectionError:
+            if resp.status_code in (200, 201, 202):
+                self._conectado = True
+                return True
+            if 400 <= resp.status_code < 500:
+                # Erro do cliente (payload inválido, API key errada, etc.) — não adianta retentar
+                logger.warning(f"[BUFFER] HTTP {resp.status_code} — evento descartado (não-retriable).")
+                self._conectado = True  # rede ok; só o payload é problemático
+                return None
+            # 5xx ou outros — falha do servidor, tentar de novo depois
             self._conectado = False
-            logger.debug("[BUFFER] Sem conexão com QG.")
+            logger.debug(f"[BUFFER] HTTP {resp.status_code} do QG — tentará novamente.")
             return False
-        except requests.exceptions.Timeout:
+        except requests.exceptions.RequestException as e:
             self._conectado = False
-            logger.debug("[BUFFER] Timeout na conexão com QG.")
+            logger.debug(f"[BUFFER] Falha de rede ({type(e).__name__}): {str(e)[:120]}")
             return False
 
     # ──────────────────────────────────────────────────────────────────────────

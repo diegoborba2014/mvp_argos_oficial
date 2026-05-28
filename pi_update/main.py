@@ -147,7 +147,7 @@ def main():
 
     # Thread 2 — GPS Reader
     gps.start()
-    logger.info(f"[GPS] Leitura iniciada em /dev/ttyAMA0")
+    logger.info(f"[GPS] Leitura iniciada em /dev/serial0")
 
     # Thread 3 — Offline Buffer
     buffer.start()
