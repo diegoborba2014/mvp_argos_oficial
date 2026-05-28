@@ -66,7 +66,7 @@ TEMPO_TRAVA_ALERTA_S = 15
 QG_TELEMETRY_URL      = os.getenv("QG_URL", "https://qg.argos.internal/telemetry")
 QG_API_KEY            = os.getenv("QG_API_KEY", "")
 TELEMETRIA_INTERVAL_S = 60
-TELEMETRIA_TIMEOUT_S  = 10
+TELEMETRIA_TIMEOUT_S  = 25
 
 # ──────────────────────────────────────────────────────────────────────────────
 # BUFFER OFFLINE (Store-and-Forward)
