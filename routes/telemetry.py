@@ -236,6 +236,14 @@ def _verificar_eventos(viatura_id: str, hb: Heartbeat):
             _resolver("cpu_quente")
 
 
+def _parse_int(v):
+    """Converte para int com segurança — GPS envia campos numéricos como strings NMEA (ex: '00')."""
+    try:
+        return int(v) if v is not None else None
+    except (ValueError, TypeError):
+        return None
+
+
 def _salvar_heartbeat(viatura_id: str, p: dict):
     gps = p.get("gps", {})
     hb = Heartbeat(
@@ -244,7 +252,7 @@ def _salvar_heartbeat(viatura_id: str, p: dict):
         longitude=gps.get("longitude"),
         altitude=gps.get("altitude"),
         speed=gps.get("speed"),
-        satellites=gps.get("satellites"),
+        satellites=_parse_int(gps.get("satellites")),
         gps_status=gps.get("status", ""),
         lpr_health=p.get("lpr_health"),
         lpr_fps=p.get("lpr_fps"),
