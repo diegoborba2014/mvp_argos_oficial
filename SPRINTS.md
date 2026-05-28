@@ -592,3 +592,65 @@ Sem isso, o Pi usa o código antigo e **não envia imagens** ao QG.
 - [ ] Comandos polling Pi-side (Sprint Pi-B)
 - [ ] Config polling Pi-side (Sprint Pi-B)
 - [ ] Imagens da placa no Pi — **QG deployado** (`ef3961d` + `7e5cd99`), **Pi pendente SCP** (Sprint Pi-B.1 + Pi-B.2)
+
+---
+
+## Sprint 8 — Multi-tenancy: Clientes, Usuários e Isolamento de Dados ⏳ PLANEJADA
+
+**Objetivo:** tornar o ARGOS multi-tenant — múltiplos clientes com seus equipamentos, usuários e dados isolados.
+
+### Perfis de acesso
+
+| Perfil | cliente_id | Acesso |
+|--------|-----------|--------|
+| `superadmin` | NULL | Tudo — todos os clientes, equipamentos, configurações |
+| `admin_cliente` | obrigatório | Dados do próprio cliente + hotlist + gestão de usuários do cliente |
+| `operador_cliente` | obrigatório | Leitura dos dados do próprio cliente; sem hotlist nem configurações |
+
+Backward compat: `perfil="admin"` → tratado como `superadmin`; `perfil="operador"` → sem cliente (sem dados visíveis até ser vinculado).
+
+### Checklist
+
+#### 8.1 — Modelo de Dados
+- [ ] `models.py` — novo modelo `Cliente` (id, nome, cnpj_cpf, contato, ativo, criado_em)
+- [ ] `models.py` — campo `cliente_id FK` em `Viatura` (nullable)
+- [ ] `models.py` — campo `cliente_id FK` em `Usuario` (nullable)
+- [ ] `models.py` — campo `cliente_id FK` em `Hotlist` (nullable)
+- [ ] `models.py` — métodos em `Usuario`: `is_superadmin()`, `is_admin_cliente()`, `can_edit_hotlist()`, `can_manage_equipment()`, `get_cliente_id()`
+- [ ] `models.py` — índices compostos em `Cliente` (ix_viaturas_cliente, ix_hotlist_cliente, ix_usuarios_cliente)
+
+#### 8.2 — Migrations
+- [ ] `app.py` — 3 `ALTER TABLE` em `_migrar_schema()`: `viaturas`, `usuarios`, `hotlist` + 3 `CREATE INDEX IF NOT EXISTS`
+
+#### 8.3 — Filtro Central e Guards
+- [ ] `routes/dashboard.py` — helper `_viatura_ids_do_usuario()` com cache em `flask.g` + subquery para performance
+- [ ] `routes/dashboard.py` — 3 guards: `_superadmin_required()`, `_hotlist_admin_required()`, `_equipment_admin_required()`
+- [ ] `routes/dashboard.py` — substituir `_admin_required()` pelos novos guards em todas as rotas
+- [ ] `routes/dashboard.py` — aplicar filtro de viatura_ids em todas as queries de Deteccao, Heartbeat, EventoSistema
+- [ ] `routes/dashboard.py` — aplicar filtro `cliente_id` em queries de Hotlist
+- [ ] `routes/dashboard.py` — IDOR check em `/leituras/<id>`, `/leituras/<id>/imagem_placa`
+- [ ] `routes/dashboard.py` — IDOR check em `/api/mapa/trajeto/<viatura_id>`, `/api/viaturas/<id>/historico`
+
+#### 8.4 — Hotlist por Cliente (Pi-side)
+- [ ] `routes/api_viaturas.py` — `GET /api/viaturas/<id>/hotlist_sync` filtra hotlist por `viatura.cliente_id`
+- [ ] `routes/dashboard.py` — `GET /api/hotlist` (JSON para mapa) filtra por cliente do usuário
+
+#### 8.5 — `inject_contadores` com JOIN
+- [ ] `app.py` — filtro de eventos críticos por cliente usando JOIN (não IN) para performance
+
+#### 8.6 — Novas Telas: Clientes
+- [ ] `routes/dashboard.py` — `GET /admin/clientes` + `POST /admin/clientes/criar` + `POST /admin/clientes/<id>/editar` + `POST /admin/clientes/<id>/toggle`
+- [ ] `templates/clientes.html` — tabela de clientes (nome, contato, nº viaturas, nº usuários, ativo), form cadastro, botões editar/toggle
+
+#### 8.7 — Novas Telas: Usuários
+- [ ] `routes/dashboard.py` — `GET /admin/usuarios` + `POST /admin/usuarios/criar` + `POST /admin/usuarios/<id>/remover` + `POST /admin/usuarios/<id>/senha`
+- [ ] `templates/usuarios.html` — tabela de usuários (username, perfil, cliente, criado_em), form criar (dropdown perfil filtrado por quem cria, dropdown cliente)
+- [ ] Segurança: `admin_cliente` só pode criar `operador_cliente` para o próprio cliente (validação server-side)
+- [ ] Validação: senha mínimo 8 caracteres
+
+#### 8.8 — Vinculação Viatura → Cliente (tela Viaturas existente)
+- [ ] `templates/viaturas.html` — form cadastro de viatura ganha dropdown "Cliente" (obrigatório para superadmin)
+- [ ] `routes/dashboard.py` — `POST /viaturas/criar` salva `cliente_id`
+
+#### 8.9 — Sidebar por Perfil
+- [ ] `templates/base.html` — seção ADMINISTRAÇÃO com lógica para 3 perfis: superadmin (tudo), admin_cliente (Hotlist + Eventos + Usuários), operador_cliente (nada extra)
