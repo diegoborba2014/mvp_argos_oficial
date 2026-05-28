@@ -32,9 +32,9 @@ FLASK_DEBUG = False
 # ──────────────────────────────────────────────────────────────────────────────
 # GPS — NEO-M8N via UART
 # ──────────────────────────────────────────────────────────────────────────────
-# Porta correta para Raspberry Pi 5: /dev/ttyAMA0
-# Raspberry Pi 4 e anteriores: /dev/ttyS0
-GPS_PORT            = "/dev/ttyAMA0"
+# Pi 5: /dev/serial0 → ttyAMA10 (GPIO14/15 via chip RP1)
+# Pi 4: /dev/serial0 → ttyAMA0
+GPS_PORT            = "/dev/serial0"
 GPS_BAUDRATE        = 9600
 GPS_TIMEOUT_S       = 2
 GPS_READ_INTERVAL_S = 1
