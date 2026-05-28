@@ -63,7 +63,7 @@ class TelemetryService:
     def __init__(self):
         self._running = False
         self._thread = None
-        self.circuit_breaker = CircuitBreaker(failure_threshold=5, recovery_timeout=30)
+        self.circuit_breaker = CircuitBreaker(failure_threshold=20, recovery_timeout=20)
 
     def start(self):
         self._running = True
