@@ -46,6 +46,7 @@ from src.state import lock_estado, ultima_leitura
 from src.hotlist_manager import hotlist_manager
 from src.hotlist_sync import hotlist_sync_service
 from src.config_polling import config_polling_service
+from src.command_polling import command_polling_service
 from src.telemetry import telemetry_service
 from src.webhook_handler import webhook_bp, gpio
 from src.remote_api import remote_bp
@@ -165,7 +166,11 @@ def main():
     config_polling_service.start()
     logger.info(f"[CONFIG-POLLING] Polling QG ativo.")
 
-    # Thread 7 — Flask Server
+    # Thread 7 — Command Polling (executa comandos remotos do QG a cada 30s)
+    command_polling_service.start()
+    logger.info(f"[COMMAND-POLLING] Polling QG ativo.")
+
+    # Thread 8 — Flask Server
     flask_thread = threading.Thread(
         target=app.run,
         kwargs={

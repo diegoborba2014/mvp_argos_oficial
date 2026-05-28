@@ -150,6 +150,8 @@ def _migrar_schema():
         "ALTER TABLE viaturas ADD COLUMN hotlist_pendente BOOLEAN DEFAULT FALSE",
         "ALTER TABLE viaturas ADD COLUMN hotlist_hash VARCHAR(32)",
         "ALTER TABLE viaturas ADD COLUMN ultima_sync_hotlist TIMESTAMP",
+        "ALTER TABLE viaturas ADD COLUMN comando_pendente VARCHAR(32)",
+        "ALTER TABLE viaturas ADD COLUMN comando_pendente_at TIMESTAMP",
         "ALTER TABLE hotlist ADD COLUMN motivo VARCHAR(64) DEFAULT ''",
         "ALTER TABLE hotlist ADD COLUMN prioridade INTEGER DEFAULT 2",
         "ALTER TABLE hotlist ADD COLUMN observacao TEXT DEFAULT ''",

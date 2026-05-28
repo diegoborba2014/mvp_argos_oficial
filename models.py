@@ -43,6 +43,8 @@ class Viatura(db.Model):
     hotlist_pendente = db.Column(db.Boolean, default=False)
     hotlist_hash = db.Column(db.String(32), nullable=True)
     ultima_sync_hotlist = db.Column(db.DateTime, nullable=True)
+    comando_pendente = db.Column(db.String(32), nullable=True)
+    comando_pendente_at = db.Column(db.DateTime, nullable=True)
     cliente_id = db.Column(db.Integer, db.ForeignKey("clientes.id"), nullable=True, index=True)
     criado_em = db.Column(db.DateTime, default=_utcnow)
 

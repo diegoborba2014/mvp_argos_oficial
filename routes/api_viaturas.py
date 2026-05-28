@@ -54,22 +54,40 @@ def enviar_comando(viatura_id):
     if not viatura.online():
         return jsonify({"erro": "viatura offline — comando não enviado"}), 503
 
-    # A URL de cada viatura é derivada da configuração (para produção, salvar no banco)
-    # Por ora usa variável de ambiente VIATURA_BASE_URL ou padrão de desenvolvimento
-    base_url = os.getenv("VIATURA_BASE_URL", "")
-    if not base_url:
-        return jsonify({"aviso": "VIATURA_BASE_URL não configurada — comando simulado", "comando": comando}), 200
+    from models import _utcnow
+    viatura.comando_pendente = comando
+    viatura.comando_pendente_at = _utcnow()
+    db.session.commit()
 
-    try:
-        resp = requests.post(
-            f"{base_url}/api/control",
-            json={"acao": comando},
-            headers=_headers_pi(),
-            timeout=10,
-        )
-        return jsonify({"status": "enviado", "resposta": resp.status_code}), 200
-    except requests.exceptions.RequestException as e:
-        return jsonify({"erro": f"falha ao contatar viatura: {str(e)}"}), 502
+    return jsonify({"status": "enfileirado", "comando": comando,
+                    "aviso": "Pi aplicará em até 30 s via polling"}), 200
+
+
+@api_viaturas_bp.route("/api/viaturas/<viatura_id>/comando/pending", methods=["GET"])
+def comando_pending(viatura_id):
+    """Pi consulta: há comando pendente para mim?"""
+    err = _api_key_required()
+    if err:
+        return err
+    viatura = Viatura.query.filter_by(viatura_id=viatura_id).first()
+    if not viatura or not viatura.comando_pendente:
+        return jsonify({"pendente": False}), 200
+    return jsonify({"pendente": True, "comando": viatura.comando_pendente}), 200
+
+
+@api_viaturas_bp.route("/api/viaturas/<viatura_id>/comando/ack", methods=["POST"])
+@csrf.exempt
+def comando_ack(viatura_id):
+    """Pi confirma execução; QG limpa o comando pendente."""
+    err = _api_key_required()
+    if err:
+        return err
+    viatura = Viatura.query.filter_by(viatura_id=viatura_id).first()
+    if viatura:
+        viatura.comando_pendente = None
+        viatura.comando_pendente_at = None
+        db.session.commit()
+    return jsonify({"status": "ok"}), 200
 
 
 @api_viaturas_bp.route("/api/viaturas/<viatura_id>/config", methods=["GET"])
