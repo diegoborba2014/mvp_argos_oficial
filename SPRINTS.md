@@ -639,6 +639,106 @@ Deve ser feita **antes** de qualquer operação em campo ou exposição da URL p
 
 ---
 
+---
+
+## Sprint 9.1 — Dashboard UX Review ⏳ PLANEJADA
+
+**Objetivo:** corrigir bugs e melhorar a usabilidade do dashboard principal com base em análise de campo (28/05/2026).
+
+---
+
+### D-1 — Bug de fuso horário nos cards "Leituras Hoje" e "Alertas Hoje"
+
+**Problema:** O filtro de "hoje" usa `datetime.now(UTC).date()` para calcular o início do dia. Como o banco armazena em UTC e o Brasil é UTC-3, leituras das 21h–24h BRT já aparecem como "amanhã" no banco. O contador perde todas as leituras das primeiras 3h BRT do dia e "vaza" as 3 últimas para o dia seguinte.
+
+**Exemplo real:** Às 21h47 BRT (como na tela enviada), essas leituras são contadas no UTC como "dia seguinte" — somem do card "Leituras Hoje".
+
+**Solução:** Calcular início do dia em BRT (subtrair 3h antes de pegar `.date()`):
+```python
+# dashboard.py — routes index():
+agora_brt = _utcnow() - timedelta(hours=3)
+inicio_hoje = datetime.combine(agora_brt.date(), datetime.min.time())
+# inicio_hoje agora representa 00:00 BRT em UTC → 03:00 UTC
+```
+
+**Arquivo:** `routes/dashboard.py` — função `index()`, queries de `leituras_hoje` e `alertas_hoje`.
+
+---
+
+### D-2 — Linhas duplicadas no Feed ao Vivo (detecções com score 0% / N/D)
+
+**Problema:** O Plate Recognizer envia múltiplos webhooks por passagem de veículo:
+1. Detecção com dados completos (92%, Chevrolet Corsa, com imagem) ← útil
+2. Detecção estática (`report_static = yes`) com score 0%, sem MMC, sem imagem ← ruído
+
+A segunda linha polui o Feed ao Vivo e os contadores sem agregar informação.
+
+**Solução em duas partes:**
+
+**Parte A — No Feed ao Vivo (QG):** não exibir detecções com `score = 0.0` no feed (mas continuar salvando no banco):
+```javascript
+// dashboard.html — handler SSE argos:detection:
+if (d.score === 0 && !d.alerta_tatico) return;  // oculta ruído no feed
+```
+
+**Parte B — No Pi (config LPR):** aumentar `memory_decay` de 5s para 120s via Config LPR no QG. Isso faz o Plate Recognizer aguardar 2 minutos antes de reportar a mesma placa novamente — elimina a maioria das duplicatas na raiz.
+
+**Nota:** detecções com score 0 continuam salvas no banco e aparecem no Log de Leituras (para análise retrospectiva). Só são ocultadas do feed em tempo real.
+
+---
+
+### D-3 — Remover card "Última Atualização"
+
+**Problema:** O card exibe apenas um relógio do browser — não reflete nenhuma métrica real do sistema.
+
+**Solução:** Remover o card. O espaço liberado permite redistribuir os KPIs ou ampliar o Feed ao Vivo.
+
+**Arquivo:** `templates/dashboard.html` — card KPI "Última Atualização" e JS `setInterval(atualizarHora, 1000)`.
+
+---
+
+### D-4 — Mover "Saúde da Frota" para página dedicada
+
+**Problema:** A seção "Saúde da Frota" está embutida no dashboard principal. Com múltiplos clientes e viaturas, fica inutilizável: sem busca, sem filtro, sem paginação. Ocupa espaço que no dashboard seria melhor usado pelo Feed ao Vivo.
+
+**Solução:** Criar página `/viaturas/saude` com:
+- Busca por viatura ou cliente (JS em tempo real, igual ao hotlist)
+- Tabela com ícones de status: Pi / LPR / GPS / CPU / Buffer
+- Eventos abertos por viatura com severidade
+- Paginação (25/página)
+- Link de acesso rápido: botão "Ver Saúde" na sidebar sob "Viaturas"
+
+No dashboard principal: substituir a seção por um **mini-widget compacto** mostrando apenas o resumo (N viaturas online / N com alerta crítico) com link "Ver detalhes →".
+
+**Arquivos:** `routes/dashboard.py` (nova rota `GET /viaturas/saude`) + `templates/saude_frota.html` (nova) + `templates/dashboard.html` (substituição por mini-widget) + `templates/base.html` (link na sidebar).
+
+---
+
+### D-5 — Dashboard redesign com espaço liberado
+
+Com D-3 (card removido) e D-4 (Saúde da Frota movida), o dashboard fica mais limpo:
+
+**Layout proposto:**
+- **Linha 1 — KPIs (4 cards):** Leituras Hoje · Alertas Hoje · Viaturas Online · Eventos Críticos
+- **Linha 2 — Conteúdo principal:**
+  - Esquerda (8 colunas): Feed ao Vivo ampliado (sem score=0) + mini-widget Saúde da Frota
+  - Direita (4 colunas): Mapa das viaturas em tempo real
+
+**Arquivos:** `templates/dashboard.html` + `routes/dashboard.py`.
+
+---
+
+### Checklist Sprint 9.1
+
+- [ ] D-1: Corrigir timezone nos cards Leituras/Alertas Hoje (BRT vs UTC)
+- [ ] D-2a: Ocultar detecções score=0 do Feed ao Vivo (JS + Jinja2)
+- [ ] D-2b: Aumentar `memory_decay = 120` no Pi via Config LPR (remoto, sem deploy)
+- [ ] D-3: Remover card "Última Atualização"
+- [ ] D-4: Criar página `/viaturas/saude` com busca + paginação
+- [ ] D-5: Redesenhar layout do dashboard (KPIs + Feed ampliado + mini-widget + mapa)
+
+---
+
 ## Sprint 8 — Multi-tenancy: Clientes, Usuários e Isolamento de Dados 🔄 EM ANDAMENTO (8.1 ✅ 8.2 ✅)
 
 **Objetivo:** tornar o ARGOS multi-tenant — múltiplos clientes com seus equipamentos, usuários e dados isolados.
