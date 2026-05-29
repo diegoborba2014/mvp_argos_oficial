@@ -278,22 +278,21 @@ Ver seção de lições aprendidas em `feedback_tecnico.md`.
 
 ## Sprint 5 — Auditoria e Produção ⏳ PLANEJADA
 
-### 5.1 — Trilha de Auditoria
+### 5.1 — Trilha de Auditoria ✅ CONCLUÍDA
 
-**Objetivo:** registrar quem fez o quê e quando — alterações na hotlist e ações de usuários.
+**Modelo `LogAuditoria`** (tabela `log_auditoria`): `usuario`, `acao` (formato `"recurso:operacao:alvo"`), `detalhe`, `criado_em`.
 
-**Novo modelo `LogAuditoria`:**
-```python
-class LogAuditoria(db.Model):
-    id          = db.Column(db.Integer, primary_key=True)
-    usuario     = db.Column(db.String(64))
-    acao        = db.Column(db.String(128))   # ex: "hotlist:adicionar:ABC1234"
-    detalhe     = db.Column(db.Text)
-    criado_em   = db.Column(db.DateTime, default=_utcnow)
-```
+**Registrado em:**
+- hotlist: adicionar, atualizar, remover, importar_csv, editar, toggle (ativa/inativa)
+- viatura: criar
+- cliente: criar, editar, toggle
+- usuario: criar, remover, senha
+- comando: enviar (Pi)
+- config: sincronizar (Pi)
 
-Registrar em: adicionar/remover/importar hotlist, sync de config, comandos enviados ao Pi.
-Tela `/auditoria` (só admin) com filtro de período e usuário.
+**Tela `/auditoria`** com filtros (usuario, categoria, data_inicio, data_fim) e paginação.
+- superadmin: vê todos os logs + filtro por usuário
+- admin_cliente: vê apenas os próprios registros
 
 ---
 
@@ -650,7 +649,7 @@ Deve ser feita **antes** de qualquer operação em campo ou exposição da URL p
 #### ⏳ Pendentes
 - [ ] **Revisão em campo (RV-1 a RV-4)** — validar com câmera, GPS e placa real
 - [ ] **Sprint 5.2** — GPS↔Leitura: confirmar que coord. salva é do momento da leitura
-- [ ] **Sprint 5.1** — Trilha de auditoria de ações
+- [x] **Sprint 5.1** — Trilha de auditoria de ações ✅
 - [ ] **Sprint 5.4** — Backup do banco PostgreSQL
 - [x] **Sprint 8.3–8.9** — Multi-tenancy: guards, filtros, telas clientes/usuários ✅
 - [ ] **V-7 Nível 2** — Logs técnicos reais do Pi via comando get_logs (requer deploy Pi)

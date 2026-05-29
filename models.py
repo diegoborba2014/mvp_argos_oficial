@@ -189,6 +189,24 @@ class EventoSistema(db.Model):
         return f"<EventoSistema {self.tipo} {self.viatura_id} {'OK' if self.resolvido else 'ATIVO'}>"
 
 
+class LogAuditoria(db.Model):
+    """Trilha de auditoria: registra ações operacionais de cada usuário."""
+    __tablename__ = "log_auditoria"
+    __table_args__ = (
+        db.Index("ix_log_auditoria_criado", "criado_em"),
+        db.Index("ix_log_auditoria_usuario", "usuario"),
+    )
+
+    id        = db.Column(db.Integer, primary_key=True)
+    usuario   = db.Column(db.String(64), nullable=False)
+    acao      = db.Column(db.String(128), nullable=False)  # "hotlist:adicionar:ABC1234"
+    detalhe   = db.Column(db.Text, default="")
+    criado_em = db.Column(db.DateTime, default=_utcnow, index=True)
+
+    def __repr__(self):
+        return f"<LogAuditoria {self.usuario} {self.acao}>"
+
+
 class MotivoHotlist(db.Model):
     """Motivos cadastráveis pelo admin para uso na Hotlist."""
     __tablename__ = "motivos_hotlist"

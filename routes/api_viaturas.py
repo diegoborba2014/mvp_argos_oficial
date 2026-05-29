@@ -54,9 +54,13 @@ def enviar_comando(viatura_id):
     if not viatura.online():
         return jsonify({"erro": "viatura offline — comando não enviado"}), 503
 
-    from models import _utcnow
+    from models import _utcnow, LogAuditoria
     viatura.comando_pendente = comando
     viatura.comando_pendente_at = _utcnow()
+    db.session.add(LogAuditoria(
+        usuario=current_user.username,
+        acao=f"comando:enviar:{viatura_id}:{comando}",
+    ))
     db.session.commit()
 
     return jsonify({"status": "enfileirado", "comando": comando,
@@ -130,6 +134,11 @@ def salvar_sync_config(viatura_id):
         return jsonify({"erro": "viatura não encontrada"}), 404
     viatura.set_config(config)
     viatura.config_pendente = True
+    from models import LogAuditoria
+    db.session.add(LogAuditoria(
+        usuario=current_user.username,
+        acao=f"config:sincronizar:{viatura_id}",
+    ))
     db.session.commit()
     return jsonify({"status": "enfileirado"}), 200
 

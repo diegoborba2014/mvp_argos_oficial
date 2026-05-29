@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}Auditoria{% endblock %}
+{% block page_title %}<i class="fas fa-shield-alt text-warning mr-2"></i>Trilha de Auditoria{% endblock %}
+{% block breadcrumb %}<li class="breadcrumb-item active">Auditoria</li>{% endblock %}
+
+{% block content %}
+
+<!-- Filtros -->
+<div class="card shadow-sm mb-3">
+  <div class="card-body py-2">
+    <form method="GET" action="{{ url_for('dashboard.auditoria') }}" class="form-inline flex-wrap" style="gap:.5rem;">
+      {% if current_user.is_superadmin() %}
+      <div class="input-group input-group-sm mr-2 mb-1">
+        <div class="input-group-prepend">
+          <span class="input-group-text" style="background:#2a2d3a;border-color:#444;color:#adb5bd;">
+            <i class="fas fa-user"></i>
+          </span>
+        </div>
+        <input type="text" name="usuario" class="form-control" placeholder="Usuário"
+               value="{{ filtros.usuario }}" list="lista-usuarios"
+               style="background:#1a1d26;border-color:#444;color:#e0e0e0;width:140px;">
+        <datalist id="lista-usuarios">
+          {% for u in usuarios_lista %}
+          <option value="{{ u }}">
+          {% endfor %}
+        </datalist>
+      </div>
+      {% endif %}
+
+      <div class="input-group input-group-sm mr-2 mb-1">
+        <div class="input-group-prepend">
+          <span class="input-group-text" style="background:#2a2d3a;border-color:#444;color:#adb5bd;">
+            <i class="fas fa-tag"></i>
+          </span>
+        </div>
+        <select name="categoria" class="form-control"
+                style="background:#1a1d26;border-color:#444;color:#e0e0e0;width:130px;">
+          <option value="">Todas</option>
+          {% for cat in categorias %}
+          <option value="{{ cat }}" {% if filtros.categoria == cat %}selected{% endif %}>{{ cat }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="input-group input-group-sm mr-2 mb-1">
+        <div class="input-group-prepend">
+          <span class="input-group-text" style="background:#2a2d3a;border-color:#444;color:#adb5bd;">
+            <i class="fas fa-calendar-alt"></i>
+          </span>
+        </div>
+        <input type="date" name="data_inicio" class="form-control"
+               value="{{ filtros.data_inicio }}"
+               style="background:#1a1d26;border-color:#444;color:#e0e0e0;">
+      </div>
+
+      <div class="input-group input-group-sm mr-2 mb-1">
+        <input type="date" name="data_fim" class="form-control"
+               value="{{ filtros.data_fim }}"
+               style="background:#1a1d26;border-color:#444;color:#e0e0e0;">
+      </div>
+
+      <button type="submit" class="btn btn-sm btn-primary mb-1">
+        <i class="fas fa-search mr-1"></i>Filtrar
+      </button>
+      <a href="{{ url_for('dashboard.auditoria') }}" class="btn btn-sm btn-outline-secondary mb-1">
+        <i class="fas fa-times mr-1"></i>Limpar
+      </a>
+    </form>
+  </div>
+</div>
+
+<!-- Tabela -->
+<div class="card shadow-sm">
+  <div class="card-header d-flex justify-content-between align-items-center py-2" style="background:#1a1d23;">
+    <strong style="color:#fff;"><i class="fas fa-list mr-2 text-warning"></i>Registros</strong>
+    <small class="text-muted">{{ paginacao.total }} evento(s) · pág. {{ paginacao.page }}/{{ paginacao.pages }}</small>
+  </div>
+  <div class="card-body p-0">
+    {% if paginacao.items %}
+    <div class="table-responsive">
+      <table class="table table-sm table-hover mb-0" style="font-size:.83rem;">
+        <thead style="background:#12151f;">
+          <tr>
+            <th class="pl-3" style="width:160px;">Data/Hora</th>
+            <th style="width:120px;">Usuário</th>
+            <th>Ação</th>
+            <th>Detalhe</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for log in paginacao.items %}
+          {% set partes = log.acao.split(':') %}
+          {% set categoria = partes[0] if partes|length > 0 else '' %}
+          {% set operacao = partes[1] if partes|length > 1 else '' %}
+          {% set alvo = partes[2] if partes|length > 2 else '' %}
+          <tr>
+            <td class="pl-3 text-muted"><small>{{ log.criado_em | brt }}</small></td>
+            <td>
+              <span class="badge badge-secondary">{{ log.usuario }}</span>
+            </td>
+            <td>
+              <span class="badge badge-{{
+                'danger'  if categoria == 'hotlist' and operacao == 'remover' else
+                'success' if categoria == 'hotlist' and operacao in ('adicionar', 'importar_csv') else
+                'info'    if categoria in ('config', 'comando') else
+                'warning' if categoria in ('usuario', 'cliente') else
+                'secondary'
+              }}">{{ categoria }}</span>
+              <span class="ml-1" style="color:#adb5bd;">{{ operacao }}</span>
+              {% if alvo %}
+              <strong class="ml-1" style="color:#e0e0e0;">{{ alvo }}</strong>
+              {% endif %}
+              {% if partes|length > 3 %}
+              <span class="text-muted ml-1">{{ partes[3:] | join(':') }}</span>
+              {% endif %}
+            </td>
+            <td class="text-muted">{{ log.detalhe or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Paginação -->
+    {% if paginacao.pages > 1 %}
+    <div class="d-flex justify-content-between align-items-center px-3 py-2" style="border-top:1px solid rgba(255,255,255,.07);">
+      <div>
+        {% if paginacao.has_prev %}
+        <a href="{{ url_for('dashboard.auditoria', page=paginacao.prev_num,
+                   usuario=filtros.usuario, categoria=filtros.categoria,
+                   data_inicio=filtros.data_inicio, data_fim=filtros.data_fim) }}"
+           class="btn btn-xs btn-outline-secondary">
+          <i class="fas fa-chevron-left"></i> Anterior
+        </a>
+        {% endif %}
+      </div>
+      <small class="text-muted">Página {{ paginacao.page }} de {{ paginacao.pages }}</small>
+      <div>
+        {% if paginacao.has_next %}
+        <a href="{{ url_for('dashboard.auditoria', page=paginacao.next_num,
+                   usuario=filtros.usuario, categoria=filtros.categoria,
+                   data_inicio=filtros.data_inicio, data_fim=filtros.data_fim) }}"
+           class="btn btn-xs btn-outline-secondary">
+          Próxima <i class="fas fa-chevron-right"></i>
+        </a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="callout callout-info m-3">
+      <i class="fas fa-info-circle mr-2"></i>Nenhum registro encontrado com os filtros aplicados.
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

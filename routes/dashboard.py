@@ -11,7 +11,7 @@ from flask_login import login_required, current_user
 from sqlalchemy import func, extract
 from werkzeug.security import generate_password_hash
 
-from models import db, Cliente, Viatura, Deteccao, Heartbeat, Hotlist, MotivoHotlist, EventoSistema, Usuario
+from models import db, Cliente, Viatura, Deteccao, Heartbeat, Hotlist, MotivoHotlist, EventoSistema, Usuario, LogAuditoria
 
 
 def _utcnow():
@@ -171,6 +171,15 @@ def _verificar_acesso_viatura(viatura_id):
 def _verificar_acesso_leitura(deteccao):
     """Aborta 403 se o usuário não pode ver esta detecção."""
     _verificar_acesso_viatura(deteccao.viatura_id)
+
+
+def _log(acao: str, detalhe: str = ""):
+    """Registra uma ação de auditoria. Não commita — responsabilidade do caller."""
+    db.session.add(LogAuditoria(
+        usuario=current_user.username,
+        acao=acao,
+        detalhe=detalhe,
+    ))
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -481,6 +490,7 @@ def criar_viatura():
         cliente_id = None
     if viatura_id and not Viatura.query.filter_by(viatura_id=viatura_id).first():
         db.session.add(Viatura(viatura_id=viatura_id, descricao=descricao, cliente_id=cliente_id))
+        _log(f"viatura:criar:{viatura_id}", f"descricao={descricao} cliente_id={cliente_id}")
         db.session.commit()
         flash(f"Viatura {viatura_id} cadastrada.", "success")
     return redirect(url_for("dashboard.viaturas"))
@@ -635,6 +645,7 @@ def hotlist():
                     existente.motivo = motivo
                     existente.prioridade = prioridade
                     existente.observacao = observacao
+                    _log(f"hotlist:atualizar:{placa}", f"motivo={motivo} prioridade={prioridade}")
                     flash(f"Placa {placa} atualizada na hotlist.", "success")
                 else:
                     db.session.add(Hotlist(
@@ -642,6 +653,7 @@ def hotlist():
                         motivo=motivo, prioridade=prioridade, observacao=observacao,
                         cliente_id=cid,
                     ))
+                    _log(f"hotlist:adicionar:{placa}", f"motivo={motivo} prioridade={prioridade}")
                     flash(f"Placa {placa} adicionada à hotlist.", "success")
                 _marcar_hotlist_pendente()
                 db.session.commit()
@@ -655,6 +667,7 @@ def hotlist():
             if item:
                 if cid is not None and item.cliente_id != cid:
                     abort(403)
+                _log(f"hotlist:remover:{placa}", f"motivo={item.motivo}")
                 db.session.delete(item)
                 _marcar_hotlist_pendente()
                 db.session.commit()
@@ -697,6 +710,7 @@ def hotlist():
                     adicionadas += 1
                 if adicionadas:
                     _marcar_hotlist_pendente()
+                    _log("hotlist:importar_csv", f"{adicionadas} adicionadas · {ignoradas} ignoradas · {invalidas} inválidas")
                 db.session.commit()
                 partes = [f"{adicionadas} placa(s) adicionada(s)"]
                 if ignoradas:
@@ -765,6 +779,7 @@ def hotlist_editar(placa):
     item.motivo = request.form.get("motivo", item.motivo).strip()
     item.descricao = request.form.get("descricao", item.descricao).strip()
     item.observacao = request.form.get("observacao", item.observacao).strip()
+    _log(f"hotlist:editar:{placa.upper()}", f"motivo={item.motivo} prioridade={item.prioridade}")
     _marcar_hotlist_pendente()
     db.session.commit()
     flash(f"Placa {placa.upper()} atualizada.", "success")
@@ -780,9 +795,10 @@ def hotlist_toggle(placa):
     if cid is not None and item.cliente_id != cid:
         abort(403)
     item.ativa = not item.ativa
+    estado = "ativada" if item.ativa else "desativada"
+    _log(f"hotlist:toggle:{placa.upper()}", estado)
     _marcar_hotlist_pendente()
     db.session.commit()
-    estado = "ativada" if item.ativa else "desativada"
     flash(f"Placa {placa.upper()} {estado}.", "info")
     return redirect(url_for("dashboard.hotlist"))
 
@@ -1020,6 +1036,7 @@ def admin_clientes():
             contato = request.form.get("contato", "").strip()
             if nome and not Cliente.query.filter_by(nome=nome).first():
                 db.session.add(Cliente(nome=nome, cnpj_cpf=cnpj, contato=contato))
+                _log(f"cliente:criar:{nome}", f"cnpj={cnpj} contato={contato}")
                 db.session.commit()
                 flash(f"Cliente '{nome}' cadastrado.", "success")
             elif nome:
@@ -1033,6 +1050,7 @@ def admin_clientes():
                 c.nome = request.form.get("nome", c.nome).strip() or c.nome
                 c.cnpj_cpf = request.form.get("cnpj_cpf", c.cnpj_cpf).strip()
                 c.contato = request.form.get("contato", c.contato).strip()
+                _log(f"cliente:editar:{c.nome}")
                 db.session.commit()
                 flash(f"Cliente '{c.nome}' atualizado.", "success")
             return redirect(url_for("dashboard.admin_clientes"))
@@ -1042,8 +1060,10 @@ def admin_clientes():
             c = db.session.get(Cliente, cliente_id)
             if c:
                 c.ativo = not c.ativo
+                estado = "ativado" if c.ativo else "desativado"
+                _log(f"cliente:toggle:{c.nome}", estado)
                 db.session.commit()
-                flash(f"Cliente '{c.nome}' {'ativado' if c.ativo else 'desativado'}.", "info")
+                flash(f"Cliente '{c.nome}' {estado}.", "info")
             return redirect(url_for("dashboard.admin_clientes"))
 
     clientes = Cliente.query.order_by(Cliente.nome).all()
@@ -1088,6 +1108,7 @@ def admin_usuarios():
             u = Usuario(username=username, perfil=perfil, cliente_id=cid_form)
             u.set_password(senha)
             db.session.add(u)
+            _log(f"usuario:criar:{username}", f"perfil={perfil} cliente_id={cid_form}")
             db.session.commit()
             flash(f"Usuário '{username}' criado.", "success")
             return redirect(url_for("dashboard.admin_usuarios"))
@@ -1098,6 +1119,7 @@ def admin_usuarios():
             uid = request.form.get("usuario_id")
             u = db.session.get(Usuario, uid)
             if u and u.id != current_user.id:
+                _log(f"usuario:remover:{u.username}", f"perfil={u.perfil}")
                 db.session.delete(u)
                 db.session.commit()
                 flash(f"Usuário '{u.username}' removido.", "warning")
@@ -1112,6 +1134,7 @@ def admin_usuarios():
                 abort(403)
             if u and len(nova_senha) >= 8:
                 u.set_password(nova_senha)
+                _log(f"usuario:senha:{u.username}")
                 db.session.commit()
                 flash(f"Senha de '{u.username}' alterada.", "success")
             elif u:
@@ -1128,6 +1151,63 @@ def admin_usuarios():
         clientes = []
 
     return render_template("usuarios.html", usuarios=usuarios, clientes=clientes)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Sprint 5.1 — Trilha de Auditoria
+# ──────────────────────────────────────────────────────────────────────────────
+
+@dashboard_bp.route("/auditoria")
+@login_required
+def auditoria():
+    _hotlist_admin_required()  # superadmin + admin_cliente
+
+    usuario_f  = request.args.get("usuario", "").strip()
+    categoria  = request.args.get("categoria", "").strip()
+    data_inicio = request.args.get("data_inicio", "")
+    data_fim    = request.args.get("data_fim", "")
+    page = request.args.get("page", 1, type=int)
+
+    q = LogAuditoria.query
+
+    # admin_cliente só vê os próprios registros
+    if current_user.is_admin_cliente():
+        q = q.filter_by(usuario=current_user.username)
+    elif usuario_f:
+        q = q.filter(LogAuditoria.usuario.ilike(f"%{usuario_f}%"))
+
+    if categoria:
+        q = q.filter(LogAuditoria.acao.like(f"{categoria}%"))
+
+    dt_inicio = _parse_data(data_inicio)
+    dt_fim    = _parse_data(data_fim)
+    if dt_inicio:
+        q = q.filter(LogAuditoria.criado_em >= dt_inicio)
+    if dt_fim:
+        q = q.filter(LogAuditoria.criado_em < dt_fim + timedelta(days=1))
+
+    paginacao = q.order_by(LogAuditoria.criado_em.desc()).paginate(page=page, per_page=50, error_out=False)
+
+    # Lista de usuários para o filtro (superadmin vê todos)
+    usuarios_lista = (
+        [u.username for u in Usuario.query.order_by(Usuario.username).all()]
+        if current_user.is_superadmin() else []
+    )
+
+    categorias = ["hotlist", "viatura", "cliente", "usuario", "comando", "config"]
+
+    return render_template(
+        "auditoria.html",
+        paginacao=paginacao,
+        usuarios_lista=usuarios_lista,
+        categorias=categorias,
+        filtros={
+            "usuario": usuario_f,
+            "categoria": categoria,
+            "data_inicio": data_inicio,
+            "data_fim": data_fim,
+        },
+    )
 
 
 def _exportar_csv(deteccoes: list, nome: str) -> Response:
