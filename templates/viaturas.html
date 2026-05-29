@@ -247,24 +247,50 @@
   </div>
 </div>
 
-<!-- Modal histórico (V-6: legendas e limiares) -->
+<!-- Modal histórico (V-6) -->
 <div class="modal fade" id="modal-historico" tabindex="-1">
-  <div class="modal-dialog modal-lg">
+  <div class="modal-dialog modal-xl">
     <div class="modal-content" style="background:#1a1d26;border:1px solid rgba(255,255,255,.1);">
       <div class="modal-header py-2" style="background:#1a1d23;color:#fff;border-color:rgba(255,255,255,.1);">
-        <h5 class="modal-title"><i class="fas fa-chart-line mr-2 text-info"></i>Histórico 24h — <span id="modal-viatura-id"></span></h5>
+        <h5 class="modal-title"><i class="fas fa-chart-line mr-2 text-info"></i>Histórico — <span id="modal-viatura-id"></span></h5>
         <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
       </div>
       <div class="modal-body">
-        <div class="d-flex justify-content-end mb-1" style="gap:1rem;font-size:.75rem;color:#adb5bd;">
+
+        <!-- Filtro de período -->
+        <div class="d-flex align-items-center flex-wrap mb-3" style="gap:.5rem;background:#12151f;border-radius:6px;padding:.6rem .8rem;">
+          <i class="fas fa-calendar-alt text-muted mr-1"></i>
+          <label class="mb-0 mr-1" style="font-size:.8rem;color:#adb5bd;">De:</label>
+          <input type="datetime-local" id="hist-inicio" class="form-control form-control-sm"
+                 style="background:#1a1d26;border-color:#444;color:#e0e0e0;width:175px;">
+          <label class="mb-0 mr-1" style="font-size:.8rem;color:#adb5bd;">Até:</label>
+          <input type="datetime-local" id="hist-fim" class="form-control form-control-sm"
+                 style="background:#1a1d26;border-color:#444;color:#e0e0e0;width:175px;">
+          <button class="btn btn-sm btn-primary" onclick="buscarHistorico()">
+            <i class="fas fa-search mr-1"></i>Buscar
+          </button>
+          <button class="btn btn-sm btn-outline-secondary" onclick="resetarPeriodo()">
+            <i class="fas fa-clock mr-1"></i>Últimas 24h
+          </button>
+          <small id="hist-total" class="text-muted ml-2"></small>
+        </div>
+
+        <!-- Legenda -->
+        <div class="d-flex justify-content-end mb-2" style="gap:1rem;font-size:.74rem;color:#adb5bd;">
           <span><i class="fas fa-circle text-success mr-1"></i>Normal</span>
           <span><i class="fas fa-circle text-warning mr-1"></i>Atenção</span>
           <span><i class="fas fa-circle text-danger mr-1"></i>Crítico</span>
         </div>
-        <small class="text-muted d-block mb-1">Temperatura da CPU (°C) — normal &lt;65°C, atenção 65–79°C, crítico ≥80°C</small>
-        <div id="chart-temp" style="height:190px;"></div>
-        <small class="text-muted d-block mt-3 mb-1">LPR Health (%) — normal ≥70%, degradado &lt;70%, offline = 0%</small>
-        <div id="chart-health" style="height:190px;"></div>
+
+        <small class="text-muted d-block mb-1">Temperatura da CPU (°C) — normal &lt;65°C · atenção 65–79°C · crítico ≥80°C</small>
+        <div id="chart-temp" style="height:200px;"></div>
+
+        <small class="text-muted d-block mt-3 mb-1">LPR Health (%) — normal ≥70% · degradado &lt;70% · offline = 0%</small>
+        <div id="chart-health" style="height:200px;"></div>
+
+        <p class="text-muted mt-2 mb-0" style="font-size:.74rem;">
+          <i class="fas fa-info-circle mr-1"></i>Use os botões de zoom/pan do gráfico para navegar dentro do período carregado.
+        </p>
       </div>
     </div>
   </div>
@@ -355,54 +381,113 @@ function abrirModalEditar(viaturaId, descricao, clienteId) {
 }
 
 let chartTemp = null, chartHealth = null;
+let _histViaturaId = null;
+
+// Opções comuns de eixo X datetime para os dois gráficos
+function _xaxisOpts() {
+  return {
+    type: 'datetime',
+    labels: {
+      datetimeUTC: false,
+      style: { fontSize: '9px', colors: '#adb5bd' },
+      datetimeFormatter: { hour: 'HH:mm', day: 'dd/MM HH:mm', minute: 'HH:mm' },
+      rotate: -30,
+      rotateAlways: false,
+    },
+    tickAmount: 8,
+    tooltip: { enabled: false },
+  };
+}
+
+function _renderCharts(dados) {
+  const serieTemp   = dados.map(d => [d.ts_ms, d.cpu_temp_c]);
+  const serieHealth = dados.map(d => [d.ts_ms, d.lpr_health]);  // já é 0-100
+  const total = dados.length;
+  document.getElementById('hist-total').textContent = total > 0 ? `${total} pontos` : 'Sem dados no período';
+
+  if (chartTemp)   { chartTemp.destroy();   chartTemp   = null; }
+  if (chartHealth) { chartHealth.destroy(); chartHealth = null; }
+
+  const toolbarOpts = {
+    show: true,
+    tools: { download: false, selection: true, zoom: true, zoomin: true, zoomout: true, pan: true, reset: true },
+    autoSelected: 'zoom',
+  };
+
+  chartTemp = new ApexCharts(document.getElementById('chart-temp'), {
+    chart: { id: 'chart-cpu', type: 'line', height: 200, toolbar: toolbarOpts, animations: { enabled: false }, background: '#1a1d26', zoom: { enabled: true } },
+    theme: { mode: 'dark' },
+    series: [{ name: 'CPU (°C)', data: serieTemp }],
+    xaxis: _xaxisOpts(),
+    yaxis: { min: 30, max: 100, title: { text: '°C', style: { color: '#adb5bd' } }, labels: { formatter: v => v != null ? v.toFixed(0) + '°' : '', style: { colors: '#adb5bd' } } },
+    colors: ['#fd7e14'],
+    annotations: { yaxis: [
+      { y: 80, borderColor: '#dc3545', strokeDashArray: 4, label: { text: 'Crítico ≥80°C', position: 'right', style: { background: '#dc3545', color: '#fff', fontSize: '9px' } } },
+      { y: 65, borderColor: '#ffc107', strokeDashArray: 4, label: { text: 'Atenção ≥65°C', position: 'right', style: { background: '#ffc107', color: '#000', fontSize: '9px' } } },
+    ]},
+    stroke: { curve: 'smooth', width: 2 },
+    tooltip: { theme: 'dark', x: { format: 'dd/MM HH:mm' }, y: { formatter: v => v != null ? v.toFixed(1) + '°C' : '—' } },
+    noData: { text: 'Sem dados no período', style: { color: '#adb5bd' } },
+  });
+  chartTemp.render();
+
+  chartHealth = new ApexCharts(document.getElementById('chart-health'), {
+    chart: { id: 'chart-lpr', type: 'area', height: 200, toolbar: toolbarOpts, animations: { enabled: false }, background: '#1a1d26', zoom: { enabled: true } },
+    theme: { mode: 'dark' },
+    series: [{ name: 'LPR Health (%)', data: serieHealth }],
+    xaxis: _xaxisOpts(),
+    yaxis: { min: 0, max: 100, title: { text: '%', style: { color: '#adb5bd' } }, labels: { formatter: v => v != null ? v.toFixed(0) + '%' : '', style: { colors: '#adb5bd' } } },
+    colors: ['#00c8dc'],
+    annotations: { yaxis: [
+      { y: 70, borderColor: '#ffc107', strokeDashArray: 4, label: { text: 'Mín. saudável 70%', position: 'right', style: { background: '#ffc107', color: '#000', fontSize: '9px' } } },
+    ]},
+    stroke: { curve: 'smooth', width: 2 },
+    fill: { opacity: 0.15 },
+    tooltip: { theme: 'dark', x: { format: 'dd/MM HH:mm' }, y: { formatter: v => v != null ? v.toFixed(0) + '%' : '—' } },
+    noData: { text: 'Sem dados no período', style: { color: '#adb5bd' } },
+  });
+  chartHealth.render();
+}
+
+function _carregarHistorico(viaturaId, inicio, fim) {
+  let url = `/api/viaturas/${viaturaId}/historico`;
+  const params = new URLSearchParams();
+  if (inicio) params.set('inicio', inicio);
+  if (fim)    params.set('fim', fim);
+  if ([...params].length) url += '?' + params.toString();
+
+  fetch(url)
+    .then(r => r.json())
+    .then(dados => _renderCharts(dados))
+    .catch(() => _notificacao('<i class="fas fa-exclamation-triangle mr-2"></i>Erro ao carregar histórico.', 'danger'));
+}
+
+// Formata Date para datetime-local input (BRT)
+function _toLocalInput(d) {
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function resetarPeriodo() {
+  const agora = new Date();
+  const h24 = new Date(agora.getTime() - 24*3600*1000);
+  document.getElementById('hist-inicio').value = _toLocalInput(h24);
+  document.getElementById('hist-fim').value    = _toLocalInput(agora);
+  buscarHistorico();
+}
+
+function buscarHistorico() {
+  if (!_histViaturaId) return;
+  const inicio = document.getElementById('hist-inicio').value;
+  const fim    = document.getElementById('hist-fim').value;
+  _carregarHistorico(_histViaturaId, inicio, fim);
+}
 
 function abrirHistorico(viaturaId) {
+  _histViaturaId = viaturaId;
   document.getElementById('modal-viatura-id').textContent = viaturaId;
   $('#modal-historico').modal('show');
-
-  fetch(`/api/viaturas/${viaturaId}/historico`)
-    .then(r => r.json())
-    .then(dados => {
-      const labels = dados.map(d => d.ts);
-      const temps = dados.map(d => d.cpu_temp_c);
-      const healths = dados.map(d => d.lpr_health);
-
-      if (chartTemp) { chartTemp.destroy(); }
-      if (chartHealth) { chartHealth.destroy(); }
-
-      chartTemp = new ApexCharts(document.getElementById('chart-temp'), {
-        chart: { type: 'line', height: 190, toolbar: { show: false }, animations: { enabled: false }, background: '#1a1d26' },
-        theme: { mode: 'dark' },
-        series: [{ name: 'CPU (°C)', data: temps }],
-        xaxis: { categories: labels, labels: { style: { fontSize: '9px' } }, tickAmount: 6 },
-        yaxis: { min: 30, max: 95, title: { text: '°C' }, labels: { formatter: v => v + '°' } },
-        colors: ['#fd7e14'],
-        annotations: { yaxis: [
-          { y: 80, borderColor: '#dc3545', label: { text: 'Crítico ≥80°C', style: { background: '#dc3545', color: '#fff', fontSize: '10px' } } },
-          { y: 65, borderColor: '#ffc107', label: { text: 'Atenção ≥65°C', style: { background: '#ffc107', color: '#000', fontSize: '10px' } } },
-        ]},
-        stroke: { curve: 'smooth', width: 2 },
-        tooltip: { theme: 'dark', y: { formatter: v => v != null ? v.toFixed(1) + '°C' : '—' } },
-      });
-      chartTemp.render();
-
-      chartHealth = new ApexCharts(document.getElementById('chart-health'), {
-        chart: { type: 'area', height: 190, toolbar: { show: false }, animations: { enabled: false }, background: '#1a1d26' },
-        theme: { mode: 'dark' },
-        series: [{ name: 'LPR Health (%)', data: healths.map(v => v != null ? +(v * 100).toFixed(1) : null) }],
-        xaxis: { categories: labels, labels: { style: { fontSize: '9px' } }, tickAmount: 6 },
-        yaxis: { min: 0, max: 100, title: { text: '%' }, labels: { formatter: v => v + '%' } },
-        colors: ['#00c8dc'],
-        annotations: { yaxis: [
-          { y: 70, borderColor: '#ffc107', label: { text: 'Mín. saudável 70%', style: { background: '#ffc107', color: '#000', fontSize: '10px' } } },
-        ]},
-        stroke: { curve: 'smooth', width: 2 },
-        fill: { opacity: 0.15 },
-        tooltip: { theme: 'dark', y: { formatter: v => v != null ? v.toFixed(0) + '%' : '—' } },
-      });
-      chartHealth.render();
-    })
-    .catch(() => _notificacao('<i class="fas fa-exclamation-triangle mr-2"></i>Erro ao carregar histórico.', 'danger'));
+  resetarPeriodo();  // carrega últimas 24h e define os inputs
 }
 </script>
 {% endblock %}

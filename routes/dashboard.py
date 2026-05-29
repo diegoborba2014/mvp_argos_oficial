@@ -518,22 +518,38 @@ def editar_viatura(viatura_id):
 def api_historico_viatura(viatura_id):
     _equipment_admin_required()
     _verificar_acesso_viatura(viatura_id)
-    inicio = _utcnow() - timedelta(hours=24)
+
+    # Params opcionais: inicio/fim no formato "YYYY-MM-DDTHH:MM" em BRT
+    # O banco armazena em UTC, então somamos 3h na conversão
+    try:
+        inicio_str = request.args.get("inicio")
+        fim_str    = request.args.get("fim")
+        inicio = (datetime.fromisoformat(inicio_str) + timedelta(hours=3)) if inicio_str else (_utcnow() - timedelta(hours=24))
+        fim    = (datetime.fromisoformat(fim_str)    + timedelta(hours=3)) if fim_str    else _utcnow()
+    except (ValueError, TypeError):
+        inicio = _utcnow() - timedelta(hours=24)
+        fim    = _utcnow()
+
     heartbeats = (
         Heartbeat.query
         .filter_by(viatura_id=viatura_id)
-        .filter(Heartbeat.recebido_em >= inicio)
+        .filter(Heartbeat.recebido_em >= inicio, Heartbeat.recebido_em <= fim)
         .order_by(Heartbeat.recebido_em.asc())
         .all()
     )
-    return jsonify([
-        {
-            "ts": hb.recebido_em.strftime("%H:%M"),
+
+    resultado = []
+    for hb in heartbeats:
+        # Converte para timestamp BRT em milissegundos (para ApexCharts datetime axis)
+        ts_brt = hb.recebido_em - timedelta(hours=3)
+        ts_ms  = int(ts_brt.timestamp() * 1000)
+        lpr    = hb.lpr_health if (hb.lpr_health is not None and hb.lpr_health >= 0) else None
+        resultado.append({
+            "ts_ms":      ts_ms,
             "cpu_temp_c": hb.cpu_temp_c,
-            "lpr_health": hb.lpr_health,
-        }
-        for hb in heartbeats
-    ])
+            "lpr_health": lpr,          # já é 0-100 — não multiplicar no frontend
+        })
+    return jsonify(resultado)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
