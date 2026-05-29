@@ -111,7 +111,9 @@ def _admin_required():
 @login_required
 def index():
     agora = _utcnow()
-    inicio_hoje = datetime.combine(agora.date(), datetime.min.time())
+    # D-1: filtro "hoje" em BRT (UTC-3) — midnight BRT = 03:00 UTC
+    agora_brt = agora - timedelta(hours=3)
+    inicio_hoje = datetime.combine(agora_brt.date(), datetime.min.time()) + timedelta(hours=3)
 
     _verificar_pi_offline()
     db.session.commit()  # persiste eventos pi_offline criados/resolvidos acima
@@ -434,6 +436,35 @@ def resolver_evento(evento_id):
 # ──────────────────────────────────────────────────────────────────────────────
 # Hotlist
 # ──────────────────────────────────────────────────────────────────────────────
+
+@dashboard_bp.route("/viaturas/saude")
+@login_required
+def saude_frota():
+    _admin_required()
+    agora = _utcnow()
+    viaturas_db = Viatura.query.filter_by(ativa=True).all()
+    hbs = _ultimos_heartbeats([v.viatura_id for v in viaturas_db])
+    ev_abertos = EventoSistema.query.filter_by(resolvido=False).all()
+    ev_por_viatura = {}
+    for ev in ev_abertos:
+        ev_por_viatura.setdefault(ev.viatura_id, []).append(ev)
+
+    viaturas = []
+    for v in viaturas_db:
+        hb = hbs.get(v.viatura_id)
+        online = bool(hb and (agora - hb.recebido_em).total_seconds() < 300)
+        evs = ev_por_viatura.get(v.viatura_id, [])
+        viaturas.append({
+            "viatura_id": v.viatura_id,
+            "descricao": v.descricao,
+            "online": online,
+            "heartbeat": hb,
+            "eventos": evs,
+            "tem_critico": any(e.severidade == "critico" for e in evs),
+            "tem_aviso": any(e.severidade == "aviso" for e in evs),
+        })
+    return render_template("saude_frota.html", viaturas=viaturas)
+
 
 @dashboard_bp.route("/hotlist", methods=["GET", "POST"])
 @login_required

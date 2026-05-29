@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% block title %}Saúde da Frota{% endblock %}
+{% block page_title %}<i class="fas fa-heartbeat text-warning mr-2"></i>Saúde da Frota{% endblock %}
+{% block breadcrumb %}
+  <li class="breadcrumb-item"><a href="{{ url_for('dashboard.viaturas') }}">Viaturas</a></li>
+  <li class="breadcrumb-item active">Saúde da Frota</li>
+{% endblock %}
+
+{% block content %}
+
+<!-- Busca -->
+<div class="row mb-2">
+  <div class="col-md-6">
+    <div class="input-group input-group-sm">
+      <div class="input-group-prepend">
+        <span class="input-group-text" style="background:#2a2d3a;border-color:#444;color:#adb5bd;">
+          <i class="fas fa-search"></i>
+        </span>
+      </div>
+      <input type="text" id="busca-viatura" class="form-control"
+             placeholder="Buscar viatura..."
+             style="background:#1a1d26;border-color:#444;color:#e0e0e0;">
+    </div>
+  </div>
+  <div class="col-md-6 d-flex align-items-center justify-content-end" style="gap:.5rem;font-size:.82rem;">
+    <span class="text-muted"><span id="contador-viaturas">{{ viaturas | length }}</span> viatura(s)</span>
+    {% if current_user.is_admin() %}
+    <a href="{{ url_for('dashboard.eventos') }}" class="btn btn-xs btn-outline-warning">
+      <i class="fas fa-bell mr-1"></i>Ver Eventos
+    </a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-body p-0">
+    <table class="table table-sm mb-0" id="tabela-saude" style="font-size:.83rem;">
+      <thead style="background:#2c2f3a;color:#adb5bd;position:sticky;top:0;">
+        <tr>
+          <th style="width:200px;">Viatura</th>
+          <th class="text-center" style="width:55px;">Pi</th>
+          <th class="text-center" style="width:55px;">LPR</th>
+          <th class="text-center" style="width:55px;">GPS</th>
+          <th class="text-center" style="width:55px;">CPU</th>
+          <th class="text-center" style="width:65px;">Buffer</th>
+          <th>Eventos ativos</th>
+          <th style="width:80px;"></th>
+        </tr>
+      </thead>
+      <tbody id="tbody-saude">
+        {# P-9: macro fora do loop #}
+        {% macro icone(ok, warn, crit, label_ok='', label_warn='', label_crit='') %}
+          {% if crit %}<i class="fas fa-circle text-danger" title="{{ label_crit }}"></i>
+          {% elif warn %}<i class="fas fa-circle text-warning" title="{{ label_warn }}"></i>
+          {% elif ok %}<i class="fas fa-circle text-success" title="{{ label_ok }}"></i>
+          {% else %}<i class="fas fa-circle text-secondary" title="Sem dados"></i>
+          {% endif %}
+        {% endmacro %}
+
+        {% for v in viaturas %}
+        {% set hb = v.heartbeat %}
+        {% set lpr_ok = hb and hb.lpr_health is not none and hb.lpr_health >= 0.70 %}
+        {% set lpr_warn = hb and hb.lpr_health is not none and hb.lpr_health > 0 and hb.lpr_health < 0.70 %}
+        {% set lpr_crit = hb and hb.lpr_health is not none and hb.lpr_health == 0.0 %}
+        {% set gps_ok = hb and hb.satellites is not none and hb.satellites >= 4 %}
+        {% set gps_warn = hb and hb.satellites is not none and hb.satellites < 4 %}
+        {% set cpu_crit = hb and hb.cpu_temp_c and hb.cpu_temp_c > 80 %}
+        {% set cpu_warn = hb and hb.cpu_temp_c and hb.cpu_temp_c > 65 and not cpu_crit %}
+        {% set buf_warn = hb and hb.buffer_pendente and hb.buffer_pendente > 50 %}
+
+        <tr class="linha-viatura" data-viatura="{{ v.viatura_id | lower }}"
+            style="{{ 'background:rgba(220,53,69,.06);' if v.tem_critico else ('background:rgba(243,156,18,.04);' if v.tem_aviso else '') }}">
+          <td style="font-weight:600;">
+            <i class="fas fa-car mr-1 text-muted" style="font-size:.75rem;"></i>
+            {{ v.viatura_id }}
+            {% if v.descricao %}
+            <div class="text-muted" style="font-size:.72rem;font-weight:400;">{{ v.descricao }}</div>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            {{ icone(v.online, false, not v.online and hb is not none, 'Online', '', 'Offline') }}
+            <div style="font-size:.65rem;color:#adb5bd;">{{ 'ONLINE' if v.online else 'OFFLINE' }}</div>
+          </td>
+          <td class="text-center">
+            {{ icone(lpr_ok, lpr_warn, lpr_crit, 'LPR OK', 'LPR degradado', 'LPR offline') }}
+            {% if hb and hb.lpr_health is not none %}
+            <div style="font-size:.65rem;color:#adb5bd;">{{ '%.0f%%' | format(hb.lpr_health * 100) }}</div>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            {{ icone(gps_ok, gps_warn, false, 'GPS OK', 'GPS fraco', '') }}
+            {% if hb and hb.satellites is not none %}
+            <div style="font-size:.65rem;color:#adb5bd;">{{ hb.satellites }} sat</div>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            {% if hb and hb.cpu_temp_c %}
+              <span class="{{ 'text-danger' if cpu_crit else ('text-warning' if cpu_warn else 'text-success') }}">
+                {{ '%.0f' | format(hb.cpu_temp_c) }}°
+              </span>
+            {% else %}
+              <span class="text-secondary">—</span>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            {% if hb %}
+              <span class="{{ 'text-warning font-weight-bold' if buf_warn else 'text-muted' }}">
+                {{ hb.buffer_pendente or 0 }}
+              </span>
+            {% else %}
+              <span class="text-secondary">—</span>
+            {% endif %}
+          </td>
+          <td>
+            {% for ev in v.eventos %}
+              {% set sc = {'critico': 'danger', 'aviso': 'warning', 'info': 'info'}.get(ev.severidade, 'secondary') %}
+              <span class="badge badge-{{ sc }} mr-1" style="font-size:.68rem;">
+                {{ ev.tipo | replace('_', ' ') }}
+              </span>
+            {% else %}
+              <span class="text-muted" style="font-size:.75rem;">Nenhum</span>
+            {% endfor %}
+          </td>
+          <td class="text-right pr-2">
+            {% if current_user.is_admin() %}
+            <a href="{{ url_for('dashboard.config_viatura', viatura_id=v.viatura_id) }}"
+               class="btn btn-xs btn-outline-secondary" title="Config">
+              <i class="fas fa-cog"></i>
+            </a>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="text-center text-muted py-4">Nenhuma viatura cadastrada.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Paginação -->
+  <div class="card-footer py-2 d-flex justify-content-between align-items-center"
+       id="paginacao-container" style="background:#1a1d23;">
+    <small class="text-muted" id="paginacao-info"></small>
+    <div>
+      <button class="btn btn-xs btn-outline-secondary mr-1" id="btn-prev" onclick="mudarPagina(-1)">
+        <i class="fas fa-chevron-left"></i> Anterior
+      </button>
+      <button class="btn btn-xs btn-outline-secondary" id="btn-next" onclick="mudarPagina(1)">
+        Próxima <i class="fas fa-chevron-right"></i>
+      </button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const _linhas = Array.from(document.querySelectorAll('.linha-viatura'));
+const _PAGINA = 25;
+let _paginaAtual = 1;
+let _filtradas = _linhas;
+
+document.getElementById('busca-viatura').addEventListener('input', function () {
+  const q = this.value.toLowerCase().trim();
+  _filtradas = q ? _linhas.filter(tr => tr.dataset.viatura.includes(q)) : _linhas;
+  _paginaAtual = 1;
+  _renderizar();
+});
+
+function _renderizar() {
+  const inicio = (_paginaAtual - 1) * _PAGINA;
+  const fim = inicio + _PAGINA;
+  _linhas.forEach(tr => tr.style.display = 'none');
+  _filtradas.slice(inicio, fim).forEach(tr => tr.style.display = '');
+
+  const total = _filtradas.length;
+  const totalPag = Math.max(1, Math.ceil(total / _PAGINA));
+  const container = document.getElementById('paginacao-container');
+  document.getElementById('paginacao-info').textContent =
+    total > 0 ? `${inicio + 1}–${Math.min(fim, total)} de ${total}` : '';
+  document.getElementById('btn-prev').disabled = _paginaAtual <= 1;
+  document.getElementById('btn-next').disabled = _paginaAtual >= totalPag;
+  container.style.display = total > _PAGINA ? 'flex' : 'none';
+  document.getElementById('contador-viaturas').textContent = total;
+}
+
+function mudarPagina(delta) {
+  _paginaAtual = Math.max(1, Math.min(_paginaAtual + delta,
+    Math.ceil(_filtradas.length / _PAGINA)));
+  _renderizar();
+}
+
+_renderizar();
+</script>
+{% endblock %}
