@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}Usuários{% endblock %}
+{% block page_title %}<i class="fas fa-users text-primary mr-2"></i>Gestão de Usuários{% endblock %}
+{% block breadcrumb %}<li class="breadcrumb-item active">Usuários</li>{% endblock %}
+
+{% block content %}
+
+<div class="row">
+
+  <!-- Tabela de usuários -->
+  <div class="col-lg-8">
+    <div class="card shadow-sm">
+      <div class="card-header d-flex justify-content-between align-items-center py-2" style="background:#1a1d23;">
+        <strong style="color:#fff;"><i class="fas fa-users mr-2 text-primary"></i>Usuários Cadastrados</strong>
+        <small class="text-muted">{{ usuarios | length }} usuário(s)</small>
+      </div>
+      <div class="card-body p-0">
+        {% if usuarios %}
+        <div class="table-responsive">
+          <table class="table table-sm table-hover mb-0" style="font-size:.84rem;">
+            <thead style="background:#12151f;">
+              <tr>
+                <th class="pl-3">Usuário</th>
+                <th>Perfil</th>
+                <th>Cliente</th>
+                <th>Criado em</th>
+                <th class="text-center">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for u in usuarios %}
+              <tr>
+                <td class="pl-3 font-weight-bold" style="color:#e0e0e0;">
+                  <i class="fas fa-user mr-1 text-muted"></i>{{ u.username }}
+                  {% if u.id == current_user.id %}<span class="badge badge-info ml-1">você</span>{% endif %}
+                </td>
+                <td>
+                  <span class="badge badge-{{ 'danger' if u.is_superadmin() else ('warning' if u.is_admin_cliente() else 'secondary') }}">
+                    {{ u.perfil }}
+                  </span>
+                </td>
+                <td class="text-muted">{{ u.cliente.nome if u.cliente else '—' }}</td>
+                <td class="text-muted"><small>{{ u.criado_em | brt }}</small></td>
+                <td class="text-center" style="white-space:nowrap;">
+                  <!-- Trocar senha -->
+                  <button class="btn btn-xs btn-outline-info mr-1"
+                          onclick="abrirModalSenha({{ u.id }}, '{{ u.username | e }}')"
+                          title="Alterar senha">
+                    <i class="fas fa-key"></i>
+                  </button>
+                  <!-- Remover (não remove a si mesmo) -->
+                  {% if current_user.is_superadmin() and u.id != current_user.id %}
+                  <form method="POST" action="{{ url_for('dashboard.admin_usuarios') }}" class="d-inline"
+                        onsubmit="return confirm('Remover usuário {{ u.username }}? Esta ação é irreversível.')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="acao" value="remover">
+                    <input type="hidden" name="usuario_id" value="{{ u.id }}">
+                    <button type="submit" class="btn btn-xs btn-outline-danger" title="Remover">
+                      <i class="fas fa-trash-alt"></i>
+                    </button>
+                  </form>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="callout callout-info m-3">Nenhum usuário encontrado.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Formulário criar usuário -->
+  <div class="col-lg-4">
+    <div class="card shadow-sm" style="border:2px dashed #495057;">
+      <div class="card-header py-2" style="background:#1a1d23;color:#fff;">
+        <strong><i class="fas fa-user-plus mr-1"></i> Criar Usuário</strong>
+      </div>
+      <div class="card-body py-3">
+        <form method="POST" action="{{ url_for('dashboard.admin_usuarios') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="acao" value="criar">
+          <div class="form-group mb-2">
+            <label class="mb-1" style="font-size:.85rem;">Usuário <span class="text-danger">*</span></label>
+            <input type="text" name="username" class="form-control form-control-sm"
+                   placeholder="Ex: operador1" required maxlength="64">
+          </div>
+          <div class="form-group mb-2">
+            <label class="mb-1" style="font-size:.85rem;">Senha <span class="text-danger">*</span></label>
+            <input type="password" name="senha" class="form-control form-control-sm"
+                   placeholder="Mínimo 8 caracteres" required minlength="8">
+          </div>
+          {% if current_user.is_superadmin() %}
+          <div class="form-group mb-2">
+            <label class="mb-1" style="font-size:.85rem;">Perfil</label>
+            <select name="perfil" class="form-control form-control-sm">
+              <option value="operador_cliente">operador_cliente</option>
+              <option value="admin_cliente">admin_cliente</option>
+              <option value="superadmin">superadmin</option>
+            </select>
+          </div>
+          <div class="form-group mb-3">
+            <label class="mb-1" style="font-size:.85rem;">Cliente</label>
+            <select name="cliente_id" class="form-control form-control-sm">
+              <option value="">— Nenhum (superadmin) —</option>
+              {% for c in clientes %}
+              <option value="{{ c.id }}">{{ c.nome }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% else %}
+          {# admin_cliente só cria operador_cliente para o próprio cliente — campos fixos #}
+          <input type="hidden" name="perfil" value="operador_cliente">
+          <input type="hidden" name="cliente_id" value="{{ current_user.get_cliente_id() }}">
+          <p class="text-muted" style="font-size:.82rem;">
+            <i class="fas fa-info-circle mr-1"></i>Será criado como <strong>operador_cliente</strong> do seu cliente.
+          </p>
+          {% endif %}
+          <button type="submit" class="btn btn-sm btn-primary w-100">
+            <i class="fas fa-user-plus mr-1"></i> Criar Usuário
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal Trocar Senha -->
+<div class="modal fade" id="modal-senha" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content" style="background:#1a1d26;border:1px solid rgba(255,255,255,.1);">
+      <div class="modal-header py-2" style="background:#1a1d23;color:#fff;border-color:rgba(255,255,255,.1);">
+        <h5 class="modal-title"><i class="fas fa-key mr-2 text-warning"></i>Alterar Senha — <span id="modal-username"></span></h5>
+        <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+      </div>
+      <form method="POST" action="{{ url_for('dashboard.admin_usuarios') }}">
+        <div class="modal-body">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="acao" value="senha">
+          <input type="hidden" name="usuario_id" id="modal-usuario-id">
+          <div class="form-group mb-0">
+            <label class="mb-1" style="font-size:.85rem;">Nova Senha <span class="text-danger">*</span></label>
+            <input type="password" name="nova_senha" class="form-control form-control-sm"
+                   placeholder="Mínimo 8 caracteres" required minlength="8">
+          </div>
+        </div>
+        <div class="modal-footer" style="border-color:rgba(255,255,255,.1);">
+          <button type="button" class="btn btn-sm btn-secondary" data-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-sm btn-warning">
+            <i class="fas fa-save mr-1"></i> Salvar Senha
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function abrirModalSenha(id, username) {
+  document.getElementById('modal-usuario-id').value = id;
+  document.getElementById('modal-username').textContent = username;
+  $('#modal-senha').modal('show');
+}
+</script>
+{% endblock %}

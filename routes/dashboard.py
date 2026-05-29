@@ -6,11 +6,12 @@ from datetime import datetime, timedelta, timezone
 # S-15: valida formato de placa (Mercosul ABC1D23 e antigo ABC1234)
 _PLACA_RE = re.compile(r'^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$')
 
-from flask import Blueprint, render_template, request, jsonify, Response, abort, redirect, url_for, flash
+from flask import Blueprint, g, render_template, request, jsonify, Response, abort, redirect, url_for, flash
 from flask_login import login_required, current_user
 from sqlalchemy import func, extract
+from werkzeug.security import generate_password_hash
 
-from models import db, Viatura, Deteccao, Heartbeat, Hotlist, MotivoHotlist, EventoSistema
+from models import db, Cliente, Viatura, Deteccao, Heartbeat, Hotlist, MotivoHotlist, EventoSistema, Usuario
 
 
 def _utcnow():
@@ -103,6 +104,75 @@ def _admin_required():
         abort(403)
 
 
+# ── 8.3: Guards por perfil ──────────────────────────────────────────────────
+
+def _superadmin_required():
+    """Somente superadmin (ou legado 'admin') acessa."""
+    if not current_user.is_superadmin():
+        abort(403)
+
+
+def _hotlist_admin_required():
+    """superadmin OU admin_cliente podem gerenciar hotlist e ver eventos."""
+    if not (current_user.is_superadmin() or current_user.is_admin_cliente()):
+        abort(403)
+
+
+def _equipment_admin_required():
+    """Somente superadmin gerencia equipamentos (viaturas, config, retenção)."""
+    if not current_user.is_superadmin():
+        abort(403)
+
+
+# ── 8.3: Filtros de visibilidade por cliente ─────────────────────────────────
+
+def _viatura_ids_do_usuario():
+    """Retorna lista de viatura_ids visíveis ao usuário atual.
+    None = superadmin (sem filtro). [] = cliente sem viaturas cadastradas.
+    Usa flask.g como cache para evitar query repetida na mesma request."""
+    if hasattr(g, "_viatura_ids_cache"):
+        return g._viatura_ids_cache
+    if current_user.is_superadmin():
+        g._viatura_ids_cache = None
+        return None
+    cid = current_user.get_cliente_id()
+    if cid is None:
+        g._viatura_ids_cache = []
+        return []
+    ids = [v.viatura_id for v in Viatura.query.filter_by(cliente_id=cid, ativa=True).all()]
+    g._viatura_ids_cache = ids
+    return ids
+
+
+def _aplicar_filtro_viatura(query, campo):
+    """Aplica filtro de viatura_ids em uma query. Campo deve ser coluna viatura_id."""
+    ids = _viatura_ids_do_usuario()
+    if ids is None:
+        return query
+    if not ids:
+        return query.filter(False)
+    return query.filter(campo.in_(ids))
+
+
+def _cliente_id_do_usuario():
+    """Retorna cliente_id do usuário atual, ou None para superadmin."""
+    return None if current_user.is_superadmin() else current_user.get_cliente_id()
+
+
+def _verificar_acesso_viatura(viatura_id):
+    """Aborta 403 se o usuário não pode ver dados desta viatura."""
+    ids = _viatura_ids_do_usuario()
+    if ids is None:
+        return
+    if viatura_id not in ids:
+        abort(403)
+
+
+def _verificar_acesso_leitura(deteccao):
+    """Aborta 403 se o usuário não pode ver esta detecção."""
+    _verificar_acesso_viatura(deteccao.viatura_id)
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Dashboard principal
 # ──────────────────────────────────────────────────────────────────────────────
@@ -118,15 +188,13 @@ def index():
     _verificar_pi_offline()
     db.session.commit()  # persiste eventos pi_offline criados/resolvidos acima
 
-    viaturas_db = Viatura.query.filter_by(ativa=True).all()
+    viaturas_db = _aplicar_filtro_viatura(Viatura.query.filter_by(ativa=True), Viatura.viatura_id).all()
     hbs = _ultimos_heartbeats([v.viatura_id for v in viaturas_db])
 
     # Eventos ativos por viatura para o widget de saúde
-    ev_abertos = (
-        EventoSistema.query
-        .filter_by(resolvido=False)
-        .all()
-    )
+    ev_abertos = _aplicar_filtro_viatura(
+        EventoSistema.query.filter_by(resolvido=False), EventoSistema.viatura_id
+    ).all()
     ev_por_viatura = {}
     for ev in ev_abertos:
         ev_por_viatura.setdefault(ev.viatura_id, []).append(ev)
@@ -146,17 +214,20 @@ def index():
             "tem_aviso": any(e.severidade == "aviso" for e in evs),
         })
 
-    alertas_hoje = Deteccao.query.filter(
-        Deteccao.alerta_tatico == True,
-        Deteccao.recebido_em >= inicio_hoje,
-    ).count()
+    q_alertas = _aplicar_filtro_viatura(
+        Deteccao.query.filter(Deteccao.alerta_tatico == True, Deteccao.recebido_em >= inicio_hoje),
+        Deteccao.viatura_id,
+    )
+    alertas_hoje = q_alertas.count()
 
-    leituras_hoje = Deteccao.query.filter(
-        Deteccao.recebido_em >= inicio_hoje,
-    ).count()
+    q_leituras = _aplicar_filtro_viatura(
+        Deteccao.query.filter(Deteccao.recebido_em >= inicio_hoje),
+        Deteccao.viatura_id,
+    )
+    leituras_hoje = q_leituras.count()
 
     ultimas_deteccoes = (
-        Deteccao.query
+        _aplicar_filtro_viatura(Deteccao.query, Deteccao.viatura_id)
         .order_by(Deteccao.recebido_em.desc())
         .limit(20)
         .all()
@@ -183,7 +254,7 @@ def alertas():
     data_inicio = request.args.get("data_inicio", "")
     data_fim = request.args.get("data_fim", "")
 
-    q = Deteccao.query.filter_by(alerta_tatico=True)
+    q = _aplicar_filtro_viatura(Deteccao.query.filter_by(alerta_tatico=True), Deteccao.viatura_id)
 
     if viatura_id:
         q = q.filter_by(viatura_id=viatura_id)
@@ -199,7 +270,7 @@ def alertas():
         flash("Data inválida — filtro de data ignorado.", "warning")
 
     resultados = q.order_by(Deteccao.recebido_em.desc()).limit(500).all()
-    viaturas = Viatura.query.filter_by(ativa=True).all()
+    viaturas = _aplicar_filtro_viatura(Viatura.query.filter_by(ativa=True), Viatura.viatura_id).all()
 
     if request.args.get("export") == "csv":
         return _exportar_csv(resultados, "alertas")
@@ -226,7 +297,7 @@ def leituras():
     so_alertas = request.args.get("so_alertas") == "1"
     page = request.args.get("page", 1, type=int)
 
-    q = Deteccao.query
+    q = _aplicar_filtro_viatura(Deteccao.query, Deteccao.viatura_id)
     if viatura_id:
         q = q.filter_by(viatura_id=viatura_id)
     if placa:
@@ -246,7 +317,7 @@ def leituras():
         return _exportar_csv(q.order_by(Deteccao.recebido_em.desc()).limit(50_000).all(), "leituras")
 
     paginacao = q.order_by(Deteccao.recebido_em.desc()).paginate(page=page, per_page=50, error_out=False)
-    viaturas = Viatura.query.filter_by(ativa=True).all()
+    viaturas = _aplicar_filtro_viatura(Viatura.query.filter_by(ativa=True), Viatura.viatura_id).all()
 
     return render_template(
         "leituras.html",
@@ -271,7 +342,7 @@ def mapa():
 @login_required
 def api_mapa_viaturas():
     agora = _utcnow()
-    viaturas = Viatura.query.filter_by(ativa=True).all()
+    viaturas = _aplicar_filtro_viatura(Viatura.query.filter_by(ativa=True), Viatura.viatura_id).all()
     hbs = _ultimos_heartbeats([v.viatura_id for v in viaturas])
     resultado = []
     for v in viaturas:
@@ -325,12 +396,14 @@ def api_mapa_alertas():
 
     corte = _utcnow() - timedelta(hours=horas)
     alertas = (
-        Deteccao.query
-        .filter(
-            Deteccao.alerta_tatico == True,
-            Deteccao.latitude.isnot(None),
-            Deteccao.longitude.isnot(None),
-            Deteccao.recebido_em >= corte,
+        _aplicar_filtro_viatura(
+            Deteccao.query.filter(
+                Deteccao.alerta_tatico == True,
+                Deteccao.latitude.isnot(None),
+                Deteccao.longitude.isnot(None),
+                Deteccao.recebido_em >= corte,
+            ),
+            Deteccao.viatura_id,
         )
         .order_by(Deteccao.recebido_em.asc())
         .limit(500)
@@ -362,6 +435,7 @@ def api_mapa_alertas():
 @dashboard_bp.route("/api/mapa/trajeto/<viatura_id>")
 @login_required
 def api_trajeto(viatura_id):
+    _verificar_acesso_viatura(viatura_id)
     heartbeats = (
         Heartbeat.query
         .filter_by(viatura_id=viatura_id)
@@ -389,27 +463,34 @@ def api_trajeto(viatura_id):
 @dashboard_bp.route("/viaturas")
 @login_required
 def viaturas():
-    _admin_required()
-    todas = Viatura.query.all()
-    return render_template("viaturas.html", viaturas=todas)
+    _equipment_admin_required()
+    todas = Viatura.query.order_by(Viatura.viatura_id).all()
+    clientes = Cliente.query.filter_by(ativo=True).order_by(Cliente.nome).all()
+    return render_template("viaturas.html", viaturas=todas, clientes=clientes)
 
 
 @dashboard_bp.route("/viaturas/criar", methods=["POST"])
 @login_required
 def criar_viatura():
-    _admin_required()
+    _equipment_admin_required()
     viatura_id = request.form.get("viatura_id", "").strip()
     descricao = request.form.get("descricao", "").strip()
+    try:
+        cliente_id = int(request.form.get("cliente_id")) if request.form.get("cliente_id") else None
+    except (ValueError, TypeError):
+        cliente_id = None
     if viatura_id and not Viatura.query.filter_by(viatura_id=viatura_id).first():
-        db.session.add(Viatura(viatura_id=viatura_id, descricao=descricao))
+        db.session.add(Viatura(viatura_id=viatura_id, descricao=descricao, cliente_id=cliente_id))
         db.session.commit()
+        flash(f"Viatura {viatura_id} cadastrada.", "success")
     return redirect(url_for("dashboard.viaturas"))
 
 
 @dashboard_bp.route("/api/viaturas/<viatura_id>/historico")
 @login_required
 def api_historico_viatura(viatura_id):
-    _admin_required()
+    _equipment_admin_required()
+    _verificar_acesso_viatura(viatura_id)
     inicio = _utcnow() - timedelta(hours=24)
     heartbeats = (
         Heartbeat.query
@@ -439,7 +520,7 @@ def api_historico_viatura(viatura_id):
 @dashboard_bp.route("/eventos")
 @login_required
 def eventos():
-    _admin_required()
+    _hotlist_admin_required()
     _verificar_pi_offline()
     db.session.commit()  # persiste eventos pi_offline criados/resolvidos acima
 
@@ -448,7 +529,7 @@ def eventos():
     severidade = request.args.get("severidade", "")
     apenas_ativos = request.args.get("apenas_ativos", "1")
 
-    q = EventoSistema.query
+    q = _aplicar_filtro_viatura(EventoSistema.query, EventoSistema.viatura_id)
     if viatura_id:
         q = q.filter_by(viatura_id=viatura_id)
     if tipo:
@@ -459,7 +540,9 @@ def eventos():
         q = q.filter_by(resolvido=False)
 
     lista = q.order_by(EventoSistema.criado_em.desc()).limit(300).all()
-    viaturas_ativas = Viatura.query.filter_by(ativa=True).order_by(Viatura.viatura_id).all()
+    viaturas_ativas = _aplicar_filtro_viatura(
+        Viatura.query.filter_by(ativa=True), Viatura.viatura_id
+    ).order_by(Viatura.viatura_id).all()
 
     return render_template(
         "eventos.html",
@@ -477,8 +560,9 @@ def eventos():
 @dashboard_bp.route("/eventos/<int:evento_id>/resolver", methods=["POST"])
 @login_required
 def resolver_evento(evento_id):
-    _admin_required()
+    _hotlist_admin_required()
     ev = EventoSistema.query.get_or_404(evento_id)
+    _verificar_acesso_viatura(ev.viatura_id)
     ev.resolvido = True
     ev.resolvido_em = _utcnow()
     db.session.commit()
@@ -494,11 +578,13 @@ def resolver_evento(evento_id):
 @dashboard_bp.route("/viaturas/saude")
 @login_required
 def saude_frota():
-    _admin_required()
+    _equipment_admin_required()
     agora = _utcnow()
-    viaturas_db = Viatura.query.filter_by(ativa=True).all()
+    viaturas_db = _aplicar_filtro_viatura(Viatura.query.filter_by(ativa=True), Viatura.viatura_id).all()
     hbs = _ultimos_heartbeats([v.viatura_id for v in viaturas_db])
-    ev_abertos = EventoSistema.query.filter_by(resolvido=False).all()
+    ev_abertos = _aplicar_filtro_viatura(
+        EventoSistema.query.filter_by(resolvido=False), EventoSistema.viatura_id
+    ).all()
     ev_por_viatura = {}
     for ev in ev_abertos:
         ev_por_viatura.setdefault(ev.viatura_id, []).append(ev)
@@ -523,7 +609,8 @@ def saude_frota():
 @dashboard_bp.route("/hotlist", methods=["GET", "POST"])
 @login_required
 def hotlist():
-    _admin_required()
+    _hotlist_admin_required()
+    cid = _cliente_id_do_usuario()  # None = superadmin (sem filtro de cliente)
 
     if request.method == "POST":
         acao = request.form.get("acao")
@@ -540,6 +627,9 @@ def hotlist():
             if placa and _PLACA_RE.match(placa):
                 existente = Hotlist.query.filter_by(placa=placa).first()
                 if existente:
+                    # IDOR: admin_cliente só edita placas do seu cliente
+                    if cid is not None and existente.cliente_id != cid:
+                        abort(403)
                     existente.ativa = True
                     existente.descricao = descricao
                     existente.motivo = motivo
@@ -550,6 +640,7 @@ def hotlist():
                     db.session.add(Hotlist(
                         placa=placa, descricao=descricao,
                         motivo=motivo, prioridade=prioridade, observacao=observacao,
+                        cliente_id=cid,
                     ))
                     flash(f"Placa {placa} adicionada à hotlist.", "success")
                 _marcar_hotlist_pendente()
@@ -562,6 +653,8 @@ def hotlist():
             placa = request.form.get("placa", "")
             item = Hotlist.query.filter_by(placa=placa).first()
             if item:
+                if cid is not None and item.cliente_id != cid:
+                    abort(403)
                 db.session.delete(item)
                 _marcar_hotlist_pendente()
                 db.session.commit()
@@ -599,6 +692,7 @@ def hotlist():
                     db.session.add(Hotlist(
                         placa=placa, descricao=descricao,
                         motivo=motivo, prioridade=prioridade,
+                        cliente_id=cid,
                     ))
                     adicionadas += 1
                 if adicionadas:
@@ -613,6 +707,9 @@ def hotlist():
                 return redirect(url_for("dashboard.hotlist"))
 
         elif acao == "adicionar_motivo":
+            # motivos são globais — apenas superadmin gerencia
+            if not current_user.is_superadmin():
+                abort(403)
             nome = request.form.get("nome_motivo", "").strip()
             if nome and not MotivoHotlist.query.filter_by(nome=nome).first():
                 db.session.add(MotivoHotlist(nome=nome))
@@ -620,6 +717,8 @@ def hotlist():
             return redirect(url_for("dashboard.hotlist"))
 
         elif acao == "remover_motivo":
+            if not current_user.is_superadmin():
+                abort(403)
             motivo_id = request.form.get("motivo_id")
             item_m = db.session.get(MotivoHotlist, motivo_id)
             if item_m:
@@ -628,11 +727,14 @@ def hotlist():
             return redirect(url_for("dashboard.hotlist"))
 
     if request.args.get("export") == "csv":
-        items = Hotlist.query.filter_by(ativa=True).order_by(Hotlist.prioridade, Hotlist.placa).all()
+        q_exp = Hotlist.query.filter_by(ativa=True)
+        if cid is not None:
+            q_exp = q_exp.filter_by(cliente_id=cid)
+        items_exp = q_exp.order_by(Hotlist.prioridade, Hotlist.placa).all()
         output = io.StringIO()
         writer = csv.writer(output)
         writer.writerow(["placa", "descricao", "motivo", "prioridade"])
-        for item in items:
+        for item in items_exp:
             writer.writerow([item.placa, item.descricao, item.motivo, item.prioridade])
         return Response(
             output.getvalue(),
@@ -640,7 +742,10 @@ def hotlist():
             headers={"Content-Disposition": "attachment; filename=hotlist.csv"},
         )
 
-    items = Hotlist.query.order_by(Hotlist.prioridade, Hotlist.placa).all()
+    q_items = Hotlist.query
+    if cid is not None:
+        q_items = q_items.filter_by(cliente_id=cid)
+    items = q_items.order_by(Hotlist.prioridade, Hotlist.placa).all()
     motivos = MotivoHotlist.query.order_by(MotivoHotlist.nome).all()
     return render_template("hotlist.html", hotlist=items, motivos=motivos)
 
@@ -648,8 +753,11 @@ def hotlist():
 @dashboard_bp.route("/hotlist/<placa>/editar", methods=["POST"])
 @login_required
 def hotlist_editar(placa):
-    _admin_required()
+    _hotlist_admin_required()
     item = Hotlist.query.filter_by(placa=placa.upper()).first_or_404()
+    cid = _cliente_id_do_usuario()
+    if cid is not None and item.cliente_id != cid:
+        abort(403)
     try:
         item.prioridade = int(request.form.get("prioridade", item.prioridade))
     except ValueError:
@@ -666,8 +774,11 @@ def hotlist_editar(placa):
 @dashboard_bp.route("/hotlist/<placa>/toggle", methods=["POST"])
 @login_required
 def hotlist_toggle(placa):
-    _admin_required()
+    _hotlist_admin_required()
     item = Hotlist.query.filter_by(placa=placa.upper()).first_or_404()
+    cid = _cliente_id_do_usuario()
+    if cid is not None and item.cliente_id != cid:
+        abort(403)
     item.ativa = not item.ativa
     _marcar_hotlist_pendente()
     db.session.commit()
@@ -680,6 +791,7 @@ def hotlist_toggle(placa):
 @login_required
 def detalhe_leitura(leitura_id):
     d = Deteccao.query.get_or_404(leitura_id)
+    _verificar_acesso_leitura(d)
     return render_template("detalhe_leitura.html", d=d)
 
 
@@ -688,6 +800,7 @@ def detalhe_leitura(leitura_id):
 def imagem_placa(leitura_id):
     """Serve o crop da placa (JPEG binário) para exibição no detalhe do alerta."""
     d = Deteccao.query.get_or_404(leitura_id)
+    _verificar_acesso_leitura(d)
     if not d.imagem_placa:
         abort(404)
     return Response(
@@ -702,6 +815,7 @@ def imagem_placa(leitura_id):
 def imagem_veiculo(leitura_id):
     """Serve o frame completo da câmera (JPEG binário) — disponível apenas em alertas táticos."""
     d = Deteccao.query.get_or_404(leitura_id)
+    _verificar_acesso_leitura(d)
     if not d.imagem_veiculo:
         abort(404)
     return Response(
@@ -718,7 +832,7 @@ def imagem_veiculo(leitura_id):
 @dashboard_bp.route("/investigacao")
 @login_required
 def investigacao():
-    viaturas = Viatura.query.filter_by(ativa=True).all()
+    viaturas = _aplicar_filtro_viatura(Viatura.query.filter_by(ativa=True), Viatura.viatura_id).all()
     return render_template("investigacao.html", viaturas=viaturas)
 
 
@@ -735,9 +849,9 @@ def api_investigacao_trajeto():
     hora_inicio  = request.args.get("hora_inicio", "")
     hora_fim     = request.args.get("hora_fim", "")
 
-    q = Deteccao.query.filter(
-        Deteccao.latitude.isnot(None),
-        Deteccao.longitude.isnot(None),
+    q = _aplicar_filtro_viatura(
+        Deteccao.query.filter(Deteccao.latitude.isnot(None), Deteccao.longitude.isnot(None)),
+        Deteccao.viatura_id,
     )
 
     if placa:
@@ -793,14 +907,18 @@ def api_investigacao_trajeto():
 @dashboard_bp.route("/api/hotlist")
 @login_required
 def api_hotlist():
-    placas = [h.placa for h in Hotlist.query.filter_by(ativa=True).all()]
+    cid = _cliente_id_do_usuario()
+    q = Hotlist.query.filter_by(ativa=True)
+    if cid is not None:
+        q = q.filter_by(cliente_id=cid)
+    placas = [h.placa for h in q.all()]
     return jsonify({"placas": placas, "total": len(placas)})
 
 
 @dashboard_bp.route("/viaturas/<viatura_id>/config")
 @login_required
 def config_viatura(viatura_id):
-    _admin_required()
+    _equipment_admin_required()
     viatura = Viatura.query.filter_by(viatura_id=viatura_id).first_or_404()
     eventos = (EventoSistema.query
                .filter_by(viatura_id=viatura_id)
@@ -816,7 +934,7 @@ def config_viatura(viatura_id):
 @dashboard_bp.route("/viaturas/<viatura_id>/hotlist_mode", methods=["POST"])
 @login_required
 def salvar_hotlist_mode(viatura_id):
-    _admin_required()
+    _equipment_admin_required()
     viatura = Viatura.query.filter_by(viatura_id=viatura_id).first_or_404()
     modo = request.form.get("hotlist_mode", "hibrido")
     if modo in ("hibrido", "nuvem", "local"):
@@ -832,7 +950,7 @@ def salvar_hotlist_mode(viatura_id):
 @dashboard_bp.route("/admin/retencao")
 @login_required
 def admin_retencao():
-    _admin_required()
+    _equipment_admin_required()
 
     total_det, ant_det, rec_det = db.session.query(
         func.count(Deteccao.id), func.min(Deteccao.recebido_em), func.max(Deteccao.recebido_em)
@@ -857,7 +975,7 @@ def admin_retencao():
 @dashboard_bp.route("/admin/retencao/limpar", methods=["POST"])
 @login_required
 def admin_retencao_limpar():
-    _admin_required()
+    _equipment_admin_required()
 
     try:
         dias = int(request.form.get("dias", 180))
@@ -882,6 +1000,134 @@ def admin_retencao_limpar():
     db.session.commit()
     flash(f"{total} registro(s) deletados (anteriores a {corte.strftime('%d/%m/%Y')}).", "success")
     return redirect(url_for("dashboard.admin_retencao"))
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Sprint 8.6 — Gestão de Clientes (superadmin)
+# ──────────────────────────────────────────────────────────────────────────────
+
+@dashboard_bp.route("/admin/clientes", methods=["GET", "POST"])
+@login_required
+def admin_clientes():
+    _superadmin_required()
+
+    if request.method == "POST":
+        acao = request.form.get("acao")
+
+        if acao == "criar":
+            nome = request.form.get("nome", "").strip()
+            cnpj = request.form.get("cnpj_cpf", "").strip()
+            contato = request.form.get("contato", "").strip()
+            if nome and not Cliente.query.filter_by(nome=nome).first():
+                db.session.add(Cliente(nome=nome, cnpj_cpf=cnpj, contato=contato))
+                db.session.commit()
+                flash(f"Cliente '{nome}' cadastrado.", "success")
+            elif nome:
+                flash("Já existe um cliente com esse nome.", "warning")
+            return redirect(url_for("dashboard.admin_clientes"))
+
+        elif acao == "editar":
+            cliente_id = request.form.get("cliente_id")
+            c = db.session.get(Cliente, cliente_id)
+            if c:
+                c.nome = request.form.get("nome", c.nome).strip() or c.nome
+                c.cnpj_cpf = request.form.get("cnpj_cpf", c.cnpj_cpf).strip()
+                c.contato = request.form.get("contato", c.contato).strip()
+                db.session.commit()
+                flash(f"Cliente '{c.nome}' atualizado.", "success")
+            return redirect(url_for("dashboard.admin_clientes"))
+
+        elif acao == "toggle":
+            cliente_id = request.form.get("cliente_id")
+            c = db.session.get(Cliente, cliente_id)
+            if c:
+                c.ativo = not c.ativo
+                db.session.commit()
+                flash(f"Cliente '{c.nome}' {'ativado' if c.ativo else 'desativado'}.", "info")
+            return redirect(url_for("dashboard.admin_clientes"))
+
+    clientes = Cliente.query.order_by(Cliente.nome).all()
+    return render_template("clientes.html", clientes=clientes)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Sprint 8.7 — Gestão de Usuários
+# ──────────────────────────────────────────────────────────────────────────────
+
+@dashboard_bp.route("/admin/usuarios", methods=["GET", "POST"])
+@login_required
+def admin_usuarios():
+    _hotlist_admin_required()  # superadmin + admin_cliente
+
+    if request.method == "POST":
+        acao = request.form.get("acao")
+
+        if acao == "criar":
+            username = request.form.get("username", "").strip()
+            senha = request.form.get("senha", "").strip()
+            perfil = request.form.get("perfil", "operador_cliente").strip()
+            try:
+                cid_form = int(request.form.get("cliente_id")) if request.form.get("cliente_id") else None
+            except (ValueError, TypeError):
+                cid_form = None
+
+            # admin_cliente só pode criar operador_cliente para o próprio cliente
+            if current_user.is_admin_cliente():
+                perfil = "operador_cliente"
+                cid_form = current_user.get_cliente_id()
+
+            perfis_validos = {"superadmin", "admin", "admin_cliente", "operador_cliente", "operador"}
+            if not username or len(senha) < 8 or perfil not in perfis_validos:
+                flash("Dados inválidos. Usuário requer nome + senha ≥8 chars + perfil válido.", "danger")
+                return redirect(url_for("dashboard.admin_usuarios"))
+
+            if Usuario.query.filter_by(username=username).first():
+                flash(f"Usuário '{username}' já existe.", "warning")
+                return redirect(url_for("dashboard.admin_usuarios"))
+
+            u = Usuario(username=username, perfil=perfil, cliente_id=cid_form)
+            u.set_password(senha)
+            db.session.add(u)
+            db.session.commit()
+            flash(f"Usuário '{username}' criado.", "success")
+            return redirect(url_for("dashboard.admin_usuarios"))
+
+        elif acao == "remover":
+            if not current_user.is_superadmin():
+                abort(403)
+            uid = request.form.get("usuario_id")
+            u = db.session.get(Usuario, uid)
+            if u and u.id != current_user.id:
+                db.session.delete(u)
+                db.session.commit()
+                flash(f"Usuário '{u.username}' removido.", "warning")
+            return redirect(url_for("dashboard.admin_usuarios"))
+
+        elif acao == "senha":
+            uid = request.form.get("usuario_id")
+            nova_senha = request.form.get("nova_senha", "").strip()
+            u = db.session.get(Usuario, uid)
+            # admin_cliente só altera senha de usuários do próprio cliente
+            if u and current_user.is_admin_cliente() and u.cliente_id != current_user.get_cliente_id():
+                abort(403)
+            if u and len(nova_senha) >= 8:
+                u.set_password(nova_senha)
+                db.session.commit()
+                flash(f"Senha de '{u.username}' alterada.", "success")
+            elif u:
+                flash("Senha deve ter ao menos 8 caracteres.", "danger")
+            return redirect(url_for("dashboard.admin_usuarios"))
+
+    # Filtra usuários: superadmin vê todos; admin_cliente vê apenas usuários do próprio cliente
+    if current_user.is_superadmin():
+        usuarios = Usuario.query.order_by(Usuario.username).all()
+        clientes = Cliente.query.filter_by(ativo=True).order_by(Cliente.nome).all()
+    else:
+        cid = current_user.get_cliente_id()
+        usuarios = Usuario.query.filter_by(cliente_id=cid).order_by(Usuario.username).all()
+        clientes = []
+
+    return render_template("usuarios.html", usuarios=usuarios, clientes=clientes)
 
 
 def _exportar_csv(deteccoes: list, nome: str) -> Response:

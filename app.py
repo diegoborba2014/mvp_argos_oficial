@@ -86,9 +86,30 @@ def create_app():
 
     @app.context_processor
     def inject_contadores():
-        """Injeta contadores globais em todos os templates (badge do navbar)."""
+        """Injeta contadores globais em todos os templates (badge do navbar). Sprint 8.5: filtro por cliente."""
         try:
-            criticos = EventoSistema.query.filter_by(resolvido=False, severidade="critico").count()
+            from flask_login import current_user
+            if not current_user.is_authenticated:
+                return {"eventos_criticos_count": 0}
+            if current_user.is_superadmin():
+                criticos = EventoSistema.query.filter_by(resolvido=False, severidade="critico").count()
+            else:
+                from models import Viatura
+                from sqlalchemy import and_
+                cid = current_user.get_cliente_id()
+                if cid is None:
+                    criticos = 0
+                else:
+                    criticos = (
+                        EventoSistema.query
+                        .join(Viatura, EventoSistema.viatura_id == Viatura.viatura_id)
+                        .filter(
+                            EventoSistema.resolvido == False,
+                            EventoSistema.severidade == "critico",
+                            Viatura.cliente_id == cid,
+                        )
+                        .count()
+                    )
         except Exception:
             criticos = 0
         return {"eventos_criticos_count": criticos}

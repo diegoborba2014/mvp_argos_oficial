@@ -201,7 +201,11 @@ def hotlist_pendente(viatura_id):
         return err
     from models import Hotlist
     viatura = Viatura.query.filter_by(viatura_id=viatura_id).first()
-    placas = [h.placa for h in Hotlist.query.filter_by(ativa=True).all()]
+    # Sprint 8.4: filtro por cliente_id da viatura
+    q = Hotlist.query.filter_by(ativa=True)
+    if viatura and viatura.cliente_id is not None:
+        q = q.filter_by(cliente_id=viatura.cliente_id)
+    placas = [h.placa for h in q.all()]
     h = _hotlist_hash(placas)
     pendente = bool(viatura.hotlist_pendente) if viatura else False
     return jsonify({"pendente": pendente, "hash": h, "total": len(placas)}), 200
@@ -209,12 +213,17 @@ def hotlist_pendente(viatura_id):
 
 @api_viaturas_bp.route("/api/viaturas/<viatura_id>/hotlist_sync", methods=["GET"])
 def hotlist_sync_get(viatura_id):
-    """Pi baixa a hotlist completa."""
+    """Pi baixa a hotlist completa do próprio cliente."""
     err = _api_key_required()
     if err:
         return err
     from models import Hotlist
-    placas = [h.placa for h in Hotlist.query.filter_by(ativa=True).all()]
+    viatura = Viatura.query.filter_by(viatura_id=viatura_id).first()
+    # Sprint 8.4: filtro por cliente_id da viatura
+    q = Hotlist.query.filter_by(ativa=True)
+    if viatura and viatura.cliente_id is not None:
+        q = q.filter_by(cliente_id=viatura.cliente_id)
+    placas = [h.placa for h in q.all()]
     h = _hotlist_hash(placas)
     return jsonify({"placas": placas, "hash": h, "total": len(placas)}), 200
 

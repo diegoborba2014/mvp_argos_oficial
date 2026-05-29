@@ -55,7 +55,7 @@
         </a>
       </li>
       <!-- Eventos do sistema -->
-      {% if current_user.is_admin() %}
+      {% if current_user.is_superadmin() or current_user.is_admin_cliente() %}
       <li class="nav-item mr-2">
         <a class="nav-link" href="{{ url_for('dashboard.eventos') }}" title="Eventos do sistema">
           <i class="fas fa-heartbeat" style="color:{% if eventos_criticos_count > 0 %}#f39c12{% else %}#6c757d{% endif %};"></i>
@@ -159,9 +159,10 @@
             </a>
           </li>
 
-          {% if current_user.is_admin() %}
+          {% if current_user.is_superadmin() or current_user.is_admin_cliente() %}
           <li class="nav-header" style="color:rgba(255,255,255,.4);font-size:.7rem;letter-spacing:1px;">ADMINISTRAÇÃO</li>
 
+          {% if current_user.is_superadmin() %}
           <li class="nav-item">
             <a href="{{ url_for('dashboard.viaturas') }}" class="nav-link {% if request.endpoint == 'dashboard.viaturas' %}active{% endif %}">
               <i class="nav-icon fas fa-car"></i>
@@ -174,6 +175,7 @@
               <p>Saúde da Frota</p>
             </a>
           </li>
+          {% endif %}
 
           <li class="nav-item">
             <a href="{{ url_for('dashboard.hotlist') }}" class="nav-link {% if request.endpoint == 'dashboard.hotlist' %}active{% endif %}">
@@ -194,11 +196,26 @@
           </li>
 
           <li class="nav-item">
+            <a href="{{ url_for('dashboard.admin_usuarios') }}" class="nav-link {% if request.endpoint == 'dashboard.admin_usuarios' %}active{% endif %}">
+              <i class="nav-icon fas fa-users"></i>
+              <p>Usuários</p>
+            </a>
+          </li>
+
+          {% if current_user.is_superadmin() %}
+          <li class="nav-item">
+            <a href="{{ url_for('dashboard.admin_clientes') }}" class="nav-link {% if request.endpoint == 'dashboard.admin_clientes' %}active{% endif %}">
+              <i class="nav-icon fas fa-building" style="color:#a29bfe;"></i>
+              <p>Clientes</p>
+            </a>
+          </li>
+          <li class="nav-item">
             <a href="{{ url_for('dashboard.admin_retencao') }}" class="nav-link {% if request.endpoint == 'dashboard.admin_retencao' %}active{% endif %}">
               <i class="nav-icon fas fa-database" style="color:#fd7e14;"></i>
               <p>Retenção</p>
             </a>
           </li>
+          {% endif %}
           {% endif %}
 
         </ul>

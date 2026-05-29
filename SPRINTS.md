@@ -616,26 +616,45 @@ Deve ser feita **antes** de qualquer operação em campo ou exposição da URL p
 - [x] P-17: Índices compostos em `EventoSistema`, `Deteccao`, `Heartbeat` → `__table_args__` + `CREATE INDEX IF NOT EXISTS` ✅ `e790cf3`
 - [x] P-18: Card-footer de viaturas.html branco (`#f8f9fa`) → tema escuro (`#1a1d23`) ✅ `e790cf3`
 
-#### ✅ Concluídos (28/05/2026)
+#### ✅ Concluídos
 - [x] Deploy Sprint Pi-A Pi-side ✅
-- [x] Bug fixes comunicação Pi↔QG ✅ `cbec91c` — offline_buffer, heartbeat 30s, CB recovery 60s
-- [x] Fix QG HTTP 500 heartbeat ✅ `948f45b` — GPS satellites string→int
-- [x] Comandos remotos via polling ✅ `69d8369` + Pi — Pausar/Retomar/Reiniciar LPR e ARGOS
-- [x] UX notificação de comandos ✅ `a9e8728` — toast estilizado, auto-dismiss 5s
-- [x] Frame completo em Alertas Táticos ✅ `3fa95b0` (QG) + Pi deployado
-- [x] Sprint 4.6 — UX Review Hotlist ✅ `b51e245`+`61beb73` — busca, edição, toggle, abas, paginação, CSV
-- [x] Sprint 6.2 — Eventos Pi-side ✅ `5bedade` — edge-triggered: LPR/GPS transitions
-- [x] Correção lpr_health -1→None + thread background pi_offline QG ✅ `5bedade`
+- [x] Bug fixes comunicação Pi↔QG ✅ `cbec91c`
+- [x] Fix QG HTTP 500 heartbeat (GPS satellites string→int) ✅ `948f45b`
+- [x] Comandos remotos via polling ✅ `69d8369`
+- [x] UX notificação de comandos (toast) ✅ `a9e8728`
+- [x] Frame completo em Alertas Táticos ✅ `3fa95b0`
+- [x] Sprint 4.6 — UX Review Hotlist ✅ `b51e245`+`61beb73`
+- [x] Sprint 6.2 — Eventos Pi-side edge-triggered ✅ `5bedade`
+- [x] Sprint 9.1 — Dashboard UX Review ✅ `4474260`→`d5c6207`→`cef4052`
+  - D-1: timezone BRT nos cards Leituras/Alertas Hoje
+  - D-2: filtro score=0 no Feed ao Vivo + memory_decay 120 no Pi
+  - D-3: card "Última Atualização" → "Eventos Críticos"
+  - D-4: Saúde da Frota → página dedicada `/viaturas/saude` com busca
+  - D-5: Mapa Tático dois modos (Viaturas + Alertas CSI) no dashboard
+- [x] Sprint 9.2 — UX Review Viaturas ✅ `54e20be`+`4a1f0c9`
+  - V-1: Config LPR modo leitura + botão Editar
+  - V-2: Salvar e Sincronizar em única ação
+  - V-3: Polling de confirmação de sync (90s, status em tempo real)
+  - V-4: Busca e filtro Online/Offline na tela de viaturas
+  - V-5: Indicadores do card com contexto visual (barra LPR, cores CPU, badge Buffer)
+  - V-6: Gráficos Histórico 24h com limiares e tema escuro
+  - V-7: Aba "Logs do Equipamento" com histórico de EventoSistema
+- [x] fix: lpr_health é 0-100, não ratio 0.0-1.0 ✅ `4a1f0c9`
+- [x] Redesign Mapa de Frota ✅ `90f0543`
+  - Painel lateral com lista, busca, CPU/LPR por viatura
+  - Trajetória com gradiente de cor (recente→antigo) e tooltip de horário
+  - Sem alertas táticos — focado em rastreamento de viaturas
 - [x] Config polling Pi-side ✅
 - [x] Política de retenção de dados históricos ✅ `c09b57a`
 
 #### ⏳ Pendentes
 - [ ] **Revisão em campo (RV-1 a RV-4)** — validar com câmera, GPS e placa real
-- [ ] **Sprint 5.2** — Revisão GPS↔Leitura: confirmar que coord. salva é do momento da leitura
+- [ ] **Sprint 5.2** — GPS↔Leitura: confirmar que coord. salva é do momento da leitura
 - [ ] **Sprint 5.1** — Trilha de auditoria de ações
-- [ ] **Sprint 5.4** — Backup configurado do banco PostgreSQL
-- [ ] **Sprint 8.3–8.9** — Multi-tenancy: guards, filtros, telas clientes/usuários
-- [ ] **Dashboard UX** — contadores de prioridade hotlist + outras melhorias visuais
+- [ ] **Sprint 5.4** — Backup do banco PostgreSQL
+- [x] **Sprint 8.3–8.9** — Multi-tenancy: guards, filtros, telas clientes/usuários ✅
+- [ ] **V-7 Nível 2** — Logs técnicos reais do Pi via comando get_logs (requer deploy Pi)
+- [ ] **Dashboard** — contadores de prioridade na Hotlist (adiado do 4.6)
 
 ---
 
@@ -766,35 +785,36 @@ Backward compat: `perfil="admin"` → tratado como `superadmin`; `perfil="operad
 #### 8.2 — Migrations ✅ CONCLUÍDA — commit `7d3dd6b`
 - [x] `app.py` — 3 `ALTER TABLE` em `_migrar_schema()`: `viaturas`, `usuarios`, `hotlist` + 3 `CREATE INDEX IF NOT EXISTS`
 
-#### 8.3 — Filtro Central e Guards
-- [ ] `routes/dashboard.py` — helper `_viatura_ids_do_usuario()` com cache em `flask.g` + subquery para performance
-- [ ] `routes/dashboard.py` — 3 guards: `_superadmin_required()`, `_hotlist_admin_required()`, `_equipment_admin_required()`
-- [ ] `routes/dashboard.py` — substituir `_admin_required()` pelos novos guards em todas as rotas
-- [ ] `routes/dashboard.py` — aplicar filtro de viatura_ids em todas as queries de Deteccao, Heartbeat, EventoSistema
-- [ ] `routes/dashboard.py` — aplicar filtro `cliente_id` em queries de Hotlist
-- [ ] `routes/dashboard.py` — IDOR check em `/leituras/<id>`, `/leituras/<id>/imagem_placa`
-- [ ] `routes/dashboard.py` — IDOR check em `/api/mapa/trajeto/<viatura_id>`, `/api/viaturas/<id>/historico`
+#### 8.3 — Filtro Central e Guards ✅ CONCLUÍDA
+- [x] `routes/dashboard.py` — helper `_viatura_ids_do_usuario()` com cache em `flask.g` + `_aplicar_filtro_viatura()`
+- [x] `routes/dashboard.py` — 3 guards: `_superadmin_required()`, `_hotlist_admin_required()`, `_equipment_admin_required()`
+- [x] `routes/dashboard.py` — `_admin_required()` substituído pelos novos guards em todas as rotas
+- [x] `routes/dashboard.py` — filtro de viatura_ids em Deteccao, Heartbeat, EventoSistema (index, alertas, leituras, mapa, eventos, saude_frota, investigacao)
+- [x] `routes/dashboard.py` — filtro `cliente_id` em Hotlist (GET/POST adicionar/remover/importar/exportar)
+- [x] `routes/dashboard.py` — IDOR check em `/leituras/<id>`, `/leituras/<id>/imagem_placa`, `/leituras/<id>/imagem_veiculo`
+- [x] `routes/dashboard.py` — IDOR check em `/api/mapa/trajeto/<viatura_id>`, `/api/viaturas/<id>/historico`, eventos/resolver
 
-#### 8.4 — Hotlist por Cliente (Pi-side)
-- [ ] `routes/api_viaturas.py` — `GET /api/viaturas/<id>/hotlist_sync` filtra hotlist por `viatura.cliente_id`
-- [ ] `routes/dashboard.py` — `GET /api/hotlist` (JSON para mapa) filtra por cliente do usuário
+#### 8.4 — Hotlist por Cliente (Pi-side) ✅ CONCLUÍDA
+- [x] `routes/api_viaturas.py` — `hotlist_sync_get` e `hotlist_pendente` filtram por `viatura.cliente_id`
+- [x] `routes/dashboard.py` — `api_hotlist` filtra por cliente do usuário logado
 
-#### 8.5 — `inject_contadores` com JOIN
-- [ ] `app.py` — filtro de eventos críticos por cliente usando JOIN (não IN) para performance
+#### 8.5 — `inject_contadores` com JOIN ✅ CONCLUÍDA
+- [x] `app.py` — JOIN EventoSistema↔Viatura para filtrar por `cliente_id` de não-superadmin
 
-#### 8.6 — Novas Telas: Clientes
-- [ ] `routes/dashboard.py` — `GET /admin/clientes` + `POST /admin/clientes/criar` + `POST /admin/clientes/<id>/editar` + `POST /admin/clientes/<id>/toggle`
-- [ ] `templates/clientes.html` — tabela de clientes (nome, contato, nº viaturas, nº usuários, ativo), form cadastro, botões editar/toggle
+#### 8.6 — Novas Telas: Clientes ✅ CONCLUÍDA
+- [x] `routes/dashboard.py` — `GET /admin/clientes` + `POST` criar/editar/toggle
+- [x] `templates/clientes.html` — tabela com nº viaturas/usuários, form cadastro, modal editar, toggle ativo
 
-#### 8.7 — Novas Telas: Usuários
-- [ ] `routes/dashboard.py` — `GET /admin/usuarios` + `POST /admin/usuarios/criar` + `POST /admin/usuarios/<id>/remover` + `POST /admin/usuarios/<id>/senha`
-- [ ] `templates/usuarios.html` — tabela de usuários (username, perfil, cliente, criado_em), form criar (dropdown perfil filtrado por quem cria, dropdown cliente)
-- [ ] Segurança: `admin_cliente` só pode criar `operador_cliente` para o próprio cliente (validação server-side)
-- [ ] Validação: senha mínimo 8 caracteres
+#### 8.7 — Novas Telas: Usuários ✅ CONCLUÍDA
+- [x] `routes/dashboard.py` — `GET /admin/usuarios` + `POST` criar/remover/senha
+- [x] `templates/usuarios.html` — tabela, form criar (dropdown perfil/cliente), modal trocar senha
+- [x] Segurança: `admin_cliente` só cria `operador_cliente` para o próprio cliente (server-side)
+- [x] Validação: senha mínimo 8 caracteres
 
-#### 8.8 — Vinculação Viatura → Cliente (tela Viaturas existente)
-- [ ] `templates/viaturas.html` — form cadastro de viatura ganha dropdown "Cliente" (obrigatório para superadmin)
-- [ ] `routes/dashboard.py` — `POST /viaturas/criar` salva `cliente_id`
+#### 8.8 — Vinculação Viatura → Cliente ✅ CONCLUÍDA
+- [x] `templates/viaturas.html` — dropdown "Cliente" no form de cadastro (exibido quando há clientes)
+- [x] `routes/dashboard.py` — `criar_viatura()` salva `cliente_id`
 
-#### 8.9 — Sidebar por Perfil
-- [ ] `templates/base.html` — seção ADMINISTRAÇÃO com lógica para 3 perfis: superadmin (tudo), admin_cliente (Hotlist + Eventos + Usuários), operador_cliente (nada extra)
+#### 8.9 — Sidebar por Perfil ✅ CONCLUÍDA
+- [x] `templates/base.html` — 3 perfis: superadmin (Viaturas+Saúde+Hotlist+Eventos+Usuários+Clientes+Retenção), admin_cliente (Hotlist+Eventos+Usuários), operador_cliente (sem seção admin)
+- [x] badge de eventos na navbar visível para superadmin E admin_cliente

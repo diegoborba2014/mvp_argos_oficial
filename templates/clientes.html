@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}Clientes{% endblock %}
+{% block page_title %}<i class="fas fa-building text-primary mr-2"></i>Gestão de Clientes{% endblock %}
+{% block breadcrumb %}<li class="breadcrumb-item active">Clientes</li>{% endblock %}
+
+{% block content %}
+
+<div class="row">
+
+  <!-- Tabela de clientes -->
+  <div class="col-lg-8">
+    <div class="card shadow-sm">
+      <div class="card-header d-flex justify-content-between align-items-center py-2" style="background:#1a1d23;">
+        <strong style="color:#fff;"><i class="fas fa-building mr-2 text-primary"></i>Clientes Cadastrados</strong>
+        <small class="text-muted">{{ clientes | length }} cliente(s)</small>
+      </div>
+      <div class="card-body p-0">
+        {% if clientes %}
+        <div class="table-responsive">
+          <table class="table table-sm table-hover mb-0" style="font-size:.84rem;">
+            <thead style="background:#12151f;">
+              <tr>
+                <th class="pl-3">Nome</th>
+                <th>CNPJ/CPF</th>
+                <th>Contato</th>
+                <th class="text-center">Viaturas</th>
+                <th class="text-center">Usuários</th>
+                <th class="text-center">Status</th>
+                <th class="text-center">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for c in clientes %}
+              <tr>
+                <td class="pl-3 font-weight-bold" style="color:#e0e0e0;">{{ c.nome }}</td>
+                <td class="text-muted">{{ c.cnpj_cpf or '—' }}</td>
+                <td class="text-muted">{{ c.contato or '—' }}</td>
+                <td class="text-center">
+                  <span class="badge badge-secondary">{{ c.viaturas | length }}</span>
+                </td>
+                <td class="text-center">
+                  <span class="badge badge-secondary">{{ c.usuarios | length }}</span>
+                </td>
+                <td class="text-center">
+                  <span class="badge badge-{{ 'success' if c.ativo else 'secondary' }}">
+                    {{ 'ATIVO' if c.ativo else 'INATIVO' }}
+                  </span>
+                </td>
+                <td class="text-center">
+                  <!-- Botão Editar -->
+                  <button class="btn btn-xs btn-outline-info mr-1"
+                          onclick="abrirModalEditar({{ c.id }}, '{{ c.nome | e }}', '{{ c.cnpj_cpf | e }}', '{{ c.contato | e }}')"
+                          title="Editar">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                  <!-- Toggle ativo/inativo -->
+                  <form method="POST" action="{{ url_for('dashboard.admin_clientes') }}" class="d-inline"
+                        onsubmit="return confirm('{{ 'Desativar' if c.ativo else 'Ativar' }} cliente {{ c.nome }}?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="acao" value="toggle">
+                    <input type="hidden" name="cliente_id" value="{{ c.id }}">
+                    <button type="submit" class="btn btn-xs btn-outline-{{ 'warning' if c.ativo else 'success' }}" title="{{ 'Desativar' if c.ativo else 'Ativar' }}">
+                      <i class="fas fa-{{ 'toggle-on' if c.ativo else 'toggle-off' }}"></i>
+                    </button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="callout callout-info m-3">Nenhum cliente cadastrado ainda.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Formulário cadastrar cliente -->
+  <div class="col-lg-4">
+    <div class="card shadow-sm" style="border:2px dashed #495057;">
+      <div class="card-header py-2" style="background:#1a1d23;color:#fff;">
+        <strong><i class="fas fa-plus-circle mr-1"></i> Cadastrar Novo Cliente</strong>
+      </div>
+      <div class="card-body py-3">
+        <form method="POST" action="{{ url_for('dashboard.admin_clientes') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="acao" value="criar">
+          <div class="form-group mb-2">
+            <label class="mb-1" style="font-size:.85rem;">Nome <span class="text-danger">*</span></label>
+            <input type="text" name="nome" class="form-control form-control-sm"
+                   placeholder="Ex: Prefeitura de Campinas" required maxlength="128">
+          </div>
+          <div class="form-group mb-2">
+            <label class="mb-1" style="font-size:.85rem;">CNPJ / CPF</label>
+            <input type="text" name="cnpj_cpf" class="form-control form-control-sm"
+                   placeholder="00.000.000/0001-00" maxlength="20">
+          </div>
+          <div class="form-group mb-3">
+            <label class="mb-1" style="font-size:.85rem;">Contato</label>
+            <input type="text" name="contato" class="form-control form-control-sm"
+                   placeholder="Nome ou e-mail do responsável" maxlength="128">
+          </div>
+          <button type="submit" class="btn btn-sm btn-primary w-100">
+            <i class="fas fa-save mr-1"></i> Cadastrar
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal Editar Cliente -->
+<div class="modal fade" id="modal-editar-cliente" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content" style="background:#1a1d26;border:1px solid rgba(255,255,255,.1);">
+      <div class="modal-header py-2" style="background:#1a1d23;color:#fff;border-color:rgba(255,255,255,.1);">
+        <h5 class="modal-title"><i class="fas fa-edit mr-2 text-info"></i>Editar Cliente</h5>
+        <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+      </div>
+      <form method="POST" action="{{ url_for('dashboard.admin_clientes') }}">
+        <div class="modal-body">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="acao" value="editar">
+          <input type="hidden" name="cliente_id" id="edit-cliente-id">
+          <div class="form-group mb-2">
+            <label class="mb-1" style="font-size:.85rem;">Nome</label>
+            <input type="text" name="nome" id="edit-nome" class="form-control form-control-sm" required maxlength="128">
+          </div>
+          <div class="form-group mb-2">
+            <label class="mb-1" style="font-size:.85rem;">CNPJ / CPF</label>
+            <input type="text" name="cnpj_cpf" id="edit-cnpj" class="form-control form-control-sm" maxlength="20">
+          </div>
+          <div class="form-group mb-0">
+            <label class="mb-1" style="font-size:.85rem;">Contato</label>
+            <input type="text" name="contato" id="edit-contato" class="form-control form-control-sm" maxlength="128">
+          </div>
+        </div>
+        <div class="modal-footer" style="border-color:rgba(255,255,255,.1);">
+          <button type="button" class="btn btn-sm btn-secondary" data-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-sm btn-primary">
+            <i class="fas fa-save mr-1"></i> Salvar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function abrirModalEditar(id, nome, cnpj, contato) {
+  document.getElementById('edit-cliente-id').value = id;
+  document.getElementById('edit-nome').value = nome;
+  document.getElementById('edit-cnpj').value = cnpj;
+  document.getElementById('edit-contato').value = contato;
+  $('#modal-editar-cliente').modal('show');
+}
+</script>
+{% endblock %}
