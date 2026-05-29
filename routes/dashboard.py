@@ -313,6 +313,51 @@ def api_mapa_viaturas():
     return jsonify({"viaturas": resultado, "alertas": alertas_geo})
 
 
+@dashboard_bp.route("/api/mapa/alertas")
+@login_required
+def api_mapa_alertas():
+    """Retorna alertas táticos com GPS para o mapa CSI. ?horas=N (1–72, padrão 24)."""
+    try:
+        horas = max(1, min(72, int(request.args.get("horas", 24))))
+    except (ValueError, TypeError):
+        horas = 24
+
+    corte = _utcnow() - timedelta(hours=horas)
+    alertas = (
+        Deteccao.query
+        .filter(
+            Deteccao.alerta_tatico == True,
+            Deteccao.latitude.isnot(None),
+            Deteccao.longitude.isnot(None),
+            Deteccao.recebido_em >= corte,
+        )
+        .order_by(Deteccao.recebido_em.asc())
+        .limit(500)
+        .all()
+    )
+
+    agora = _utcnow()
+    resultado = []
+    for a in alertas:
+        idade_min = (agora - a.recebido_em).total_seconds() / 60
+        resultado.append({
+            "id": a.id,
+            "placa": a.placa,
+            "viatura_id": a.viatura_id,
+            "latitude": a.latitude,
+            "longitude": a.longitude,
+            "marca": a.marca or "",
+            "modelo": a.modelo or "",
+            "cor": a.cor or "",
+            "score": round(a.score or 0, 2),
+            "recebido_em": (a.recebido_em - timedelta(hours=3)).strftime("%d/%m/%Y %H:%M:%S"),
+            "tem_imagem": a.imagem_placa is not None,
+            "idade_min": round(idade_min),
+        })
+
+    return jsonify({"alertas": resultado, "horas": horas, "total": len(resultado)})
+
+
 @dashboard_bp.route("/api/mapa/trajeto/<viatura_id>")
 @login_required
 def api_trajeto(viatura_id):

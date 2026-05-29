@@ -146,60 +146,51 @@
 </div>
 {% endif %}
 
-<!-- Feed ao vivo -->
+<!-- Feed ao Vivo + Mapa ao Vivo -->
 <div class="row">
-  <div class="col-12">
-    <div class="card shadow-sm">
-      <div class="card-header" style="background:#1a1d23;color:#fff;">
-        <h3 class="card-title">
+  <!-- Feed ao Vivo -->
+  <div class="col-md-5">
+    <div class="card shadow-sm h-100">
+      <div class="card-header d-flex justify-content-between align-items-center py-2" style="background:#1a1d23;color:#fff;">
+        <h3 class="card-title mb-0">
           <i class="fas fa-broadcast-tower mr-2 text-danger"></i>Feed ao Vivo
         </h3>
-        <div class="card-tools">
-          <span class="badge badge-success" id="sse-status">Conectado</span>
-        </div>
+        <span class="badge badge-success" id="sse-status">Conectado</span>
       </div>
       <div class="card-body p-0">
-        <div id="feed-deteccoes" style="max-height:400px;overflow-y:auto;">
+        <div style="max-height:520px;overflow-y:auto;">
           <table class="table table-sm table-hover mb-0">
-            <thead style="position:sticky;top:0;background:#343a40;color:#fff;">
+            <thead style="position:sticky;top:0;background:#343a40;color:#fff;font-size:.78rem;">
               <tr>
-                <th style="width:50px;"></th>
-                <th style="width:150px;">Data/Hora</th>
-                <th>Viatura</th>
+                <th style="width:44px;"></th>
+                <th>Data/Hora</th>
                 <th>Placa</th>
                 <th>Veículo</th>
-                <th>Velocidade</th>
-                <th>Confiança</th>
-                <th>Situação</th>
+                <th>Sit.</th>
               </tr>
             </thead>
             <tbody id="feed-body">
               {% for d in ultimas_deteccoes if d.score and d.score > 0 or d.alerta_tatico %}
               <tr class="{{ 'item-placa-alerta' if d.alerta_tatico else '' }}"
-                  style="cursor:pointer;" onclick="location.href='{{ url_for('dashboard.detalhe_leitura', leitura_id=d.id) }}'">
+                  style="cursor:pointer;font-size:.8rem;"
+                  onclick="location.href='{{ url_for('dashboard.detalhe_leitura', leitura_id=d.id) }}'">
                 <td onclick="event.stopPropagation()" class="p-1" style="vertical-align:middle;">
                   {% if d.imagem_placa %}
                   <img src="{{ url_for('dashboard.imagem_placa', leitura_id=d.id) }}"
-                       alt="{{ d.placa }}"
-                       style="height:34px;border-radius:3px;border:1px solid rgba(255,255,255,.1);"
+                       style="height:32px;border-radius:3px;border:1px solid rgba(255,255,255,.1);"
                        onerror="this.style.display='none'">
                   {% else %}
-                  <span style="color:var(--text-muted);font-size:.7rem;" title="Imagem não disponível">
-                    <i class="fas fa-camera-slash"></i>
-                  </span>
+                  <span style="color:var(--text-muted);font-size:.7rem;"><i class="fas fa-camera-slash"></i></span>
                   {% endif %}
                 </td>
                 <td><small>{{ d.recebido_em | brt }}</small></td>
-                <td><small>{{ d.viatura_id }}</small></td>
-                <td><span class="placa-badge {{ 'bg-danger' if d.alerta_tatico else '' }}">{{ d.placa }}</span></td>
-                <td><small>{{ d.marca }} {{ d.modelo }} {{ d.cor }}</small></td>
-                <td><small>{{ '%.0f km/h' | format(d.velocidade or 0) }}</small></td>
-                <td><small>{{ '%.0f%%' | format((d.score or 0) * 100) }}</small></td>
+                <td><span class="placa-badge {{ 'bg-danger' if d.alerta_tatico else '' }}" style="font-size:.75rem;">{{ d.placa }}</span></td>
+                <td><small style="color:#adb5bd;">{{ d.marca }} {{ d.modelo }}</small></td>
                 <td>
                   {% if d.alerta_tatico %}
-                    <span class="badge badge-danger">ALERTA</span>
+                    <span class="badge badge-danger" style="font-size:.65rem;">ALERTA</span>
                   {% else %}
-                    <span class="badge badge-secondary">NORMAL</span>
+                    <span class="badge badge-secondary" style="font-size:.65rem;">OK</span>
                   {% endif %}
                 </td>
               </tr>
@@ -210,82 +201,288 @@
       </div>
     </div>
   </div>
+
+  <!-- Mapa ao Vivo -->
+  <div class="col-md-7">
+    <div class="card shadow-sm h-100">
+      <div class="card-header py-2" style="background:#1a1d23;color:#fff;">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <h3 class="card-title mb-0">
+            <i class="fas fa-map-marked-alt mr-2 text-info"></i>Mapa Tático
+          </h3>
+          <div class="btn-group btn-group-sm" id="mapa-modo-toggle">
+            <button class="btn btn-info active" id="btn-modo-viaturas" onclick="setModoMapa('viaturas')">
+              <i class="fas fa-car mr-1"></i>Viaturas
+            </button>
+            <button class="btn btn-outline-danger" id="btn-modo-alertas" onclick="setModoMapa('alertas')">
+              <i class="fas fa-crosshairs mr-1"></i>Alertas
+            </button>
+          </div>
+        </div>
+        <!-- Slider horas — só visível no modo alertas -->
+        <div id="filtro-alertas-mapa" style="display:none;" class="d-flex align-items-center" style="gap:.5rem;">
+          <small class="text-muted mr-2">Período:</small>
+          <input type="range" id="slider-horas" min="1" max="72" value="24"
+                 style="flex:1;cursor:pointer;" oninput="atualizarSliderLabel(this.value)">
+          <span id="slider-horas-label" class="badge badge-danger ml-2" style="min-width:54px;">24h</span>
+          <small class="text-muted ml-2" id="mapa-alertas-count"></small>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        <div id="mapa-dashboard" style="height:520px;"></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 {% endblock %}
 
-{% block extra_js %}
-<script>
-// S-8: escapa caracteres HTML antes de inserir via innerHTML
-function escapeHtml(s) {
-  if (s == null) return '';
-  return String(s).replace(/[&<>"']/g,
-    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#x27;'}[c]));
-}
+{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+/* Marcador viatura */
+.marker-viatura {
+  background: linear-gradient(135deg, #00c8dc, #0099aa);
+  color: #fff; font-size: .65rem; font-weight: 700;
+  padding: 3px 6px; border-radius: 10px;
+  white-space: nowrap; box-shadow: 0 2px 8px rgba(0,200,220,.5);
+  border: 1px solid rgba(0,200,220,.8);
+}
+.marker-viatura.offline {
+  background: #555; border-color: #777; box-shadow: none; color: #aaa;
+}
+/* Marcador alerta — pulsante */
+.marker-alerta-wrap { position: relative; }
+.marker-alerta-inner {
+  border-radius: 50%; background: #dc3545;
+  border: 2px solid rgba(220,53,69,.6);
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%,-50%);
+  animation: pulse-alerta 1.8s ease-in-out infinite;
+}
+.marker-alerta-placa {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, 14px);
+  font-family: monospace; font-size: .6rem; font-weight: 700;
+  color: #fff; background: rgba(220,53,69,.85);
+  padding: 1px 4px; border-radius: 3px; white-space: nowrap;
+}
+@keyframes pulse-alerta {
+  0%   { box-shadow: 0 0 0 0 rgba(220,53,69,.7); }
+  60%  { box-shadow: 0 0 0 12px rgba(220,53,69,0); }
+  100% { box-shadow: 0 0 0 0 rgba(220,53,69,0); }
+}
+/* Popup CSI */
+.popup-csi { background: #0d0f16; color: #e0e0e0; border-radius: 6px; padding: 10px; min-width: 200px; }
+.popup-csi .placa-csi {
+  font-family: monospace; font-size: 1.1rem; font-weight: 700;
+  background: #2a0a0a; color: #ff4444;
+  padding: 4px 12px; border-radius: 4px; text-align: center; margin-bottom: 8px;
+  border: 1px solid rgba(220,53,69,.4); letter-spacing: 2px;
+}
+.popup-csi img { width: 100%; border-radius: 4px; margin-bottom: 6px; }
+.popup-csi .info-row { font-size: .78rem; color: #adb5bd; margin-bottom: 2px; }
+.leaflet-popup-content-wrapper { background: transparent !important; box-shadow: 0 4px 20px rgba(0,0,0,.8) !important; padding: 0 !important; border-radius: 6px !important; }
+.leaflet-popup-content { margin: 0 !important; }
+.leaflet-popup-tip { background: #0d0f16 !important; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ── Feed ao Vivo ──────────────────────────────────────────────────────────────
 (function () {
   const tbody = document.getElementById('feed-body');
   const sseStatus = document.getElementById('sse-status');
   const kpiAlertasEl = document.getElementById('kpi-alertas');
   const kpiLeiturasEl = document.getElementById('kpi-leituras');
-
   let totalAlertas = parseInt(kpiAlertasEl.textContent) || 0;
   let totalLeituras = parseInt(kpiLeiturasEl.textContent) || 0;
 
-  // P-2: usa a conexão SSE centralizada de base.html — sem EventSource próprio
-  window.addEventListener('argos:open', function () {
-    sseStatus.textContent = 'Conectado';
-    sseStatus.className = 'badge badge-success';
-  });
-
-  window.addEventListener('argos:error', function () {
-    sseStatus.textContent = 'Reconectando...';
-    sseStatus.className = 'badge badge-warning';
-  });
+  window.addEventListener('argos:open',  () => { sseStatus.textContent = 'Conectado';    sseStatus.className = 'badge badge-success'; });
+  window.addEventListener('argos:error', () => { sseStatus.textContent = 'Reconectando...'; sseStatus.className = 'badge badge-warning'; });
 
   window.addEventListener('argos:detection', function (e) {
     const d = e.detail;
-
-    // D-2: oculta detecções com score=0 e sem alerta (ruído do Plate Recognizer)
     if (!d.alerta_tatico && (!d.score || d.score === 0)) return;
 
     totalLeituras++;
     kpiLeiturasEl.textContent = totalLeituras;
-
-    const alerta = d.alerta_tatico;
-    if (alerta) {
-      totalAlertas++;
-      kpiAlertasEl.textContent = totalAlertas;
-    }
+    if (d.alerta_tatico) { totalAlertas++; kpiAlertasEl.textContent = totalAlertas; }
 
     const imgHtml = d.tem_imagem
-      ? `<img src="/leituras/${d.id}/imagem_placa"
-               style="height:34px;border-radius:3px;border:1px solid rgba(255,255,255,.1);"
-               onerror="this.style.display='none'">`
-      : `<i class="fas fa-camera-slash" style="color:var(--text-muted);font-size:.75rem;" title="Sem imagem"></i>`;
+      ? `<img src="/leituras/${d.id}/imagem_placa" style="height:32px;border-radius:3px;border:1px solid rgba(255,255,255,.1);" onerror="this.style.display='none'">`
+      : `<i class="fas fa-camera-slash" style="color:var(--text-muted);font-size:.7rem;"></i>`;
 
     const tr = document.createElement('tr');
-    tr.className = (alerta ? 'item-placa-alerta' : '') + ' feed-new-row';
-    tr.style.cursor = 'pointer';
+    tr.className = (d.alerta_tatico ? 'item-placa-alerta' : '') + ' feed-new-row';
+    tr.style.cssText = 'cursor:pointer;font-size:.8rem;';
     tr.onclick = () => location.href = `/leituras/${d.id}`;
     tr.innerHTML = `
       <td class="p-1" style="vertical-align:middle;" onclick="event.stopPropagation()">${imgHtml}</td>
       <td><small>${escapeHtml(d.recebido_em)}</small></td>
-      <td><small>${escapeHtml(d.viatura_id)}</small></td>
-      <td><span class="placa-badge ${alerta ? 'bg-danger text-white' : ''}">${escapeHtml(d.placa)}</span></td>
-      <td><small>${escapeHtml(d.marca)} ${escapeHtml(d.modelo)} ${escapeHtml(d.cor)}</small></td>
-      <td><small>${(d.velocidade || 0).toFixed(0)} km/h</small></td>
-      <td><small>${((d.score || 0) * 100).toFixed(0)}%</small></td>
-      <td>${alerta ? '<span class="badge badge-danger">ALERTA</span>' : '<span class="badge badge-secondary">NORMAL</span>'}</td>
+      <td><span class="placa-badge ${d.alerta_tatico ? 'bg-danger' : ''}" style="font-size:.75rem;">${escapeHtml(d.placa)}</span></td>
+      <td><small style="color:#adb5bd;">${escapeHtml(d.marca)} ${escapeHtml(d.modelo)}</small></td>
+      <td>${d.alerta_tatico ? '<span class="badge badge-danger" style="font-size:.65rem;">ALERTA</span>' : '<span class="badge badge-secondary" style="font-size:.65rem;">OK</span>'}</td>
     `;
-
     tbody.insertBefore(tr, tbody.firstChild);
-
-    // Manter apenas 50 linhas no feed
-    while (tbody.rows.length > 50) {
-      tbody.removeChild(tbody.lastChild);
-    }
+    while (tbody.rows.length > 50) tbody.removeChild(tbody.lastChild);
   });
 })();
+
+// ── Mapa Tático ───────────────────────────────────────────────────────────────
+const mapa = L.map('mapa-dashboard', { zoomControl: true }).setView([-15.78, -47.93], 5);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '© OpenStreetMap © CARTO', subdomains: 'abcd', maxZoom: 19
+}).addTo(mapa);
+
+let _modoAtual = 'viaturas';
+let _markersViaturas = [], _markersAlertas = [], _linhasAlertas = [];
+let _timerViaturas = null, _sliderTimer = null;
+
+// ── Modo Viaturas ─────────────────────────────────────────────────────────────
+function carregarViaturas() {
+  fetch('/api/mapa/viaturas')
+    .then(r => r.json())
+    .then(data => {
+      _markersViaturas.forEach(m => mapa.removeLayer(m));
+      _markersViaturas = [];
+      data.viaturas.forEach(v => {
+        if (!v.latitude || !v.longitude) return;
+        const icon = L.divIcon({
+          className: '', iconSize: [null, null], iconAnchor: [40, 12],
+          html: `<div class="marker-viatura${v.online ? '' : ' offline'}">${escapeHtml(v.viatura_id)}</div>`
+        });
+        const popup = `
+          <div class="popup-csi">
+            <div style="font-weight:700;color:${v.online ? '#00c8dc' : '#aaa'};margin-bottom:6px;">
+              <i class="fas fa-car mr-1"></i>${escapeHtml(v.viatura_id)}
+              <span class="badge badge-${v.online ? 'success' : 'secondary'} ml-1" style="font-size:.65rem;">${v.online ? 'ONLINE' : 'OFFLINE'}</span>
+            </div>
+            <div class="info-row"><i class="fas fa-thermometer-half mr-1"></i>${v.cpu_temp_c != null ? v.cpu_temp_c.toFixed(1) + '°C' : '—'}</div>
+            <div class="info-row"><i class="fas fa-microchip mr-1"></i>LPR ${v.lpr_health != null ? (v.lpr_health * 100).toFixed(0) + '%' : '—'}</div>
+            <div class="info-row"><i class="fas fa-inbox mr-1"></i>Buffer: ${v.buffer_pendente || 0}</div>
+            <div class="info-row" style="font-size:.72rem;margin-top:4px;color:#666;">${escapeHtml(v.ultima_atualizacao)}</div>
+          </div>`;
+        const m = L.marker([v.latitude, v.longitude], {icon}).bindPopup(popup, {className: 'popup-csi-wrap'});
+        m.addTo(mapa);
+        _markersViaturas.push(m);
+      });
+    }).catch(() => {});
+}
+
+// Atualiza via SSE heartbeat
+window.addEventListener('argos:heartbeat', () => { if (_modoAtual === 'viaturas') carregarViaturas(); });
+
+// ── Modo Alertas (CSI) ────────────────────────────────────────────────────────
+function carregarAlertas(horas) {
+  fetch(`/api/mapa/alertas?horas=${horas}`)
+    .then(r => r.json())
+    .then(data => {
+      _markersAlertas.forEach(m => mapa.removeLayer(m));
+      _linhasAlertas.forEach(l => mapa.removeLayer(l));
+      _markersAlertas = []; _linhasAlertas = [];
+
+      const totalMin = horas * 60;
+      // Agrupa por placa para trajetória
+      const porPlaca = {};
+      data.alertas.forEach(a => {
+        (porPlaca[a.placa] = porPlaca[a.placa] || []).push(a);
+      });
+
+      // Linhas de trajetória por placa
+      Object.values(porPlaca).forEach(pts => {
+        if (pts.length < 2) return;
+        const coords = pts.map(p => [p.latitude, p.longitude]);
+        const l = L.polyline(coords, {color: '#ff4444', weight: 1.5, opacity: 0.4, dashArray: '4 6'});
+        l.addTo(mapa);
+        _linhasAlertas.push(l);
+      });
+
+      // Marcadores pulsantes
+      data.alertas.forEach(a => {
+        const opacity = Math.max(0.35, 1 - (a.idade_min / totalMin) * 0.65);
+        const size = Math.round(14 + (a.score || 0) * 10);
+        const icon = L.divIcon({
+          className: '', iconSize: [size + 20, size + 20], iconAnchor: [(size + 20) / 2, (size + 20) / 2],
+          html: `<div class="marker-alerta-wrap" style="width:${size+20}px;height:${size+20}px;">
+                   <div class="marker-alerta-inner" style="width:${size}px;height:${size}px;opacity:${opacity};"></div>
+                   <div class="marker-alerta-placa">${escapeHtml(a.placa)}</div>
+                 </div>`
+        });
+        const imgTag = a.tem_imagem
+          ? `<img src="/leituras/${a.id}/imagem_placa" onerror="this.style.display='none'">`
+          : '';
+        const popup = `
+          <div class="popup-csi">
+            <div class="placa-csi">${escapeHtml(a.placa)}</div>
+            ${imgTag}
+            <div class="info-row"><i class="fas fa-car mr-1"></i>${escapeHtml(a.marca)} ${escapeHtml(a.modelo)} ${escapeHtml(a.cor)}</div>
+            <div class="info-row"><i class="fas fa-crosshairs mr-1"></i>Confiança: ${((a.score||0)*100).toFixed(0)}%</div>
+            <div class="info-row"><i class="fas fa-clock mr-1"></i>${escapeHtml(a.recebido_em)}</div>
+            <div class="info-row"><i class="fas fa-car-side mr-1"></i>${escapeHtml(a.viatura_id)}</div>
+          </div>`;
+        const m = L.marker([a.latitude, a.longitude], {icon}).bindPopup(popup, {maxWidth: 240});
+        m.addTo(mapa);
+        _markersAlertas.push(m);
+      });
+
+      const countEl = document.getElementById('mapa-alertas-count');
+      if (countEl) countEl.textContent = `${data.total} alerta(s)`;
+
+      // Centraliza no primeiro ponto se houver
+      if (data.alertas.length > 0) {
+        const pts = data.alertas.map(a => [a.latitude, a.longitude]);
+        try { mapa.fitBounds(L.latLngBounds(pts).pad(0.2)); } catch(e) {}
+      }
+    }).catch(() => {});
+}
+
+// ── Controles de modo ─────────────────────────────────────────────────────────
+function setModoMapa(modo) {
+  _modoAtual = modo;
+  const btnV = document.getElementById('btn-modo-viaturas');
+  const btnA = document.getElementById('btn-modo-alertas');
+  const filtro = document.getElementById('filtro-alertas-mapa');
+
+  if (modo === 'viaturas') {
+    btnV.className = 'btn btn-info active';
+    btnA.className = 'btn btn-outline-danger';
+    filtro.style.display = 'none';
+    _markersAlertas.forEach(m => mapa.removeLayer(m));
+    _linhasAlertas.forEach(l => mapa.removeLayer(l));
+    _markersAlertas = []; _linhasAlertas = [];
+    carregarViaturas();
+    _timerViaturas = setInterval(carregarViaturas, 30000);
+  } else {
+    btnV.className = 'btn btn-outline-info';
+    btnA.className = 'btn btn-danger active';
+    filtro.style.display = 'flex';
+    clearInterval(_timerViaturas);
+    _markersViaturas.forEach(m => mapa.removeLayer(m));
+    _markersViaturas = [];
+    carregarAlertas(parseInt(document.getElementById('slider-horas').value));
+  }
+}
+
+function atualizarSliderLabel(val) {
+  document.getElementById('slider-horas-label').textContent = val + 'h';
+  clearTimeout(_sliderTimer);
+  _sliderTimer = setTimeout(() => carregarAlertas(parseInt(val)), 600);
+}
+
+// Novo alerta via SSE → re-renderiza se estiver no modo alertas
+window.addEventListener('argos:detection', function(e) {
+  if (_modoAtual === 'alertas' && e.detail.alerta_tatico && e.detail.latitude) {
+    carregarAlertas(parseInt(document.getElementById('slider-horas').value));
+  }
+});
+
+// Init
+carregarViaturas();
+_timerViaturas = setInterval(carregarViaturas, 30000);
 </script>
 {% endblock %}
