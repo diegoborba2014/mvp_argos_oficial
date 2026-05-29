@@ -135,7 +135,35 @@ def create_app():
         _seed_usuarios()
         _seed_motivos()
 
+    _iniciar_monitor_offline(app)
     return app
+
+
+def _iniciar_monitor_offline(app):
+    """Thread background que detecta Pi offline a cada 30s — independente de alguém ter o painel aberto."""
+    import threading, time, logging
+    log = logging.getLogger("argos.monitor_offline")
+
+    def _loop():
+        while True:
+            time.sleep(30)
+            try:
+                with app.app_context():
+                    from routes.dashboard import _verificar_pi_offline
+                    _verificar_pi_offline()
+                    db.session.commit()
+                    db.session.remove()
+            except Exception as exc:
+                log.error(f"[MONITOR OFFLINE] {exc}")
+                try:
+                    with app.app_context():
+                        db.session.rollback()
+                        db.session.remove()
+                except Exception:
+                    pass
+
+    threading.Thread(target=_loop, name="monitor-offline", daemon=True).start()
+    log.info("[MONITOR OFFLINE] Iniciado — verifica pi_offline a cada 30s")
 
 
 def _migrar_schema():

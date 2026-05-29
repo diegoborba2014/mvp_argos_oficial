@@ -64,6 +64,9 @@ class TelemetryService:
         self._running = False
         self._thread = None
         self.circuit_breaker = CircuitBreaker(failure_threshold=20, recovery_timeout=60)
+        # Estado anterior para detecção de transições — None = primeiro ciclo (sem dado ainda)
+        self._lpr_respondendo = None
+        self._gps_com_fix = None
 
     def start(self):
         self._running = True
@@ -87,17 +90,62 @@ class TelemetryService:
             pos = gps.get_position()
             
             # Consulta saúde do Plate Recognizer Stream via Heartbeat API (porta 8001)
-            lpr_health = -1
-            lpr_fps = -1.0
+            lpr_health = None   # None = container não responde (sem dado)
+            lpr_fps = None
             try:
                 r = req.get("http://localhost:8001/status/", timeout=2)
-                if r.status_code in (200, 500):
+                if r.status_code == 200:
                     data = r.json()
                     cam_data = next(iter(data.get("cameras", {}).values()), {})
-                    lpr_health = cam_data.get("health", -1)
-                    lpr_fps = cam_data.get("received_fps", -1.0)
+                    lpr_health = cam_data.get("health")
+                    lpr_fps = cam_data.get("received_fps")
             except Exception:
                 pass
+
+            # ── Sprint 6.2: detecção de transições de estado ──────────────────
+            # Só enfileira evento quando o estado MUDA — zero dados em operação normal
+            lpr_respondendo_agora = lpr_health is not None
+            gps_com_fix_agora = pos.get("status", "") in ("2D Fix", "3D Fix")
+
+            if self._lpr_respondendo is not None:
+                if self._lpr_respondendo and not lpr_respondendo_agora:
+                    buffer.enqueue({
+                        "viatura_id": VIATURA_ID, "tipo": "evento",
+                        "subtipo": "lpr_offline",
+                        "detalhe": "Container LPR parou de responder",
+                        "timestamp": time.time(),
+                    })
+                    logger.warning("[TELEMETRIA] Evento: LPR offline")
+                elif not self._lpr_respondendo and lpr_respondendo_agora:
+                    buffer.enqueue({
+                        "viatura_id": VIATURA_ID, "tipo": "evento",
+                        "subtipo": "lpr_recuperado",
+                        "detalhe": f"LPR recuperado — Health: {lpr_health:.0%}",
+                        "timestamp": time.time(),
+                    })
+                    logger.info("[TELEMETRIA] Evento: LPR recuperado")
+
+            if self._gps_com_fix is not None:
+                if self._gps_com_fix and not gps_com_fix_agora:
+                    buffer.enqueue({
+                        "viatura_id": VIATURA_ID, "tipo": "evento",
+                        "subtipo": "gps_fix_perdido",
+                        "detalhe": f"GPS perdeu fix — status: {pos.get('status', '?')}",
+                        "timestamp": time.time(),
+                    })
+                    logger.warning("[TELEMETRIA] Evento: GPS fix perdido")
+                elif not self._gps_com_fix and gps_com_fix_agora:
+                    buffer.enqueue({
+                        "viatura_id": VIATURA_ID, "tipo": "evento",
+                        "subtipo": "gps_fix_restaurado",
+                        "detalhe": f"GPS fix restaurado — {pos.get('satellites', '?')} satélites",
+                        "timestamp": time.time(),
+                    })
+                    logger.info("[TELEMETRIA] Evento: GPS fix restaurado")
+
+            self._lpr_respondendo = lpr_respondendo_agora
+            self._gps_com_fix = gps_com_fix_agora
+            # ─────────────────────────────────────────────────────────────────
 
             payload = {
                 "viatura_id": VIATURA_ID,

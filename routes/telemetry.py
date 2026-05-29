@@ -102,7 +102,7 @@ def receber_telemetria():
         return jsonify({"status": "ok", "descartado": True}), 200
 
     # Deduplicação: ignora detecções com mesmo viatura_id+timestamp já salvas
-    if tipo != "heartbeat":
+    if tipo not in ("heartbeat", "evento"):
         ts = payload.get("timestamp")
         if ts is not None:
             try:
@@ -117,12 +117,62 @@ def receber_telemetria():
     if tipo == "heartbeat":
         _salvar_heartbeat(viatura_id, payload)
         db.session.commit()
+    elif tipo == "evento":
+        _salvar_evento_pi(viatura_id, payload)
+        db.session.commit()
     else:
         deteccao = _salvar_deteccao(viatura_id, payload, viatura)
         db.session.commit()  # commit antes do broadcast — garante que imagem já está no banco
         _broadcast("new_detection", deteccao.to_dict())
 
     return jsonify({"status": "ok"}), 200
+
+
+_MAPA_EVENTOS_PI = {
+    "lpr_offline":        ("lpr_offline",   "critico"),
+    "lpr_recuperado":     None,
+    "gps_fix_perdido":    ("gps_sem_sinal", "aviso"),
+    "gps_fix_restaurado": None,
+}
+_RESOLVE_EVENTO_PI = {
+    "lpr_recuperado":     "lpr_offline",
+    "gps_fix_restaurado": "gps_sem_sinal",
+}
+
+
+def _salvar_evento_pi(viatura_id: str, p: dict):
+    """Processa evento explícito enviado pelo Pi (tipo: 'evento')."""
+    subtipo = p.get("subtipo", "")
+    detalhe = p.get("detalhe", "")
+
+    if subtipo not in _MAPA_EVENTOS_PI:
+        return
+
+    config = _MAPA_EVENTOS_PI[subtipo]
+    agora = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    if config is None:
+        tipo_alvo = _RESOLVE_EVENTO_PI.get(subtipo)
+        if tipo_alvo:
+            ev = EventoSistema.query.filter_by(
+                viatura_id=viatura_id, tipo=tipo_alvo, resolvido=False
+            ).first()
+            if ev:
+                ev.resolvido = True
+                ev.resolvido_em = agora
+    else:
+        tipo_ev, severidade = config
+        if not EventoSistema.query.filter_by(
+            viatura_id=viatura_id, tipo=tipo_ev, resolvido=False
+        ).first():
+            db.session.add(EventoSistema(
+                viatura_id=viatura_id, tipo=tipo_ev,
+                severidade=severidade, detalhe=detalhe,
+            ))
+            _broadcast("system_event", {
+                "viatura_id": viatura_id, "tipo": tipo_ev,
+                "severidade": severidade, "detalhe": detalhe,
+            })
 
 
 def _salvar_deteccao(viatura_id: str, p: dict, viatura: Viatura) -> Deteccao:
