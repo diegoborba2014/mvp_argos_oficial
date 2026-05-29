@@ -20,9 +20,11 @@ def _utcnow():
 
 
 def _parse_data(s: str):
-    """Converte 'YYYY-MM-DD' → datetime ou None se vazio/inválido."""
+    """Converte 'YYYY-MM-DD' (data em BRT) → datetime UTC ou None se vazio/inválido.
+    Adiciona 3h porque recebido_em/criado_em é UTC e o usuário digita em BRT (UTC-3).
+    Ex: '2026-05-29' → datetime(2026, 5, 29, 3, 0, 0) = meia-noite BRT em UTC."""
     try:
-        return datetime.strptime(s, "%Y-%m-%d") if s else None
+        return datetime.strptime(s, "%Y-%m-%d") + timedelta(hours=3) if s else None
     except ValueError:
         return None
 
