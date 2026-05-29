@@ -39,12 +39,12 @@
 
 /* Popup */
 .argos-popup .leaflet-popup-content-wrapper {
-  background: #1a1d26; color: #e0e0e0;
-  border: 1px solid rgba(255,255,255,.1);
-  border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,.5);
+  background: #13151c; color: #e0e0e0;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 8px; box-shadow: 0 8px 28px rgba(0,0,0,.75);
 }
-.argos-popup .leaflet-popup-tip { background: #1a1d26; }
-.argos-popup .leaflet-popup-content { margin: 10px 12px; font-size: .82rem; line-height: 1.7; }
+.argos-popup .leaflet-popup-tip { background: #13151c; }
+.argos-popup .leaflet-popup-content { margin: 0; font-size: .82rem; line-height: 1.5; min-width: 210px; }
 </style>
 {% endblock %}
 
@@ -144,22 +144,50 @@ function mkIcon(online) {
 
 // ── Popup ─────────────────────────────────────────────────────────────────────
 function mkPopup(v) {
-  const statusColor = v.online ? '#00c8dc' : '#636e72';
-  return `<div style="min-width:160px;">
-    <div style="font-weight:700;color:${statusColor};font-size:.9rem;margin-bottom:4px;">
-      <i class="fas fa-car mr-1"></i>${escapeHtml(v.viatura_id)}
-      ${v.descricao ? `<div style="font-size:.72rem;color:#adb5bd;font-weight:400;">${escapeHtml(v.descricao)}</div>` : ''}
+  const sc = v.online ? '#00c8dc' : '#636e72';
+  const cpuC = v.cpu_temp_c >= 80 ? '#e17055' : v.cpu_temp_c >= 65 ? '#fdcb6e' : '#00b894';
+  const lprC = v.lpr_health == null ? '#888' : v.lpr_health >= 70 ? '#00b894' : v.lpr_health > 0 ? '#fdcb6e' : '#e17055';
+  const lprV = v.lpr_health != null ? v.lpr_health.toFixed(0) + '%' : '—';
+  const cpuV = v.cpu_temp_c != null ? v.cpu_temp_c.toFixed(1) + '°C' : '—';
+  return `
+  <div>
+    <!-- Cabeçalho -->
+    <div style="padding:10px 13px 9px;border-bottom:1px solid rgba(255,255,255,.08);">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <span style="font-family:monospace;font-size:1rem;font-weight:800;color:${sc};letter-spacing:1px;">
+          ${escapeHtml(v.viatura_id)}
+        </span>
+        <span style="font-size:.6rem;font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:10px;
+                     background:${v.online ? 'rgba(0,200,220,.15)' : 'rgba(99,110,114,.15)'};
+                     color:${sc};border:1px solid ${sc}44;">
+          ${v.online ? '● ONLINE' : '○ OFFLINE'}
+        </span>
+      </div>
+      ${v.descricao ? `<div style="font-size:.72rem;color:#888;margin-top:2px;">${escapeHtml(v.descricao)}</div>` : ''}
     </div>
-    <div style="font-size:.78rem;line-height:1.8;color:#adb5bd;">
-      <div>Status: <b style="color:${statusColor}">${v.online ? 'ONLINE' : 'OFFLINE'}</b></div>
-      <div>CPU: <b style="color:${v.cpu_temp_c >= 80 ? '#dc3545' : v.cpu_temp_c >= 65 ? '#fd7e14' : '#28a745'}">${v.cpu_temp_c != null ? v.cpu_temp_c.toFixed(1) + '°C' : '—'}</b></div>
-      <div>LPR: <b>${v.lpr_health != null ? v.lpr_health.toFixed(0) + '%' : '—'}</b></div>
-      <div>Buffer: <b>${v.buffer_pendente || 0}</b></div>
-      <div style="font-size:.7rem;margin-top:4px;color:#666;">${escapeHtml(v.ultima_atualizacao)}</div>
+    <!-- Métricas -->
+    <div style="padding:9px 13px;display:flex;gap:0;border-bottom:1px solid rgba(255,255,255,.08);">
+      <div style="flex:1;text-align:center;padding:0 6px;">
+        <div style="font-size:.92rem;font-weight:700;color:${cpuC};">${cpuV}</div>
+        <div style="font-size:.6rem;color:#636e72;text-transform:uppercase;letter-spacing:.5px;margin-top:1px;">CPU</div>
+      </div>
+      <div style="width:1px;background:rgba(255,255,255,.08);"></div>
+      <div style="flex:1;text-align:center;padding:0 6px;">
+        <div style="font-size:.92rem;font-weight:700;color:${lprC};">${lprV}</div>
+        <div style="font-size:.6rem;color:#636e72;text-transform:uppercase;letter-spacing:.5px;margin-top:1px;">LPR</div>
+      </div>
+      <div style="width:1px;background:rgba(255,255,255,.08);"></div>
+      <div style="flex:1;text-align:center;padding:0 6px;">
+        <div style="font-size:.92rem;font-weight:700;color:${(v.buffer_pendente||0) > 50 ? '#fdcb6e' : '#e0e0e0'};">${v.buffer_pendente || 0}</div>
+        <div style="font-size:.6rem;color:#636e72;text-transform:uppercase;letter-spacing:.5px;margin-top:1px;">Buffer</div>
+      </div>
     </div>
-    <div style="margin-top:6px;">
+    <!-- Rodapé -->
+    <div style="padding:8px 13px;display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-size:.68rem;color:#555;">${escapeHtml(v.ultima_atualizacao)}</span>
       <button onclick="toggleTrajeto('${escapeHtml(v.viatura_id)}')"
-              style="background:#00c8dc22;border:1px solid #00c8dc55;color:#00c8dc;font-size:.72rem;padding:2px 8px;border-radius:4px;cursor:pointer;">
+              style="background:rgba(0,200,220,.12);border:1px solid rgba(0,200,220,.35);
+                     color:#00c8dc;font-size:.72rem;padding:3px 9px;border-radius:4px;cursor:pointer;">
         <i class="fas fa-route mr-1"></i>Trajetória
       </button>
     </div>
