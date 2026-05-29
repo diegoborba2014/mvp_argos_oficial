@@ -82,7 +82,7 @@
             </td>
             <td class="py-1">
               {% if hb.lpr_health is not none %}
-                {% set hp = (hb.lpr_health * 100) | int %}
+                {% set hp = hb.lpr_health | int %}
                 {% set hcls = 'success' if hp >= 70 else ('warning' if hp > 0 else 'danger') %}
                 <div class="d-flex align-items-center">
                   <div class="progress mr-1" style="height:5px;width:60px;background:#2a2d3a;flex-shrink:0;">

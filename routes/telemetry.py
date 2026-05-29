@@ -263,12 +263,12 @@ def _verificar_eventos(viatura_id: str, hb: Heartbeat):
 
     # ── LPR ──────────────────────────────────────────────────────────────────
     if hb.lpr_health is not None:
-        if hb.lpr_health == 0.0:
+        if hb.lpr_health == 0:
             _abrir("lpr_offline", "critico", "LPR Health = 0% — câmera pode estar travada")
             _resolver("lpr_degradado")
-        elif hb.lpr_health < 0.70:
+        elif hb.lpr_health < 70:
             _resolver("lpr_offline")
-            _abrir("lpr_degradado", "aviso", f"LPR Health = {hb.lpr_health * 100:.0f}%")
+            _abrir("lpr_degradado", "aviso", f"LPR Health = {hb.lpr_health:.0f}%")
         else:
             _resolver("lpr_offline")
             _resolver("lpr_degradado")

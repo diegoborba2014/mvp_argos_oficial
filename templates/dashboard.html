@@ -361,7 +361,7 @@ function carregarViaturas() {
               <span class="badge badge-${v.online ? 'success' : 'secondary'} ml-1" style="font-size:.65rem;">${v.online ? 'ONLINE' : 'OFFLINE'}</span>
             </div>
             <div class="info-row"><i class="fas fa-thermometer-half mr-1"></i>${v.cpu_temp_c != null ? v.cpu_temp_c.toFixed(1) + '°C' : '—'}</div>
-            <div class="info-row"><i class="fas fa-microchip mr-1"></i>LPR ${v.lpr_health != null ? (v.lpr_health * 100).toFixed(0) + '%' : '—'}</div>
+            <div class="info-row"><i class="fas fa-microchip mr-1"></i>LPR ${v.lpr_health != null ? v.lpr_health.toFixed(0) + '%' : '—'}</div>
             <div class="info-row"><i class="fas fa-inbox mr-1"></i>Buffer: ${v.buffer_pendente || 0}</div>
             <div class="info-row" style="font-size:.72rem;margin-top:4px;color:#666;">${escapeHtml(v.ultima_atualizacao)}</div>
           </div>`;

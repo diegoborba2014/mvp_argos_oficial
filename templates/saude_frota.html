@@ -59,9 +59,9 @@
 
         {% for v in viaturas %}
         {% set hb = v.heartbeat %}
-        {% set lpr_ok = hb and hb.lpr_health is not none and hb.lpr_health >= 0.70 %}
-        {% set lpr_warn = hb and hb.lpr_health is not none and hb.lpr_health > 0 and hb.lpr_health < 0.70 %}
-        {% set lpr_crit = hb and hb.lpr_health is not none and hb.lpr_health == 0.0 %}
+        {% set lpr_ok = hb and hb.lpr_health is not none and hb.lpr_health >= 70 %}
+        {% set lpr_warn = hb and hb.lpr_health is not none and hb.lpr_health > 0 and hb.lpr_health < 70 %}
+        {% set lpr_crit = hb and hb.lpr_health is not none and hb.lpr_health == 0 %}
         {% set gps_ok = hb and hb.satellites is not none and hb.satellites >= 4 %}
         {% set gps_warn = hb and hb.satellites is not none and hb.satellites < 4 %}
         {% set cpu_crit = hb and hb.cpu_temp_c and hb.cpu_temp_c > 80 %}
@@ -84,7 +84,7 @@
           <td class="text-center">
             {{ icone(lpr_ok, lpr_warn, lpr_crit, 'LPR OK', 'LPR degradado', 'LPR offline') }}
             {% if hb and hb.lpr_health is not none %}
-            <div style="font-size:.65rem;color:#adb5bd;">{{ '%.0f%%' | format(hb.lpr_health * 100) }}</div>
+            <div style="font-size:.65rem;color:#adb5bd;">{{ '%.0f%%' | format(hb.lpr_health) }}</div>
             {% endif %}
           </td>
           <td class="text-center">
