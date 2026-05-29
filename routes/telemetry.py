@@ -305,6 +305,10 @@ def _parse_int(v):
 
 def _salvar_heartbeat(viatura_id: str, p: dict):
     gps = p.get("gps", {})
+    # Pi envia -1 enquanto o container LPR ainda não respondeu → tratar como None
+    _lpr_raw = p.get("lpr_health")
+    lpr_health_val = None if (_lpr_raw is None or _lpr_raw < 0) else _lpr_raw
+
     hb = Heartbeat(
         viatura_id=viatura_id,
         latitude=gps.get("latitude"),
@@ -313,7 +317,7 @@ def _salvar_heartbeat(viatura_id: str, p: dict):
         speed=gps.get("speed"),
         satellites=_parse_int(gps.get("satellites")),
         gps_status=gps.get("status", ""),
-        lpr_health=p.get("lpr_health"),
+        lpr_health=lpr_health_val,
         lpr_fps=p.get("lpr_fps"),
         cpu_temp_c=p.get("cpu_temp_c"),
         buffer_pendente=p.get("buffer_pendente", 0),
@@ -325,7 +329,7 @@ def _salvar_heartbeat(viatura_id: str, p: dict):
         "viatura_id": viatura_id,
         "latitude": gps.get("latitude"),
         "longitude": gps.get("longitude"),
-        "lpr_health": p.get("lpr_health"),
+        "lpr_health": lpr_health_val,
         "cpu_temp_c": p.get("cpu_temp_c"),
         "buffer_pendente": p.get("buffer_pendente", 0),
     })
