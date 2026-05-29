@@ -32,9 +32,16 @@
       <div class="card-body p-0">
         <!-- Busca instantânea -->
         <div class="px-3 pt-2 pb-1">
-          <input type="text" id="busca-placa" class="form-control form-control-sm"
-                 placeholder="&#xF002;  Buscar placa, motivo ou descrição..."
-                 style="font-family:'Font Awesome 5 Free', sans-serif;">
+          <div class="input-group input-group-sm">
+            <div class="input-group-prepend">
+              <span class="input-group-text" style="background:#2a2d3a;border-color:#444;color:#adb5bd;">
+                <i class="fas fa-search"></i>
+              </span>
+            </div>
+            <input type="text" id="busca-placa" class="form-control"
+                   placeholder="Buscar placa, motivo ou descrição..."
+                   style="background:#1a1d26;border-color:#444;color:#e0e0e0;">
+          </div>
         </div>
 
         <div style="max-height:520px;overflow-y:auto;">
