@@ -204,7 +204,27 @@ Retorno JSON:
 
 ---
 
-### 4.6 — UX Review da Tela Hotlist ⏳ PLANEJADA
+### 4.6 — UX Review da Tela Hotlist ✅ CONCLUÍDA
+**Commits:** `b51e245` + `61beb73` — 28/05/2026
+
+| Item | Implementado |
+|---|---|
+| Busca instantânea (JS) | ✅ input-group + filtro em tempo real |
+| Edição sem remover | ✅ modal com prioridade/motivo/desc/obs |
+| Toggle ativo/inativo | ✅ badge clicável → POST /hotlist/\<placa\>/toggle |
+| Abas na coluna direita | ✅ Adicionar / Importar / Motivos |
+| Flash messages | ✅ em todas as ações |
+| Validação de placa | ✅ regex JS em tempo real + bloqueio no submit |
+| Feedback CSV | ✅ N adicionadas · N já existiam · N inválidas |
+| Paginação (25/pág) | ✅ JS com anterior/próxima |
+| Botão excluir reduzido | ✅ ícone ao lado do lápis de edição |
+| Contadores por prioridade | ⏳ adiado para revisão do dashboard |
+
+**Rotas novas em `routes/dashboard.py`:**
+- `POST /hotlist/<placa>/editar` — atualiza campos sem excluir
+- `POST /hotlist/<placa>/toggle` — ativa/inativa sem excluir
+
+### 4.6 — UX Review da Tela Hotlist ⏳ PLANEJADA (ORIGINAL — referência)
 
 **Objetivo:** revisar a tela `/hotlist` sob a perspectiva de um operador policial que usa o sistema em campo, com foco em usabilidade, clareza visual e eficiência operacional.
 
@@ -367,7 +387,28 @@ class EventoSistema(db.Model):
 
 ---
 
-### 6.2 — Pi-side (ajustes no código)
+### 6.2 — Pi-side ✅ CONCLUÍDA
+**Commits:** `5bedade` (QG) + deploy `telemetry.py` Pi — 28/05/2026
+
+**Princípio de design:** eventos edge-triggered — zero dados extras em operação normal.
+
+| Evento | Quando Pi dispara |
+|---|---|
+| `lpr_offline` | Container LPR para de responder |
+| `lpr_recuperado` | Container LPR volta a responder |
+| `gps_fix_perdido` | GPS perde fix (3D Fix → sem sinal) |
+| `gps_fix_restaurado` | GPS recupera fix |
+
+**Correções incluídas:**
+- `lpr_health = -1` → `None` (evitava falso evento `lpr_degradado` no QG)
+- Thread background no QG detecta `pi_offline` a cada 30s (não depende do painel aberto)
+
+**QG-side (`routes/telemetry.py`):**
+- Handler `tipo == "evento"` no `POST /api/argos/telemetry`
+- `_salvar_evento_pi()` — cria/resolve EventoSistema + broadcast SSE
+- `_MAPA_EVENTOS_PI` e `_RESOLVE_EVENTO_PI` para mapeamento subtipo→tipo
+
+### 6.2 — Pi-side (ajustes no código) — ORIGINAL (referência)
 
 Os campos já enviados nos heartbeats cobrem a maioria dos eventos. Ajustes necessários:
 
@@ -504,7 +545,9 @@ Deve ser feita **antes** de qualquer operação em campo ou exposição da URL p
 
 **Impacto de storage:** ~10 KB/detecção × 1.000 leituras/dia = **~10 MB/dia** no PostgreSQL. Sprint 5.3 (retenção de dados) torna-se prioritária.
 
-**Deploy Pi-B:** ✅ CONCLUÍDO (28/05/2026) — `webhook_handler.py` + `offline_buffer.py` deployados via curl para `/opt/argos/src/`.
+**Deploy Pi-B — status por arquivo (28/05/2026):**
+- `offline_buffer.py` ✅ deployado via curl (inclui exclusão de imagem_placa do disco)
+- `webhook_handler.py` ⏳ **PENDENTE** — Pi ainda não envia imagens ao QG
 
 ---
 
@@ -573,18 +616,26 @@ Deve ser feita **antes** de qualquer operação em campo ou exposição da URL p
 - [x] P-17: Índices compostos em `EventoSistema`, `Deteccao`, `Heartbeat` → `__table_args__` + `CREATE INDEX IF NOT EXISTS` ✅ `e790cf3`
 - [x] P-18: Card-footer de viaturas.html branco (`#f8f9fa`) → tema escuro (`#1a1d23`) ✅ `e790cf3`
 
-#### ⏳ Outros pendentes
-- [ ] **Revisão em campo com Pi** — RV-1 (detalhe leitura), RV-2 (hotlist), RV-3 (trajetória), RV-4 (alerta sonoro + motivos)
-- [ ] Deploy Sprint Pi-A Pi-side (aguardando Pi disponível)
-- [ ] Monitoramento de eventos Pi-side — eventos explícitos câmera/GPS/LPR (Sprint 6.2)
-- [ ] UX Review da tela Hotlist — busca, edição inline, toggle ativo/inativo (Sprint 4.6)
-- [ ] Revisão GPS↔Leitura (Sprint 5.2)
-- [ ] Trilha de auditoria de ações (Sprint 5.1)
-- [x] Política de retenção de dados históricos (Sprint 5.3) ✅ `c09b57a`
-- [ ] Backup configurado do banco (Sprint 5.4)
-- [ ] Comandos polling Pi-side (Sprint Pi-B)
-- [ ] Config polling Pi-side (Sprint Pi-B)
-- [ ] Imagens da placa no Pi — **QG deployado** (`ef3961d` + `7e5cd99`), **Pi pendente SCP** (Sprint Pi-B.1 + Pi-B.2)
+#### ✅ Concluídos (28/05/2026)
+- [x] Deploy Sprint Pi-A Pi-side ✅
+- [x] Bug fixes comunicação Pi↔QG ✅ `cbec91c` — offline_buffer, heartbeat 30s, CB recovery 60s
+- [x] Fix QG HTTP 500 heartbeat ✅ `948f45b` — GPS satellites string→int
+- [x] Comandos remotos via polling ✅ `69d8369` + Pi — Pausar/Retomar/Reiniciar LPR e ARGOS
+- [x] UX notificação de comandos ✅ `a9e8728` — toast estilizado, auto-dismiss 5s
+- [x] Frame completo em Alertas Táticos ✅ `3fa95b0` (QG) + Pi deployado
+- [x] Sprint 4.6 — UX Review Hotlist ✅ `b51e245`+`61beb73` — busca, edição, toggle, abas, paginação, CSV
+- [x] Sprint 6.2 — Eventos Pi-side ✅ `5bedade` — edge-triggered: LPR/GPS transitions
+- [x] Correção lpr_health -1→None + thread background pi_offline QG ✅ `5bedade`
+- [x] Config polling Pi-side ✅
+- [x] Política de retenção de dados históricos ✅ `c09b57a`
+
+#### ⏳ Pendentes
+- [ ] **Revisão em campo (RV-1 a RV-4)** — validar com câmera, GPS e placa real
+- [ ] **Sprint 5.2** — Revisão GPS↔Leitura: confirmar que coord. salva é do momento da leitura
+- [ ] **Sprint 5.1** — Trilha de auditoria de ações
+- [ ] **Sprint 5.4** — Backup configurado do banco PostgreSQL
+- [ ] **Sprint 8.3–8.9** — Multi-tenancy: guards, filtros, telas clientes/usuários
+- [ ] **Dashboard UX** — contadores de prioridade hotlist + outras melhorias visuais
 
 ---
 
