@@ -45,6 +45,7 @@
         <div>
           <strong><i class="fas fa-car mr-1"></i> {{ v.viatura_id }}</strong>
           {% if v.descricao %}<div class="text-muted" style="font-size:.72rem;">{{ v.descricao }}</div>{% endif %}
+          {% if v.cliente %}<div style="font-size:.68rem;color:#a29bfe;"><i class="fas fa-building mr-1"></i>{{ v.cliente.nome }}</div>{% endif %}
         </div>
         <span class="badge badge-{{ 'success' if v.online() else 'danger' }} badge-pill">
           {{ 'ONLINE' if v.online() else 'OFFLINE' }}
@@ -146,6 +147,11 @@
            class="btn btn-xs btn-outline-info mb-1">
           <i class="fas fa-sliders-h"></i> Config LPR
         </a>
+        <button class="btn btn-xs btn-outline-secondary mb-1"
+                onclick="abrirModalEditar('{{ v.viatura_id }}', '{{ v.descricao | e }}', {{ v.cliente_id or 'null' }})"
+                title="Editar viatura (descrição e cliente)">
+          <i class="fas fa-edit"></i> Editar
+        </button>
       </div>
     </div>
   </div>
@@ -192,6 +198,51 @@
           </button>
         </form>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Editar Viatura -->
+<div class="modal fade" id="modal-editar-viatura" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content" style="background:#1a1d26;border:1px solid rgba(255,255,255,.1);">
+      <div class="modal-header py-2" style="background:#1a1d23;color:#fff;border-color:rgba(255,255,255,.1);">
+        <h5 class="modal-title"><i class="fas fa-edit mr-2 text-info"></i>Editar Viatura — <span id="edit-viatura-id-label"></span></h5>
+        <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+      </div>
+      <form method="POST" id="form-editar-viatura">
+        <div class="modal-body">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="form-group mb-2">
+            <label class="mb-1" style="font-size:.85rem;">Descrição</label>
+            <input type="text" name="descricao" id="edit-vtr-descricao"
+                   class="form-control form-control-sm" maxlength="128"
+                   placeholder="Ex: Viatura Patrulha Norte">
+          </div>
+          {% if clientes %}
+          <div class="form-group mb-0">
+            <label class="mb-1" style="font-size:.85rem;">Cliente vinculado</label>
+            <select name="cliente_id" id="edit-vtr-cliente" class="form-control form-control-sm">
+              <option value="">— Nenhum —</option>
+              {% for c in clientes %}
+              <option value="{{ c.id }}">{{ c.nome }}</option>
+              {% endfor %}
+            </select>
+            <small class="text-muted">Vincula esta viatura a um cliente para filtragem multi-tenant.</small>
+          </div>
+          {% else %}
+          <p class="text-muted mt-2 mb-0" style="font-size:.82rem;">
+            <i class="fas fa-info-circle mr-1"></i>Cadastre clientes em <a href="{{ url_for('dashboard.admin_clientes') }}" class="text-info">Clientes</a> para vincular viaturas.
+          </p>
+          {% endif %}
+        </div>
+        <div class="modal-footer" style="border-color:rgba(255,255,255,.1);">
+          <button type="button" class="btn btn-sm btn-secondary" data-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-sm btn-primary">
+            <i class="fas fa-save mr-1"></i> Salvar
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 </div>
@@ -292,6 +343,15 @@ function enviarComando(viaturaId, comando) {
     }
   })
   .catch(() => _notificacao('<i class="fas fa-exclamation-triangle mr-2"></i>Erro de comunicação. Tente novamente.', 'danger'));
+}
+
+function abrirModalEditar(viaturaId, descricao, clienteId) {
+  document.getElementById('edit-viatura-id-label').textContent = viaturaId;
+  document.getElementById('edit-vtr-descricao').value = descricao;
+  document.getElementById('form-editar-viatura').action = '/viaturas/' + viaturaId + '/editar';
+  const sel = document.getElementById('edit-vtr-cliente');
+  if (sel) sel.value = clienteId || '';
+  $('#modal-editar-viatura').modal('show');
 }
 
 let chartTemp = null, chartHealth = null;

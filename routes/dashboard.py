@@ -496,6 +496,23 @@ def criar_viatura():
     return redirect(url_for("dashboard.viaturas"))
 
 
+@dashboard_bp.route("/viaturas/<viatura_id>/editar", methods=["POST"])
+@login_required
+def editar_viatura(viatura_id):
+    _equipment_admin_required()
+    v = Viatura.query.filter_by(viatura_id=viatura_id).first_or_404()
+    v.descricao = request.form.get("descricao", v.descricao).strip()
+    try:
+        cid = int(request.form.get("cliente_id")) if request.form.get("cliente_id") else None
+    except (ValueError, TypeError):
+        cid = None
+    v.cliente_id = cid
+    _log(f"viatura:editar:{viatura_id}", f"descricao={v.descricao} cliente_id={cid}")
+    db.session.commit()
+    flash(f"Viatura {viatura_id} atualizada.", "success")
+    return redirect(url_for("dashboard.viaturas"))
+
+
 @dashboard_bp.route("/api/viaturas/<viatura_id>/historico")
 @login_required
 def api_historico_viatura(viatura_id):

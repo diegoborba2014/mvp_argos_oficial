@@ -295,8 +295,21 @@ body,
   border-bottom: 1px solid rgba(0,200,220,.05) !important;
   transition: background 0.1s;
 }
-.table tbody tr:hover {
+/* Hover: força cor do texto para não ser sobrescrito pelo AdminLTE/Bootstrap */
+.table tbody tr:hover,
+.table-hover tbody tr:hover {
   background: var(--bg-card-2) !important;
+  color: var(--text) !important;
+}
+.table tbody tr:hover td,
+.table tbody tr:hover th,
+.table-hover tbody tr:hover td,
+.table-hover tbody tr:hover th {
+  color: var(--text) !important;
+}
+/* Linha de alerta tático mantém destaque vermelho no hover */
+.table tbody tr.item-placa-alerta:hover {
+  background: rgba(192,57,43,.2) !important;
 }
 .table tbody td {
   border-color: rgba(0,200,220,.05) !important;
@@ -305,9 +318,6 @@ body,
 /* Sem stripe claro do Bootstrap */
 .table-striped tbody tr:nth-of-type(odd) {
   background: var(--bg-card) !important;
-}
-.table-hover tbody tr:hover {
-  background: var(--bg-card-2) !important;
 }
 
 /* ─── BARRA DE CONFIANÇA LPR ───────────────────────────────── */
