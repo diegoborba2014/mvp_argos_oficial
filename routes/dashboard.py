@@ -1,5 +1,6 @@
 import csv
 import io
+import math
 import re
 from datetime import datetime, timedelta, timezone
 
@@ -951,6 +952,54 @@ def api_investigacao_trajeto():
         for d in deteccoes
     ]
 
+    return jsonify({"total": len(pontos), "pontos": pontos})
+
+
+@dashboard_bp.route("/api/investigacao/area")
+@login_required
+def api_investigacao_area():
+    try:
+        lat   = float(request.args.get("lat"))
+        lon   = float(request.args.get("lon"))
+        raio_m = min(max(float(request.args.get("raio_m", 500)), 100), 10000)
+    except (ValueError, TypeError):
+        return jsonify({"erro": "lat/lon inválido"}), 400
+
+    dlat = raio_m / 111000
+    dlon = raio_m / (111000 * math.cos(math.radians(lat)))
+
+    q = _aplicar_filtro_viatura(
+        Deteccao.query.filter(
+            Deteccao.latitude.between(lat - dlat, lat + dlat),
+            Deteccao.longitude.between(lon - dlon, lon + dlon),
+            Deteccao.score > 0,
+        ),
+        Deteccao.viatura_id,
+    )
+
+    if request.args.get("so_alertas") == "1":
+        q = q.filter_by(alerta_tatico=True)
+
+    dt_inicio = _parse_data(request.args.get("data_inicio", ""))
+    dt_fim    = _parse_data(request.args.get("data_fim", ""))
+    if dt_inicio:
+        q = q.filter(Deteccao.recebido_em >= dt_inicio)
+    if dt_fim:
+        q = q.filter(Deteccao.recebido_em < dt_fim + timedelta(days=1))
+
+    deteccoes = q.order_by(Deteccao.recebido_em.desc()).limit(500).all()
+    pontos = [
+        {
+            "lat": d.latitude, "lon": d.longitude,
+            "id": d.id, "placa": d.placa, "viatura_id": d.viatura_id,
+            "recebido_em": (d.recebido_em - timedelta(hours=3)).strftime("%d/%m/%Y %H:%M:%S"),
+            "marca": d.marca, "modelo": d.modelo, "cor": d.cor,
+            "score": round(d.score or 0, 2),
+            "velocidade": round(d.velocidade or 0, 1),
+            "alerta_tatico": d.alerta_tatico,
+        }
+        for d in deteccoes
+    ]
     return jsonify({"total": len(pontos), "pontos": pontos})
 
 

@@ -6,7 +6,6 @@
 {% block breadcrumb %}<li class="breadcrumb-item active">Investigação</li>{% endblock %}
 
 {% block extra_css %}
-<!-- P-1: Leaflet carregado apenas nas páginas que usam mapa -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
   #inv-mapa { height: 100%; min-height: 520px; border-radius: 0 0 6px 6px; }
@@ -14,7 +13,6 @@
   .inv-lista-col  { width:35%; flex-shrink:0; }
   .inv-mapa-col   { flex:1; }
 
-  /* Lista de pontos */
   .ponto-item {
     display:flex; align-items:flex-start; gap:8px;
     padding:7px 10px; border-bottom:1px solid rgba(255,255,255,.06);
@@ -31,7 +29,6 @@
   .ponto-meta   { font-size:.72rem; color:var(--text-muted); }
   .ponto-alerta { color:var(--red); font-size:.68rem; font-weight:700; }
 
-  /* Filtros compactos */
   .filtro-grid {
     display:grid;
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -39,7 +36,6 @@
   }
   .filtro-grid .form-group { margin-bottom:0; }
 
-  /* Stats bar */
   .stat-chip {
     display:inline-flex; align-items:center; gap:5px;
     background:rgba(255,255,255,.06); border-radius:20px;
@@ -47,6 +43,12 @@
     margin-right:6px;
   }
   .stat-chip strong { color:var(--text); }
+
+  /* Fullscreen */
+  #mapa-card:fullscreen { width:100%; height:100%; background:#1a1d23; }
+  #mapa-card:-webkit-full-screen { width:100%; height:100%; background:#1a1d23; }
+  #mapa-card:fullscreen .card-body,
+  #mapa-card:-webkit-full-screen .card-body { height: calc(100% - 44px) !important; }
 
   @media (max-width: 900px) {
     .inv-container { flex-direction: column; }
@@ -57,10 +59,10 @@
 
 {% block content %}
 
-<!-- ── Filtros ── -->
+<!-- ── Filtros de Trajetória ── -->
 <div class="card mb-3">
   <div class="card-header py-2 d-flex justify-content-between align-items-center">
-    <h3 class="card-title mb-0"><i class="fas fa-filter mr-1"></i>Filtros</h3>
+    <h3 class="card-title mb-0"><i class="fas fa-route mr-1" style="color:#a29bfe;"></i>Trajetória por Veículo</h3>
     <button class="btn btn-sm btn-outline-secondary" type="button"
             data-toggle="collapse" data-target="#filtros-body">
       <i class="fas fa-chevron-down"></i>
@@ -108,7 +110,7 @@
             <input id="f-hora-fim" type="number" min="0" max="23" class="form-control form-control-sm" placeholder="23">
           </div>
         </div>
-        <div class="d-flex align-items-center gap-2" style="gap:8px;">
+        <div class="d-flex align-items-center" style="gap:8px;">
           <button type="submit" class="btn btn-sm btn-primary">
             <i class="fas fa-search mr-1"></i>Buscar Trajetória
           </button>
@@ -118,6 +120,75 @@
           <span id="stats-bar" class="ml-2" style="display:none;"></span>
         </div>
       </form>
+    </div>
+  </div>
+</div>
+
+<!-- ── Busca por Área ── -->
+<div class="card mb-3">
+  <div class="card-header py-2 d-flex justify-content-between align-items-center">
+    <h3 class="card-title mb-0">
+      <i class="fas fa-draw-polygon mr-1" style="color:#00cec9;"></i>Busca por Área Geográfica
+    </h3>
+    <button class="btn btn-sm btn-outline-secondary" type="button"
+            data-toggle="collapse" data-target="#area-body">
+      <i class="fas fa-chevron-down"></i>
+    </button>
+  </div>
+  <div class="collapse show" id="area-body">
+    <div class="card-body py-2">
+      <p style="font-size:.75rem;color:var(--text-muted);margin-bottom:8px;">
+        Digite um endereço, CEP ou coordenadas GPS para ver todas as leituras detectadas naquela área.
+      </p>
+      <div class="d-flex flex-wrap align-items-end" style="gap:8px;">
+        <div style="flex:1;min-width:240px;">
+          <label style="font-size:.72rem;color:var(--text-muted);">Localização</label>
+          <div class="input-group input-group-sm">
+            <div class="input-group-prepend">
+              <span class="input-group-text" style="background:rgba(255,255,255,.05);border-color:var(--border);">
+                <i class="fas fa-map-marker-alt" style="color:#a29bfe;"></i>
+              </span>
+            </div>
+            <input id="f-local" type="text" class="form-control"
+                   placeholder="Rua das Flores, 123 · 90010-020 · -29.88, -51.12">
+            <div class="input-group-append">
+              <button class="btn btn-outline-secondary" type="button" id="btn-geocode" title="Localizar no mapa">
+                <i class="fas fa-crosshairs"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div>
+          <label style="font-size:.72rem;color:var(--text-muted);">Raio</label>
+          <select id="f-raio" class="form-control form-control-sm" style="width:110px;">
+            <option value="200">200 m</option>
+            <option value="500" selected>500 m</option>
+            <option value="1000">1 km</option>
+            <option value="2000">2 km</option>
+            <option value="5000">5 km</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:.72rem;color:var(--text-muted);">Data início</label>
+          <input id="f-area-data-ini" type="date" class="form-control form-control-sm" style="width:135px;">
+        </div>
+        <div>
+          <label style="font-size:.72rem;color:var(--text-muted);">Data fim</label>
+          <input id="f-area-data-fim" type="date" class="form-control form-control-sm" style="width:135px;">
+        </div>
+        <div class="form-check align-self-end pb-1">
+          <input type="checkbox" id="f-area-alertas" class="form-check-input">
+          <label for="f-area-alertas" class="form-check-label" style="font-size:.75rem;">Só alertas</label>
+        </div>
+        <div class="align-self-end">
+          <button type="button" class="btn btn-sm btn-info" id="btn-buscar-area">
+            <i class="fas fa-search-location mr-1"></i>Buscar na Área
+          </button>
+        </div>
+      </div>
+      <div id="geo-label" style="display:none;font-size:.72rem;color:var(--text-muted);margin-top:6px;">
+        <i class="fas fa-map-pin mr-1" style="color:#a29bfe;"></i><span id="geo-label-text"></span>
+      </div>
     </div>
   </div>
 </div>
@@ -141,15 +212,21 @@
 
     <!-- Mapa -->
     <div class="inv-mapa-col">
-      <div class="card">
+      <div class="card" id="mapa-card">
         <div class="card-header py-2 d-flex justify-content-between align-items-center"
              style="background:#1a1d23;color:#fff;">
           <h3 class="card-title mb-0" style="font-size:.85rem;">
-            <i class="fas fa-route mr-1 text-success"></i>Trajetória
+            <i class="fas fa-route mr-1 text-success"></i>
+            <span id="mapa-titulo">Trajetória</span>
           </h3>
-          <button class="btn btn-xs btn-outline-light" id="btn-fitbounds" title="Centralizar mapa">
-            <i class="fas fa-compress-arrows-alt"></i>
-          </button>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-xs btn-outline-light" id="btn-fitbounds" title="Centralizar mapa">
+              <i class="fas fa-compress-arrows-alt"></i>
+            </button>
+            <button class="btn btn-xs btn-outline-light" id="btn-fullscreen" title="Tela cheia">
+              <i class="fas fa-expand"></i>
+            </button>
+          </div>
         </div>
         <div class="card-body p-0" style="height:540px;">
           <div id="inv-mapa"></div>
@@ -163,27 +240,27 @@
 <!-- Vazio inicial -->
 <div id="empty-area" class="text-center py-5" style="color:var(--text-muted);">
   <i class="fas fa-search-location fa-3x mb-3 d-block" style="opacity:.2;color:#a29bfe;"></i>
-  <p style="font-size:.9rem;">Preencha os filtros e clique em <strong>Buscar Trajetória</strong><br>
-  para visualizar o caminho percorrido por um veículo.</p>
+  <p style="font-size:.9rem;">Use <strong>Trajetória por Veículo</strong> para rastrear um veículo específico,<br>
+  ou <strong>Busca por Área</strong> para ver todas as leituras em uma localização.</p>
 </div>
 
 {% endblock %}
 
 {% block extra_js %}
-<!-- P-1: Leaflet carregado apenas nas páginas que usam mapa -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-// S-9: escapa caracteres HTML antes de inserir via innerHTML / bindPopup
 function escapeHtml(s) {
   if (s == null) return '';
   return String(s).replace(/[&<>"']/g,
     c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#x27;'}[c]));
 }
 
-// ── Mapa ──────────────────────────────────────────────────────────────────────
+// ── Mapa ────────────────────────────────────────────────────────────────────
 let invMapa = null;
 let polyline = null;
 let marcadores = [];
+let circuloArea = null;
+let pinArea = null;
 let pontosGlobais = [];
 
 function iniciarMapa() {
@@ -201,56 +278,75 @@ function limparMapa() {
   if (polyline) { invMapa.removeLayer(polyline); polyline = null; }
 }
 
+function limparArea() {
+  if (circuloArea) { invMapa.removeLayer(circuloArea); circuloArea = null; }
+  if (pinArea)     { invMapa.removeLayer(pinArea);     pinArea = null; }
+}
+
 function fazerMarcador(p, idx, total) {
   const primeiro = idx === 0;
   const ultimo   = idx === total - 1;
   const cor = p.alerta_tatico ? '#dc3545'
-            : primeiro       ? '#00b894'
-            : ultimo         ? '#e17055'
+            : primeiro        ? '#00b894'
+            : ultimo          ? '#e17055'
             : '#a29bfe';
   const tamanho = (primeiro || ultimo) ? 18 : 13;
-  const num = idx + 1;
   const icon = L.divIcon({
     html: `<div style="
-      background:${cor};
-      width:${tamanho}px;height:${tamanho}px;
-      border-radius:50%;
-      border:2px solid rgba(255,255,255,.75);
+      background:${cor};width:${tamanho}px;height:${tamanho}px;
+      border-radius:50%;border:2px solid rgba(255,255,255,.75);
       display:flex;align-items:center;justify-content:center;
       font-size:${tamanho > 14 ? '.52rem' : '.45rem'};
-      font-weight:700;color:#fff;
-      box-shadow:0 0 6px ${cor};
-    ">${primeiro ? '▶' : ultimo ? '■' : num}</div>`,
-    iconSize: [tamanho, tamanho],
-    iconAnchor: [tamanho/2, tamanho/2],
-    className: '',
+      font-weight:700;color:#fff;box-shadow:0 0 6px ${cor};
+    ">${primeiro ? '▶' : ultimo ? '■' : idx+1}</div>`,
+    iconSize: [tamanho, tamanho], iconAnchor: [tamanho/2, tamanho/2], className: '',
   });
 
   const popup = `
     <strong style="font-family:monospace;letter-spacing:2px;font-size:.9rem;color:${cor};">${escapeHtml(p.placa)}</strong>
     ${p.alerta_tatico ? '<span style="color:#dc3545;font-size:.7rem;font-weight:700;"> ⚠ ALERTA</span>' : ''}
-    <br><small style="color:var(--text-muted);">${escapeHtml(p.recebido_em)}</small>
+    <br><small style="color:#aaa;">${escapeHtml(p.recebido_em)}</small>
     <br><small>${escapeHtml(p.viatura_id)}</small>
-    ${p.marca ? `<br><small style="color:var(--text-dim);">${escapeHtml(p.marca)} ${escapeHtml(p.modelo)} ${escapeHtml(p.cor)}</small>` : ''}
+    ${p.marca ? `<br><small style="color:#aaa;">${escapeHtml(p.marca)} ${escapeHtml(p.modelo)} ${escapeHtml(p.cor)}</small>` : ''}
     <br><small>Velocidade: <strong>${p.velocidade.toFixed(0)} km/h</strong> · Score: <strong>${(p.score*100).toFixed(0)}%</strong></small>
-    <br><a href="/leituras/${p.id}" style="font-size:.72rem;color:var(--teal);">Ver detalhe →</a>
+    <br><a href="/leituras/${p.id}" style="font-size:.72rem;color:#00cec9;">Ver detalhe →</a>
   `;
-
   return L.marker([p.lat, p.lon], { icon })
     .bindPopup(popup, { className: 'argos-popup', maxWidth: 240 });
 }
 
-function renderizarMapa(pontos) {
+function mostrarArea(lat, lon, raio, label) {
+  iniciarMapa();
+  limparArea();
+  circuloArea = L.circle([lat, lon], {
+    radius: raio, color: '#a29bfe', fillColor: '#a29bfe',
+    fillOpacity: 0.08, weight: 1.5, dashArray: '5 5',
+  }).addTo(invMapa);
+  pinArea = L.marker([lat, lon], {
+    icon: L.divIcon({
+      html: `<div style="background:#a29bfe;width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 8px #a29bfe;"></div>`,
+      iconSize: [14,14], iconAnchor: [7,7], className: '',
+    })
+  }).bindPopup(`<small>${escapeHtml(label)}</small>`).addTo(invMapa);
+  invMapa.fitBounds(circuloArea.getBounds(), { padding: [20, 20] });
+
+  if (label) {
+    document.getElementById('geo-label-text').textContent = label;
+    document.getElementById('geo-label').style.display = '';
+  }
+}
+
+function renderizarMapa(pontos, comPolyline) {
   iniciarMapa();
   limparMapa();
   if (!pontos.length) return;
 
-  // Polyline teal
-  const latlngs = pontos.map(p => [p.lat, p.lon]);
-  polyline = L.polyline(latlngs, { color: '#00c8dc', weight: 2.5, opacity: .7, dashArray: '6 4' })
-    .addTo(invMapa);
+  if (comPolyline) {
+    const latlngs = pontos.map(p => [p.lat, p.lon]);
+    polyline = L.polyline(latlngs, { color: '#00c8dc', weight: 2.5, opacity: .7, dashArray: '6 4' })
+      .addTo(invMapa);
+  }
 
-  // Marcadores
   pontos.forEach((p, i) => {
     const m = fazerMarcador(p, i, pontos.length).addTo(invMapa);
     m.on('click', () => destacarItem(i));
@@ -267,60 +363,103 @@ function fitBounds() {
   invMapa.fitBounds(bounds, { padding: [30, 30] });
 }
 
-// ── Lista ─────────────────────────────────────────────────────────────────────
 function renderizarLista(pontos) {
   const container = document.getElementById('lista-pontos');
   document.getElementById('lista-titulo').textContent = `${pontos.length} ponto(s)`;
-
   if (!pontos.length) {
     container.innerHTML = `<div class="text-center py-4" style="color:var(--text-muted);font-size:.82rem;">
       <i class="fas fa-satellite-dish fa-2x mb-2 d-block" style="opacity:.3;"></i>
-      Nenhum resultado com coordenada GPS.
-    </div>`;
+      Nenhum resultado com coordenada GPS.</div>`;
     return;
   }
-
   container.innerHTML = pontos.map((p, i) => {
-    const primeiro = i === 0;
-    const ultimo   = i === pontos.length - 1;
-    const cor = p.alerta_tatico ? '#dc3545' : primeiro ? '#00b894' : ultimo ? '#e17055' : '#a29bfe';
+    const cor = p.alerta_tatico ? '#dc3545' : i===0 ? '#00b894' : i===pontos.length-1 ? '#e17055' : '#a29bfe';
     return `
       <div class="ponto-item" id="item-${i}" onclick="destacarItem(${i})">
-        <div class="ponto-num" style="background:${cor};color:#fff;">${primeiro ? '▶' : ultimo ? '■' : i+1}</div>
+        <div class="ponto-num" style="background:${cor};color:#fff;">${i===0?'▶':i===pontos.length-1?'■':i+1}</div>
         <div style="flex:1;min-width:0;">
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
             <span class="ponto-placa">${escapeHtml(p.placa)}</span>
             ${p.alerta_tatico ? '<span class="ponto-alerta">⚠ ALERTA</span>' : ''}
           </div>
           <div class="ponto-meta">${escapeHtml(p.recebido_em)}</div>
-          <div class="ponto-meta">${escapeHtml(p.viatura_id)}${p.marca ? ' · ' + escapeHtml(p.marca) + ' ' + escapeHtml(p.modelo) : ''}</div>
+          <div class="ponto-meta">${escapeHtml(p.viatura_id)}${p.marca ? ' · '+escapeHtml(p.marca)+' '+escapeHtml(p.modelo) : ''}</div>
         </div>
         <a href="/leituras/${p.id}" onclick="event.stopPropagation()"
            style="font-size:.7rem;color:var(--teal);flex-shrink:0;align-self:center;">
           <i class="fas fa-external-link-alt"></i>
         </a>
-      </div>
-    `;
+      </div>`;
   }).join('');
 }
 
 function destacarItem(idx) {
-  // Lista — scroll e highlight
   document.querySelectorAll('.ponto-item').forEach(el => el.classList.remove('active'));
   const el = document.getElementById(`item-${idx}`);
   if (el) { el.classList.add('active'); el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
-
-  // Mapa — abre popup
   if (marcadores[idx]) {
     invMapa.setView(marcadores[idx].getLatLng(), Math.max(invMapa.getZoom(), 15));
     marcadores[idx].openPopup();
   }
 }
 
-// ── Busca ─────────────────────────────────────────────────────────────────────
+function atualizarStats(total, alertas, modo) {
+  const statsBar = document.getElementById('stats-bar');
+  statsBar.style.display = '';
+  statsBar.innerHTML = `
+    <span class="stat-chip"><strong>${total}</strong> ${modo}</span>
+    ${alertas ? `<span class="stat-chip" style="color:var(--red);"><strong>${alertas}</strong> alertas</span>` : ''}
+    ${total >= 500 ? '<span class="stat-chip" style="color:#f39c12;">⚠ limite 500</span>' : ''}
+  `;
+}
+
+// ── Geocodificação ───────────────────────────────────────────────────────────
+async function geocodificarLocal(texto) {
+  texto = texto.trim();
+  // Coordenadas: -29.8846, -51.1295 ou -29.8846 -51.1295
+  const coordMatch = texto.match(/^(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)$/);
+  if (coordMatch) {
+    return { lat: parseFloat(coordMatch[1]), lon: parseFloat(coordMatch[2]), label: texto };
+  }
+  // CEP: 8 dígitos
+  const cepLimpo = texto.replace(/\D/g, '');
+  if (cepLimpo.length === 8) {
+    texto = `${cepLimpo.slice(0,5)}-${cepLimpo.slice(5)}, Brasil`;
+  }
+  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(texto)}&format=json&limit=1&countrycodes=br`;
+  const resp = await fetch(url, { headers: { 'Accept-Language': 'pt-BR,pt;q=0.9' } });
+  const data = await resp.json();
+  if (!data.length) return null;
+  return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon), label: data[0].display_name };
+}
+
+// ── Fullscreen ───────────────────────────────────────────────────────────────
+document.getElementById('btn-fullscreen').addEventListener('click', () => {
+  const card = document.getElementById('mapa-card');
+  if (!document.fullscreenElement) {
+    (card.requestFullscreen || card.webkitRequestFullscreen).call(card)
+      .then(() => setTimeout(() => invMapa && invMapa.invalidateSize(), 150))
+      .catch(() => {});
+  } else {
+    (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+  }
+});
+
+document.addEventListener('fullscreenchange', () => {
+  const icon = document.querySelector('#btn-fullscreen i');
+  if (icon) icon.className = document.fullscreenElement ? 'fas fa-compress' : 'fas fa-expand';
+  setTimeout(() => invMapa && invMapa.invalidateSize(), 200);
+});
+document.addEventListener('webkitfullscreenchange', () => {
+  const icon = document.querySelector('#btn-fullscreen i');
+  if (icon) icon.className = document.webkitFullscreenElement ? 'fas fa-compress' : 'fas fa-expand';
+  setTimeout(() => invMapa && invMapa.invalidateSize(), 200);
+});
+
+// ── Trajetória ───────────────────────────────────────────────────────────────
 document.getElementById('form-filtros').addEventListener('submit', function(e) {
   e.preventDefault();
-  buscar();
+  buscarTrajeto();
 });
 
 document.getElementById('btn-limpar').addEventListener('click', function() {
@@ -333,7 +472,7 @@ document.getElementById('btn-limpar').addEventListener('click', function() {
 
 document.getElementById('btn-fitbounds').addEventListener('click', fitBounds);
 
-function buscar() {
+function buscarTrajeto() {
   const params = new URLSearchParams();
   const add = (id, key) => { const v = document.getElementById(id).value.trim(); if (v) params.append(key, v); };
   add('f-placa',    'placa');
@@ -354,18 +493,11 @@ function buscar() {
     .then(r => r.json())
     .then(data => {
       pontosGlobais = data.pontos;
+      limparArea();
+      document.getElementById('mapa-titulo').textContent = 'Trajetória';
       renderizarLista(data.pontos);
-      renderizarMapa(data.pontos);
-
-      const alertas = data.pontos.filter(p => p.alerta_tatico).length;
-      const statsBar = document.getElementById('stats-bar');
-      statsBar.style.display = '';
-      statsBar.innerHTML = `
-        <span class="stat-chip"><strong>${data.total}</strong> pontos GPS</span>
-        ${alertas ? `<span class="stat-chip" style="color:var(--red);"><strong>${alertas}</strong> alertas</span>` : ''}
-        ${data.total >= 500 ? '<span class="stat-chip" style="color:#f39c12;">⚠ limite 500</span>' : ''}
-      `;
-
+      renderizarMapa(data.pontos, true);
+      atualizarStats(data.total, data.pontos.filter(p => p.alerta_tatico).length, 'pontos GPS');
       document.getElementById('resultado-area').style.display = '';
       document.getElementById('empty-area').style.display = 'none';
     })
@@ -376,7 +508,67 @@ function buscar() {
     });
 }
 
-// input de placa em maiúsculas
+// ── Busca por área ───────────────────────────────────────────────────────────
+document.getElementById('btn-geocode').addEventListener('click', async function() {
+  const local = document.getElementById('f-local').value.trim();
+  if (!local) return;
+  this.disabled = true;
+  this.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+  try {
+    const geo = await geocodificarLocal(local);
+    if (!geo) { alert('Local não encontrado. Tente um endereço mais completo ou use coordenadas.'); return; }
+    const raio = parseInt(document.getElementById('f-raio').value);
+    document.getElementById('resultado-area').style.display = '';
+    document.getElementById('empty-area').style.display = 'none';
+    mostrarArea(geo.lat, geo.lon, raio, geo.label);
+  } catch(e) {
+    alert('Erro ao geocodificar. Verifique sua conexão.');
+  } finally {
+    this.disabled = false;
+    this.innerHTML = '<i class="fas fa-crosshairs"></i>';
+  }
+});
+
+document.getElementById('btn-buscar-area').addEventListener('click', async function() {
+  const local = document.getElementById('f-local').value.trim();
+  if (!local) { alert('Digite um endereço, CEP ou coordenadas.'); return; }
+
+  this.disabled = true;
+  this.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Buscando...';
+
+  try {
+    const geo = await geocodificarLocal(local);
+    if (!geo) { alert('Local não encontrado. Tente um endereço mais completo ou use coordenadas.'); return; }
+
+    const raio = parseInt(document.getElementById('f-raio').value);
+    document.getElementById('resultado-area').style.display = '';
+    document.getElementById('empty-area').style.display = 'none';
+    mostrarArea(geo.lat, geo.lon, raio, geo.label);
+
+    const params = new URLSearchParams({ lat: geo.lat, lon: geo.lon, raio_m: raio });
+    if (document.getElementById('f-area-alertas').checked) params.append('so_alertas', '1');
+    const di = document.getElementById('f-area-data-ini').value;
+    const df = document.getElementById('f-area-data-fim').value;
+    if (di) params.append('data_inicio', di);
+    if (df) params.append('data_fim', df);
+
+    const resp = await fetch('/api/investigacao/area?' + params.toString());
+    const data = await resp.json();
+
+    pontosGlobais = data.pontos;
+    document.getElementById('mapa-titulo').textContent = `Área · ${raio >= 1000 ? (raio/1000)+'km' : raio+'m'}`;
+    renderizarLista(data.pontos);
+    renderizarMapa(data.pontos, false);
+    atualizarStats(data.total, data.pontos.filter(p => p.alerta_tatico).length, 'leituras na área');
+
+  } catch(e) {
+    alert('Erro ao buscar. Verifique sua conexão.');
+  } finally {
+    this.disabled = false;
+    this.innerHTML = '<i class="fas fa-search-location mr-1"></i>Buscar na Área';
+  }
+});
+
 document.getElementById('f-placa').addEventListener('input', function() {
   this.value = this.value.toUpperCase();
 });
