@@ -452,7 +452,7 @@ def hotlist():
                 prioridade = int(request.form.get("prioridade", 2))
             except ValueError:
                 prioridade = 2
-            if placa:
+            if placa and _PLACA_RE.match(placa):
                 existente = Hotlist.query.filter_by(placa=placa).first()
                 if existente:
                     existente.ativa = True
@@ -460,14 +460,18 @@ def hotlist():
                     existente.motivo = motivo
                     existente.prioridade = prioridade
                     existente.observacao = observacao
+                    flash(f"Placa {placa} atualizada na hotlist.", "success")
                 else:
                     db.session.add(Hotlist(
                         placa=placa, descricao=descricao,
                         motivo=motivo, prioridade=prioridade, observacao=observacao,
                     ))
+                    flash(f"Placa {placa} adicionada à hotlist.", "success")
                 _marcar_hotlist_pendente()
                 db.session.commit()
-                return redirect(url_for("dashboard.hotlist"))
+            else:
+                flash("Formato de placa inválido. Use AAA1234 (antigo) ou AAA1A23 (Mercosul).", "danger")
+            return redirect(url_for("dashboard.hotlist"))
 
         elif acao == "remover":
             placa = request.form.get("placa", "")
@@ -476,18 +480,21 @@ def hotlist():
                 db.session.delete(item)
                 _marcar_hotlist_pendente()
                 db.session.commit()
-                return redirect(url_for("dashboard.hotlist"))
+                flash(f"Placa {placa} removida da hotlist.", "warning")
+            return redirect(url_for("dashboard.hotlist"))
 
         elif acao == "importar_csv":
             arquivo = request.files.get("csv_file")
             if arquivo:
-                # S-15: limite de tamanho — evita DoS por upload gigante
                 content = arquivo.stream.read()
                 if len(content) > 500_000:
                     flash("Arquivo muito grande (máx. 500 KB).", "danger")
                     return redirect(url_for("dashboard.hotlist"))
                 stream = io.StringIO(content.decode("utf-8", errors="replace"))
                 reader = csv.reader(stream)
+                adicionadas = 0
+                ignoradas = 0
+                invalidas = 0
                 for row in reader:
                     if not row:
                         continue
@@ -498,17 +505,26 @@ def hotlist():
                         prioridade = int(row[3].strip()) if len(row) > 3 else 2
                     except ValueError:
                         prioridade = 2
-                    # S-15: ignora linhas com placa ausente ou formato inválido
                     if not placa or not _PLACA_RE.match(placa):
+                        invalidas += 1
                         continue
-                    existente = Hotlist.query.filter_by(placa=placa).first()
-                    if not existente:
-                        db.session.add(Hotlist(
-                            placa=placa, descricao=descricao,
-                            motivo=motivo, prioridade=prioridade,
-                        ))
-                _marcar_hotlist_pendente()
+                    if Hotlist.query.filter_by(placa=placa).first():
+                        ignoradas += 1
+                        continue
+                    db.session.add(Hotlist(
+                        placa=placa, descricao=descricao,
+                        motivo=motivo, prioridade=prioridade,
+                    ))
+                    adicionadas += 1
+                if adicionadas:
+                    _marcar_hotlist_pendente()
                 db.session.commit()
+                partes = [f"{adicionadas} placa(s) adicionada(s)"]
+                if ignoradas:
+                    partes.append(f"{ignoradas} já existia(m)")
+                if invalidas:
+                    partes.append(f"{invalidas} inválida(s) ignorada(s)")
+                flash(" · ".join(partes) + ".", "success" if adicionadas else "warning")
                 return redirect(url_for("dashboard.hotlist"))
 
         elif acao == "adicionar_motivo":
@@ -542,6 +558,37 @@ def hotlist():
     items = Hotlist.query.order_by(Hotlist.prioridade, Hotlist.placa).all()
     motivos = MotivoHotlist.query.order_by(MotivoHotlist.nome).all()
     return render_template("hotlist.html", hotlist=items, motivos=motivos)
+
+
+@dashboard_bp.route("/hotlist/<placa>/editar", methods=["POST"])
+@login_required
+def hotlist_editar(placa):
+    _admin_required()
+    item = Hotlist.query.filter_by(placa=placa.upper()).first_or_404()
+    try:
+        item.prioridade = int(request.form.get("prioridade", item.prioridade))
+    except ValueError:
+        pass
+    item.motivo = request.form.get("motivo", item.motivo).strip()
+    item.descricao = request.form.get("descricao", item.descricao).strip()
+    item.observacao = request.form.get("observacao", item.observacao).strip()
+    _marcar_hotlist_pendente()
+    db.session.commit()
+    flash(f"Placa {placa.upper()} atualizada.", "success")
+    return redirect(url_for("dashboard.hotlist"))
+
+
+@dashboard_bp.route("/hotlist/<placa>/toggle", methods=["POST"])
+@login_required
+def hotlist_toggle(placa):
+    _admin_required()
+    item = Hotlist.query.filter_by(placa=placa.upper()).first_or_404()
+    item.ativa = not item.ativa
+    _marcar_hotlist_pendente()
+    db.session.commit()
+    estado = "ativada" if item.ativa else "desativada"
+    flash(f"Placa {placa.upper()} {estado}.", "info")
+    return redirect(url_for("dashboard.hotlist"))
 
 
 @dashboard_bp.route("/leituras/<int:leitura_id>")

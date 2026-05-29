@@ -4,13 +4,25 @@
 {% block breadcrumb %}<li class="breadcrumb-item active">Hotlist</li>{% endblock %}
 
 {% block content %}
+
+{# Flash messages #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for cat, msg in messages %}
+  <div class="alert alert-{{ cat }} alert-dismissible fade show" role="alert">
+    {{ msg }}
+    <button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>
+  </div>
+  {% endfor %}
+{% endwith %}
+
 <div class="row">
   <!-- Coluna esquerda: lista -->
   <div class="col-md-8">
     <div class="card shadow-sm">
       <div class="card-header d-flex justify-content-between align-items-center py-2" style="background:#1a1d23;color:#fff;">
         <h3 class="card-title mb-0">
-          <i class="fas fa-list mr-1"></i>{{ hotlist | length }} placa(s)
+          <i class="fas fa-list mr-1"></i>
+          <span id="contador-total">{{ hotlist | length }}</span> placa(s)
           <small class="ml-2 text-muted" style="font-size:.7rem;">ordenado por prioridade</small>
         </h3>
         <a href="{{ url_for('dashboard.hotlist', export='csv') }}" class="btn btn-sm btn-outline-light">
@@ -18,27 +30,36 @@
         </a>
       </div>
       <div class="card-body p-0">
-        <div style="max-height:560px;overflow-y:auto;">
-          <table class="table table-sm table-hover mb-0">
+        <!-- Busca instantânea -->
+        <div class="px-3 pt-2 pb-1">
+          <input type="text" id="busca-placa" class="form-control form-control-sm"
+                 placeholder="&#xF002;  Buscar placa, motivo ou descrição..."
+                 style="font-family:'Font Awesome 5 Free', sans-serif;">
+        </div>
+
+        <div style="max-height:520px;overflow-y:auto;">
+          <table class="table table-sm table-hover mb-0" id="tabela-hotlist">
             <thead style="background:#343a40;color:#fff;position:sticky;top:0;font-size:.8rem;">
               <tr>
-                <th style="width:30px;">#</th>
+                <th style="width:52px;">#</th>
                 <th>Placa</th>
                 <th>Motivo</th>
                 <th>Descrição / Observação</th>
-                <th>Status</th>
-                <th>Cadastrado</th>
-                <th></th>
+                <th style="width:80px;">Status</th>
+                <th style="width:86px;">Cadastrado</th>
+                <th style="width:72px;"></th>
               </tr>
             </thead>
-            <tbody>
+            <tbody id="tbody-hotlist">
               {% for item in hotlist %}
               {% set pri_label = {1:'ALTA', 2:'MÉDIA', 3:'BAIXA'}.get(item.prioridade, 'MÉDIA') %}
               {% set pri_cls = {1:'danger', 2:'warning', 3:'secondary'}.get(item.prioridade, 'warning') %}
-              <tr style="{{ 'background:rgba(220,53,69,.07);' if item.prioridade == 1 else '' }}">
+              <tr class="linha-hotlist {{ 'text-muted' if not item.ativa else '' }}"
+                  style="{{ 'background:rgba(220,53,69,.07);' if item.prioridade == 1 and item.ativa else '' }}"
+                  data-placa="{{ item.placa }}"
+                  data-busca="{{ item.placa }} {{ item.motivo }} {{ item.descricao }}">
                 <td class="text-center">
-                  <span class="badge badge-{{ pri_cls }}" title="Prioridade {{ pri_label }}"
-                        style="font-size:.65rem;min-width:42px;">{{ pri_label }}</span>
+                  <span class="badge badge-{{ pri_cls }}" style="font-size:.65rem;min-width:42px;">{{ pri_label }}</span>
                 </td>
                 <td>
                   <span style="font-family:monospace;font-size:.95rem;font-weight:700;
@@ -54,7 +75,7 @@
                     <span class="text-muted" style="font-size:.8rem;">—</span>
                   {% endif %}
                 </td>
-                <td style="max-width:220px;">
+                <td style="max-width:200px;">
                   <div style="font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ item.descricao }}">
                     {{ item.descricao or '—' }}
                   </div>
@@ -65,154 +86,192 @@
                   {% endif %}
                 </td>
                 <td>
-                  <span class="badge badge-{{ 'danger' if item.ativa else 'secondary' }}">
-                    {{ 'ATIVA' if item.ativa else 'INATIVA' }}
-                  </span>
+                  <form method="POST" action="{{ url_for('dashboard.hotlist_toggle', placa=item.placa) }}" style="display:inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-xs {{ 'btn-danger' if item.ativa else 'btn-outline-secondary' }}"
+                            title="{{ 'Clique para desativar' if item.ativa else 'Clique para ativar' }}"
+                            style="font-size:.65rem;padding:2px 6px;">
+                      {{ 'ATIVA' if item.ativa else 'INATIVA' }}
+                    </button>
+                  </form>
                 </td>
                 <td><small class="text-muted">{{ item.criado_em.strftime('%d/%m/%Y') }}</small></td>
-                <td>
+                <td class="text-right pr-2">
+                  <!-- Editar -->
+                  <button type="button" class="btn btn-xs btn-outline-info btn-editar mr-1"
+                          title="Editar"
+                          data-placa="{{ item.placa }}"
+                          data-prioridade="{{ item.prioridade }}"
+                          data-motivo="{{ item.motivo | e }}"
+                          data-descricao="{{ item.descricao | e }}"
+                          data-observacao="{{ item.observacao | e }}">
+                    <i class="fas fa-pencil-alt"></i>
+                  </button>
+                  <!-- Remover -->
                   <form method="POST" style="display:inline;">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="acao" value="remover">
                     <input type="hidden" name="placa" value="{{ item.placa }}">
                     <button type="submit" class="btn btn-xs btn-outline-danger btn-remover-placa"
-                            data-placa="{{ item.placa }}">
+                            data-placa="{{ item.placa }}" title="Remover">
                       <i class="fas fa-trash-alt"></i>
                     </button>
                   </form>
                 </td>
               </tr>
               {% else %}
-              <tr><td colspan="7" class="text-center text-muted py-3">Hotlist vazia.</td></tr>
+              <tr id="linha-vazia"><td colspan="7" class="text-center text-muted py-3">Hotlist vazia.</td></tr>
               {% endfor %}
             </tbody>
           </table>
+        </div>
+
+        <!-- Paginação -->
+        <div class="d-flex justify-content-between align-items-center px-3 py-2" id="paginacao-container" style="border-top:1px solid rgba(255,255,255,.06);">
+          <small class="text-muted" id="paginacao-info"></small>
+          <div>
+            <button class="btn btn-xs btn-outline-secondary mr-1" id="btn-prev" onclick="mudarPagina(-1)">
+              <i class="fas fa-chevron-left"></i> Anterior
+            </button>
+            <button class="btn btn-xs btn-outline-secondary" id="btn-next" onclick="mudarPagina(1)">
+              Próxima <i class="fas fa-chevron-right"></i>
+            </button>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Coluna direita: ações -->
+  <!-- Coluna direita: ações em abas -->
   <div class="col-md-4">
-
-    <!-- Adicionar placa -->
     <div class="card shadow-sm mb-3">
-      <div class="card-header py-2" style="background:#343a40;color:#fff;">
-        <h3 class="card-title mb-0"><i class="fas fa-plus mr-1"></i>Adicionar Placa</h3>
+      <div class="card-header p-0" style="background:#343a40;">
+        <ul class="nav nav-tabs" id="tabs-hotlist" style="border-bottom:none;">
+          <li class="nav-item">
+            <a class="nav-link active" data-toggle="tab" href="#tab-adicionar"
+               style="color:#adb5bd;font-size:.82rem;padding:.5rem .9rem;">
+              <i class="fas fa-plus mr-1"></i>Adicionar
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" data-toggle="tab" href="#tab-importar"
+               style="color:#adb5bd;font-size:.82rem;padding:.5rem .9rem;">
+              <i class="fas fa-upload mr-1"></i>Importar
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" data-toggle="tab" href="#tab-motivos"
+               style="color:#adb5bd;font-size:.82rem;padding:.5rem .9rem;">
+              <i class="fas fa-tags mr-1"></i>Motivos
+            </a>
+          </li>
+        </ul>
       </div>
-      <div class="card-body">
-        <form method="POST">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <input type="hidden" name="acao" value="adicionar">
+      <div class="card-body tab-content p-3">
 
-          <div class="form-group mb-2">
-            <label style="font-size:.8rem;font-weight:600;">Placa *</label>
-            <input type="text" name="placa" class="form-control form-control-sm"
-                   placeholder="ABC1D23" pattern="[A-Za-z0-9]{7}" maxlength="7" required
-                   style="font-family:monospace;font-size:1.1rem;text-transform:uppercase;font-weight:700;letter-spacing:2px;">
-          </div>
+        <!-- Aba: Adicionar -->
+        <div class="tab-pane fade show active" id="tab-adicionar">
+          <form method="POST" id="form-adicionar">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="acao" value="adicionar">
 
-          <div class="form-group mb-2">
-            <label style="font-size:.8rem;font-weight:600;">Prioridade</label>
-            <select name="prioridade" class="form-control form-control-sm">
-              <option value="1">🔴 Alta — Risco imediato</option>
-              <option value="2" selected>🟡 Média — Monitoramento ativo</option>
-              <option value="3">⚪ Baixa — Referência</option>
-            </select>
-          </div>
+            <div class="form-group mb-2">
+              <label style="font-size:.8rem;font-weight:600;">Placa *</label>
+              <input type="text" name="placa" id="input-placa-add" class="form-control form-control-sm"
+                     placeholder="ABC1D23" maxlength="7" required
+                     style="font-family:monospace;font-size:1.1rem;text-transform:uppercase;font-weight:700;letter-spacing:2px;">
+              <small id="placa-add-erro" class="text-danger" style="display:none;">
+                Formato inválido. Use AAA1234 ou AAA1A23.
+              </small>
+            </div>
 
-          <div class="form-group mb-2">
-            <label style="font-size:.8rem;font-weight:600;">Motivo</label>
-            <input type="text" name="motivo" class="form-control form-control-sm"
-                   placeholder="Ex: Roubo, Investigação, Mandado"
-                   list="motivos-sugeridos" maxlength="64">
-            <datalist id="motivos-sugeridos">
-              {% for m in motivos %}
-              <option value="{{ m.nome }}">
-              {% endfor %}
-            </datalist>
-          </div>
+            <div class="form-group mb-2">
+              <label style="font-size:.8rem;font-weight:600;">Prioridade</label>
+              <select name="prioridade" class="form-control form-control-sm">
+                <option value="1">🔴 Alta — Risco imediato</option>
+                <option value="2" selected>🟡 Média — Monitoramento ativo</option>
+                <option value="3">⚪ Baixa — Referência</option>
+              </select>
+            </div>
 
-          <div class="form-group mb-2">
-            <label style="font-size:.8rem;font-weight:600;">Descrição</label>
-            <input type="text" name="descricao" class="form-control form-control-sm"
-                   placeholder="Ex: Veículo Corolla prata" maxlength="256">
-          </div>
+            <div class="form-group mb-2">
+              <label style="font-size:.8rem;font-weight:600;">Motivo</label>
+              <input type="text" name="motivo" class="form-control form-control-sm"
+                     placeholder="Ex: Roubo, Investigação"
+                     list="motivos-sugeridos" maxlength="64">
+              <datalist id="motivos-sugeridos">
+                {% for m in motivos %}<option value="{{ m.nome }}">{% endfor %}
+              </datalist>
+            </div>
 
-          <div class="form-group mb-3">
-            <label style="font-size:.8rem;font-weight:600;">Observações</label>
-            <textarea name="observacao" class="form-control form-control-sm" rows="2"
-                      placeholder="Informações adicionais para a equipe operacional..."></textarea>
-          </div>
+            <div class="form-group mb-2">
+              <label style="font-size:.8rem;font-weight:600;">Descrição</label>
+              <input type="text" name="descricao" class="form-control form-control-sm"
+                     placeholder="Ex: Corolla prata" maxlength="256">
+            </div>
 
-          <button type="submit" class="btn btn-sm btn-danger btn-block">
-            <i class="fas fa-plus mr-1"></i>Adicionar à Hotlist
-          </button>
-        </form>
-      </div>
-    </div>
+            <div class="form-group mb-3">
+              <label style="font-size:.8rem;font-weight:600;">Observações</label>
+              <textarea name="observacao" class="form-control form-control-sm" rows="2"
+                        placeholder="Informações adicionais..."></textarea>
+            </div>
 
-    <!-- Importar CSV -->
-    <div class="card shadow-sm mb-3">
-      <div class="card-header py-2" style="background:#343a40;color:#fff;">
-        <h3 class="card-title mb-0"><i class="fas fa-upload mr-1"></i>Importar CSV</h3>
-      </div>
-      <div class="card-body">
-        <p class="text-muted" style="font-size:.75rem;">
-          Colunas: <code>PLACA, descricao, motivo, prioridade</code><br>
-          <span style="color:#aaa;">As duas últimas são opcionais.</span>
-        </p>
-        <form method="POST" enctype="multipart/form-data">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <input type="hidden" name="acao" value="importar_csv">
-          <div class="form-group">
-            <input type="file" name="csv_file" accept=".csv,.txt" class="form-control-file" required>
-          </div>
-          <button type="submit" class="btn btn-sm btn-warning btn-block">
-            <i class="fas fa-file-import mr-1"></i>Importar
-          </button>
-        </form>
-      </div>
-    </div>
-
-    <!-- Gerenciar Motivos -->
-    <div class="card shadow-sm mb-3">
-      <div class="card-header py-2" style="background:#343a40;color:#fff;">
-        <h3 class="card-title mb-0"><i class="fas fa-tags mr-1 text-info"></i>Motivos Cadastrados</h3>
-      </div>
-      <div class="card-body p-2">
-        <!-- Lista de motivos -->
-        <div style="max-height:160px;overflow-y:auto;margin-bottom:.5rem;">
-          {% for m in motivos %}
-          <div class="d-flex align-items-center justify-content-between py-1"
-               style="border-bottom:1px solid rgba(255,255,255,.06);">
-            <span style="font-size:.82rem;">{{ m.nome }}</span>
-            <form method="POST" style="margin:0;">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <input type="hidden" name="acao" value="remover_motivo">
-              <input type="hidden" name="motivo_id" value="{{ m.id }}">
-              <button type="submit" class="btn btn-xs btn-outline-danger btn-remover-motivo"
-                      data-nome="{{ m.nome }}"
-                      title="Remover motivo" style="padding:1px 6px;">
-                <i class="fas fa-times"></i>
-              </button>
-            </form>
-          </div>
-          {% else %}
-          <p class="text-muted text-center mb-0" style="font-size:.78rem;">Nenhum motivo cadastrado.</p>
-          {% endfor %}
+            <button type="submit" class="btn btn-sm btn-danger btn-block">
+              <i class="fas fa-plus mr-1"></i>Adicionar à Hotlist
+            </button>
+          </form>
         </div>
-        <!-- Adicionar novo motivo -->
-        <form method="POST" class="d-flex" style="gap:.4rem;">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <input type="hidden" name="acao" value="adicionar_motivo">
-          <input type="text" name="nome_motivo" class="form-control form-control-sm"
-                 placeholder="Novo motivo..." maxlength="64" required
-                 style="font-size:.82rem;">
-          <button type="submit" class="btn btn-sm btn-info" style="white-space:nowrap;">
-            <i class="fas fa-plus"></i>
-          </button>
-        </form>
+
+        <!-- Aba: Importar CSV -->
+        <div class="tab-pane fade" id="tab-importar">
+          <p class="text-muted mb-2" style="font-size:.75rem;">
+            Colunas: <code>PLACA, descricao, motivo, prioridade</code><br>
+            <span style="color:#aaa;">As três últimas são opcionais.</span>
+          </p>
+          <form method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="acao" value="importar_csv">
+            <div class="form-group">
+              <input type="file" name="csv_file" accept=".csv,.txt" class="form-control-file" required>
+            </div>
+            <button type="submit" class="btn btn-sm btn-warning btn-block">
+              <i class="fas fa-file-import mr-1"></i>Importar
+            </button>
+          </form>
+        </div>
+
+        <!-- Aba: Motivos -->
+        <div class="tab-pane fade" id="tab-motivos">
+          <div style="max-height:180px;overflow-y:auto;margin-bottom:.5rem;">
+            {% for m in motivos %}
+            <div class="d-flex align-items-center justify-content-between py-1"
+                 style="border-bottom:1px solid rgba(255,255,255,.06);">
+              <span style="font-size:.82rem;">{{ m.nome }}</span>
+              <form method="POST" style="margin:0;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="acao" value="remover_motivo">
+                <input type="hidden" name="motivo_id" value="{{ m.id }}">
+                <button type="submit" class="btn btn-xs btn-outline-danger btn-remover-motivo"
+                        data-nome="{{ m.nome }}" title="Remover" style="padding:1px 6px;">
+                  <i class="fas fa-times"></i>
+                </button>
+              </form>
+            </div>
+            {% else %}
+            <p class="text-muted text-center mb-0" style="font-size:.78rem;">Nenhum motivo cadastrado.</p>
+            {% endfor %}
+          </div>
+          <form method="POST" class="d-flex" style="gap:.4rem;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="acao" value="adicionar_motivo">
+            <input type="text" name="nome_motivo" class="form-control form-control-sm"
+                   placeholder="Novo motivo..." maxlength="64" required style="font-size:.82rem;">
+            <button type="submit" class="btn btn-sm btn-info" style="white-space:nowrap;">
+              <i class="fas fa-plus"></i>
+            </button>
+          </form>
+        </div>
+
       </div>
     </div>
 
@@ -223,7 +282,7 @@
       </div>
       <div class="card-body">
         <p class="text-muted" style="font-size:.78rem;">
-          As viaturas com Pi online buscam atualizações automaticamente a cada 30s.<br>
+          As viaturas buscam atualizações automaticamente a cada 30s.<br>
           Use este botão para forçar a sincronização imediata.
         </p>
         <button class="btn btn-sm btn-success btn-block" id="btn-sync" onclick="sincronizarTodas()">
@@ -232,60 +291,196 @@
         <div id="sync-resultado" class="mt-2" style="font-size:.8rem;"></div>
       </div>
     </div>
-
   </div>
 </div>
+
+<!-- Modal Editar Placa -->
+<div class="modal fade" id="modal-editar" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content" style="background:#1a1d26;color:#e0e0e0;">
+      <div class="modal-header py-2" style="border-color:rgba(255,255,255,.1);">
+        <h5 class="modal-title" style="font-size:.95rem;">
+          <i class="fas fa-pencil-alt mr-1 text-info"></i>Editar Placa <strong id="modal-placa-titulo"></strong>
+        </h5>
+        <button type="button" class="close" data-dismiss="modal" style="color:#aaa;">&times;</button>
+      </div>
+      <form method="POST" id="form-editar" action="">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body py-2">
+          <div class="form-group mb-2">
+            <label style="font-size:.8rem;font-weight:600;">Prioridade</label>
+            <select name="prioridade" id="edit-prioridade" class="form-control form-control-sm">
+              <option value="1">🔴 Alta</option>
+              <option value="2">🟡 Média</option>
+              <option value="3">⚪ Baixa</option>
+            </select>
+          </div>
+          <div class="form-group mb-2">
+            <label style="font-size:.8rem;font-weight:600;">Motivo</label>
+            <input type="text" name="motivo" id="edit-motivo" class="form-control form-control-sm"
+                   list="motivos-sugeridos" maxlength="64">
+          </div>
+          <div class="form-group mb-2">
+            <label style="font-size:.8rem;font-weight:600;">Descrição</label>
+            <input type="text" name="descricao" id="edit-descricao" class="form-control form-control-sm" maxlength="256">
+          </div>
+          <div class="form-group mb-0">
+            <label style="font-size:.8rem;font-weight:600;">Observações</label>
+            <textarea name="observacao" id="edit-observacao" class="form-control form-control-sm" rows="2"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer py-2" style="border-color:rgba(255,255,255,.1);">
+          <button type="button" class="btn btn-sm btn-secondary" data-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-sm btn-info">
+            <i class="fas fa-save mr-1"></i>Salvar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
-// S-10: confirmação via data-* — evita XSS ao interpolar placa/motivo no onclick inline
-document.addEventListener('DOMContentLoaded', function () {
-  document.querySelectorAll('.btn-remover-placa').forEach(function (btn) {
-    btn.addEventListener('click', function (e) {
-      if (!confirm('Remover ' + this.dataset.placa + ' da hotlist?')) {
-        e.preventDefault();
-      }
-    });
-  });
+// ── Busca instantânea ────────────────────────────────────────────────────────
+const _linhas = Array.from(document.querySelectorAll('.linha-hotlist'));
+const _PAGINA = 25;
+let _paginaAtual = 1;
+let _linhasFiltradas = _linhas;
 
-  document.querySelectorAll('.btn-remover-motivo').forEach(function (btn) {
-    btn.addEventListener('click', function (e) {
-      if (!confirm('Remover motivo "' + this.dataset.nome + '"?')) {
-        e.preventDefault();
-      }
-    });
+document.getElementById('busca-placa').addEventListener('input', function () {
+  const q = this.value.toLowerCase().trim();
+  _linhasFiltradas = q
+    ? _linhas.filter(tr => tr.dataset.busca.toLowerCase().includes(q))
+    : _linhas;
+  _paginaAtual = 1;
+  _renderizar();
+});
+
+function _renderizar() {
+  const inicio = (_paginaAtual - 1) * _PAGINA;
+  const fim = inicio + _PAGINA;
+  _linhas.forEach(tr => tr.style.display = 'none');
+  const visiveis = _linhasFiltradas.slice(inicio, fim);
+  visiveis.forEach(tr => tr.style.display = '');
+
+  const totalPages = Math.max(1, Math.ceil(_linhasFiltradas.length / _PAGINA));
+  const info = document.getElementById('paginacao-info');
+  const container = document.getElementById('paginacao-container');
+  const semResultados = document.getElementById('sem-resultados');
+
+  if (_linhasFiltradas.length === 0) {
+    if (!semResultados) {
+      const tr = document.createElement('tr');
+      tr.id = 'sem-resultados';
+      tr.innerHTML = '<td colspan="7" class="text-center text-muted py-3">Nenhuma placa encontrada.</td>';
+      document.getElementById('tbody-hotlist').appendChild(tr);
+    }
+  } else {
+    if (semResultados) semResultados.remove();
+  }
+
+  info.textContent = _linhasFiltradas.length > 0
+    ? `${inicio + 1}–${Math.min(fim, _linhasFiltradas.length)} de ${_linhasFiltradas.length}`
+    : '';
+  document.getElementById('btn-prev').disabled = _paginaAtual <= 1;
+  document.getElementById('btn-next').disabled = _paginaAtual >= totalPages;
+  container.style.display = _linhasFiltradas.length > _PAGINA ? 'flex' : 'none';
+}
+
+function mudarPagina(delta) {
+  const totalPages = Math.ceil(_linhasFiltradas.length / _PAGINA);
+  _paginaAtual = Math.max(1, Math.min(_paginaAtual + delta, totalPages));
+  _renderizar();
+}
+
+// ── Modal Editar ─────────────────────────────────────────────────────────────
+document.querySelectorAll('.btn-editar').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    const placa = this.dataset.placa;
+    document.getElementById('modal-placa-titulo').textContent = placa;
+    document.getElementById('form-editar').action = '/hotlist/' + placa + '/editar';
+    document.getElementById('edit-prioridade').value = this.dataset.prioridade;
+    document.getElementById('edit-motivo').value = this.dataset.motivo;
+    document.getElementById('edit-descricao').value = this.dataset.descricao;
+    document.getElementById('edit-observacao').value = this.dataset.observacao;
+    $('#modal-editar').modal('show');
   });
 });
 
+// ── Confirmação remover ──────────────────────────────────────────────────────
+document.querySelectorAll('.btn-remover-placa').forEach(function (btn) {
+  btn.addEventListener('click', function (e) {
+    if (!confirm('Remover ' + this.dataset.placa + ' da hotlist?')) e.preventDefault();
+  });
+});
+document.querySelectorAll('.btn-remover-motivo').forEach(function (btn) {
+  btn.addEventListener('click', function (e) {
+    if (!confirm('Remover motivo "' + this.dataset.nome + '"?')) e.preventDefault();
+  });
+});
+
+// ── Validação de placa ───────────────────────────────────────────────────────
+const _PLACA_RE = /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/;
+const inputPlacaAdd = document.getElementById('input-placa-add');
+const erroPlacaAdd = document.getElementById('placa-add-erro');
+
+inputPlacaAdd.addEventListener('input', function () {
+  const v = this.value.toUpperCase();
+  this.value = v;
+  if (v.length === 7) {
+    const valido = _PLACA_RE.test(v);
+    erroPlacaAdd.style.display = valido ? 'none' : 'block';
+    this.style.borderColor = valido ? '' : '#dc3545';
+  } else {
+    erroPlacaAdd.style.display = 'none';
+    this.style.borderColor = '';
+  }
+});
+
+document.getElementById('form-adicionar').addEventListener('submit', function (e) {
+  const v = inputPlacaAdd.value.toUpperCase();
+  if (!_PLACA_RE.test(v)) {
+    e.preventDefault();
+    erroPlacaAdd.style.display = 'block';
+    inputPlacaAdd.style.borderColor = '#dc3545';
+    inputPlacaAdd.focus();
+  }
+});
+
+// ── Sincronizar ──────────────────────────────────────────────────────────────
 function sincronizarTodas() {
   const btn = document.getElementById('btn-sync');
   const res = document.getElementById('sync-resultado');
   btn.disabled = true;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Sincronizando...';
   res.innerHTML = '';
-
   fetch('/api/mapa/viaturas')
     .then(r => r.json())
     .then(data => {
-      const promessas = data.viaturas
-        .filter(v => v.online)
-        .map(v =>
-          fetch(`/api/hotlist/sync/${v.viatura_id}`, {
-            method: 'POST',
-            headers: {'X-CSRFToken': getCsrfToken()},
-          })
-            .then(r => r.json())
-            .then(d => `${v.viatura_id}: ${d.status || d.aviso || d.erro}`)
-            .catch(() => `${v.viatura_id}: falha`)
-        );
-
+      const promessas = data.viaturas.filter(v => v.online).map(v =>
+        fetch(`/api/hotlist/sync/${v.viatura_id}`, {
+          method: 'POST',
+          headers: {'X-CSRFToken': getCsrfToken()},
+        }).then(r => r.json()).then(d => `${v.viatura_id}: ${d.status || d.aviso || d.erro}`)
+          .catch(() => `${v.viatura_id}: falha`)
+      );
       Promise.all(promessas).then(resultados => {
-        res.innerHTML = resultados.map(r => `<div>✓ ${r}</div>`).join('') || '<span class="text-muted">Nenhuma viatura online no momento.</span>';
+        res.innerHTML = resultados.map(r => `<div>✓ ${escapeHtml(r)}</div>`).join('') ||
+          '<span class="text-muted">Nenhuma viatura online no momento.</span>';
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-broadcast-tower mr-1"></i>Sincronizar Agora';
       });
+    }).catch(() => {
+      res.innerHTML = '<span class="text-danger">Erro ao buscar viaturas.</span>';
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-broadcast-tower mr-1"></i>Sincronizar Agora';
     });
 }
+
+// ── Init paginação ───────────────────────────────────────────────────────────
+_renderizar();
 </script>
 {% endblock %}
