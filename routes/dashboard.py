@@ -307,6 +307,7 @@ def leituras():
     page = request.args.get("page", 1, type=int)
 
     q = _aplicar_filtro_viatura(Deteccao.query, Deteccao.viatura_id)
+    q = q.filter(Deteccao.score > 0)
     if viatura_id:
         q = q.filter_by(viatura_id=viatura_id)
     if placa:

@@ -82,7 +82,16 @@
             <td>
               <span class="placa-badge {{ 'bg-danger' if d.alerta_tatico else '' }}">{{ d.placa }}</span>
             </td>
-            <td><small>{{ d.marca }} {{ d.modelo }} <span style="color:var(--text-dim)">{{ d.cor }}</span></small></td>
+            <td><small>
+              {%- set mk = d.marca if d.marca and d.marca != 'N/D' else '' -%}
+              {%- set md = d.modelo if d.modelo and d.modelo != 'N/D' else '' -%}
+              {%- set cr = d.cor if d.cor and d.cor != 'N/D' else '' -%}
+              {%- if mk or md or cr -%}
+                {{ mk }} {{ md }} <span style="color:var(--text-dim)">{{ cr }}</span>
+              {%- else -%}
+                <span style="color:var(--text-muted)">—</span>
+              {%- endif -%}
+            </small></td>
             <td><small>{{ '%.0f km/h' | format(d.velocidade or 0) }}</small></td>
             <td>
               <span class="score-bar" title="{{ '%.0f%%' | format((d.score or 0) * 100) }}">
