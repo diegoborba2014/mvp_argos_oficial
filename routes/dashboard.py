@@ -231,7 +231,11 @@ def index():
         })
 
     q_alertas = _aplicar_filtro_viatura(
-        Deteccao.query.filter(Deteccao.alerta_tatico == True, Deteccao.recebido_em >= inicio_hoje),
+        Deteccao.query.filter(
+            Deteccao.alerta_tatico == True,
+            Deteccao.recebido_em >= inicio_hoje,
+            Deteccao.score > 0,
+        ),
         Deteccao.viatura_id,
     )
     alertas_hoje = q_alertas.count()
@@ -247,7 +251,7 @@ def index():
         {"placa": r.placa, "qtd": r.qtd}
         for r in _aplicar_filtro_viatura(
             db.session.query(Deteccao.placa, func.count(Deteccao.id).label("qtd"))
-            .filter(Deteccao.alerta_tatico == True, Deteccao.recebido_em >= inicio_hoje),
+            .filter(Deteccao.alerta_tatico == True, Deteccao.recebido_em >= inicio_hoje, Deteccao.score > 0),
             Deteccao.viatura_id,
         ).group_by(Deteccao.placa).order_by(func.count(Deteccao.id).desc()).limit(5).all()
     ]
