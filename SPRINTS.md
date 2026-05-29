@@ -659,7 +659,8 @@ Deve ser feita **antes** de qualquer operação em campo ou exposição da URL p
 
 ---
 
-## Sprint 9.1 — Dashboard UX Review ⏳ PLANEJADA
+## Sprint 9.1 — Dashboard UX Review ✅ CONCLUÍDA
+**Commits:** `4474260` → `cef4052` → `d5c6207`
 
 **Objetivo:** corrigir bugs e melhorar a usabilidade do dashboard principal com base em análise de campo (28/05/2026).
 
@@ -748,12 +749,12 @@ Com D-3 (card removido) e D-4 (Saúde da Frota movida), o dashboard fica mais li
 
 ### Checklist Sprint 9.1
 
-- [ ] D-1: Corrigir timezone nos cards Leituras/Alertas Hoje (BRT vs UTC)
-- [ ] D-2a: Ocultar detecções score=0 do Feed ao Vivo (JS + Jinja2)
-- [ ] D-2b: Aumentar `memory_decay = 120` no Pi via Config LPR (remoto, sem deploy)
-- [ ] D-3: Remover card "Última Atualização"
-- [ ] D-4: Criar página `/viaturas/saude` com busca + paginação
-- [ ] D-5: Redesenhar layout do dashboard (KPIs + Feed ampliado + mini-widget + mapa)
+- [x] D-1: Corrigir timezone nos cards Leituras/Alertas Hoje (BRT vs UTC) ✅
+- [x] D-2a: Ocultar detecções score=0 do Feed ao Vivo (JS + Jinja2) ✅
+- [x] D-2b: Aumentar `memory_decay = 120` no Pi via Config LPR (remoto, sem deploy) ✅
+- [x] D-3: Remover card "Última Atualização" ✅
+- [x] D-4: Criar página `/viaturas/saude` com busca + paginação ✅
+- [x] D-5: Redesenhar layout do dashboard (KPIs + Feed ampliado + mini-widget + mapa) ✅
 
 ---
 
