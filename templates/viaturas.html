@@ -130,16 +130,39 @@
 <!-- P-1: ApexCharts carregado apenas nas páginas que usam gráficos -->
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script>
+const _LABELS_CMD = {
+  'pause_lpr':     'Pausar LPR',
+  'resume_lpr':    'Retomar LPR',
+  'restart_lpr':   'Reiniciar LPR',
+  'restart_argos': 'Reiniciar ARGOS',
+};
+
+function _notificacao(msg, tipo) {
+  const div = document.createElement('div');
+  div.className = `alert alert-${tipo} alert-dismissible fade show position-fixed`;
+  div.style.cssText = 'top:70px;right:20px;z-index:9999;min-width:300px;max-width:440px;box-shadow:0 4px 16px rgba(0,0,0,.5);';
+  div.innerHTML = msg + '<button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>';
+  document.body.appendChild(div);
+  setTimeout(() => { if (div.parentNode) div.parentNode.removeChild(div); }, 5000);
+}
+
 function enviarComando(viaturaId, comando) {
-  if (!confirm(`Enviar comando "${comando}" para ${viaturaId}?`)) return;
+  const label = _LABELS_CMD[comando] || comando;
+  if (!confirm(`Confirma envio de "${label}" para ${viaturaId}?`)) return;
   fetch(`/api/viaturas/${viaturaId}/comando`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken()},
     body: JSON.stringify({comando}),
   })
   .then(r => r.json())
-  .then(d => alert(d.status || d.aviso || d.erro || JSON.stringify(d)))
-  .catch(e => alert('Erro: ' + e));
+  .then(d => {
+    if (d.erro) {
+      _notificacao(`<i class="fas fa-times-circle mr-2"></i><strong>Erro:</strong> ${escapeHtml(d.erro)}`, 'danger');
+    } else {
+      _notificacao(`<i class="fas fa-check-circle mr-2"></i><strong>${escapeHtml(label)}</strong> enviado para <strong>${escapeHtml(viaturaId)}</strong>.<br><small>O Pi executará o comando em até 30 segundos.</small>`, 'success');
+    }
+  })
+  .catch(() => _notificacao('<i class="fas fa-exclamation-triangle mr-2"></i>Erro de comunicação. Tente novamente.', 'danger'));
 }
 
 let chartTemp = null, chartHealth = null;
