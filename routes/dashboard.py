@@ -1017,7 +1017,8 @@ def api_hotlist():
 @dashboard_bp.route("/viaturas/<viatura_id>/config")
 @login_required
 def config_viatura(viatura_id):
-    _equipment_admin_required()
+    _hotlist_admin_required()
+    _verificar_acesso_viatura(viatura_id)
     viatura = Viatura.query.filter_by(viatura_id=viatura_id).first_or_404()
     eventos = (EventoSistema.query
                .filter_by(viatura_id=viatura_id)
@@ -1027,7 +1028,8 @@ def config_viatura(viatura_id):
                            viatura_id=viatura.viatura_id,
                            viatura=viatura,
                            cfg=viatura.get_config(),
-                           eventos=eventos)
+                           eventos=eventos,
+                           is_superadmin=current_user.is_superadmin())
 
 
 @dashboard_bp.route("/viaturas/<viatura_id>/hotlist_mode", methods=["POST"])

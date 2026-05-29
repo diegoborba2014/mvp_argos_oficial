@@ -90,12 +90,17 @@
             </td>
             <td><small>{{ d.marca }} {{ d.modelo }} <span style="color:var(--text-dim)">{{ d.cor }}</span></small></td>
             <td><small>{{ '%.0f km/h' | format(d.velocidade or 0) }}</small></td>
-            <td>
-              <span class="score-bar" title="{{ '%.0f%%' | format((d.score or 0) * 100) }}">
-                <span class="score-bar-fill {{ 'high' if (d.score or 0) >= 0.8 else ('medium' if (d.score or 0) >= 0.6 else 'low') }}"
-                      style="width:{{ ((d.score or 0) * 100) | int }}%"></span>
-              </span>
-              <small style="color:var(--text-dim);margin-left:4px;">{{ '%.0f%%' | format((d.score or 0) * 100) }}</small>
+            <td style="white-space:nowrap;">
+              {%- set pct = ((d.score or 0) * 100) | int -%}
+              {%- set bar_color = '#00b894' if pct >= 80 else ('#fdcb6e' if pct >= 60 else '#e17055') -%}
+              <div style="display:inline-flex;align-items:flex-end;gap:2px;height:22px;vertical-align:middle;" title="{{ pct }}%">
+                <div style="width:5px;height:8px;border-radius:1px 1px 0 0;background:{{ bar_color if pct >= 5   else 'rgba(255,255,255,.12)' }};"></div>
+                <div style="width:5px;height:12px;border-radius:1px 1px 0 0;background:{{ bar_color if pct >= 25  else 'rgba(255,255,255,.12)' }};"></div>
+                <div style="width:5px;height:16px;border-radius:1px 1px 0 0;background:{{ bar_color if pct >= 50  else 'rgba(255,255,255,.12)' }};"></div>
+                <div style="width:5px;height:19px;border-radius:1px 1px 0 0;background:{{ bar_color if pct >= 70  else 'rgba(255,255,255,.12)' }};"></div>
+                <div style="width:5px;height:22px;border-radius:1px 1px 0 0;background:{{ bar_color if pct >= 85  else 'rgba(255,255,255,.12)' }};"></div>
+              </div>
+              <small style="color:var(--text-dim);margin-left:5px;">{{ pct }}%</small>
             </td>
             <td onclick="event.stopPropagation()">
               {% if d.latitude and d.longitude %}

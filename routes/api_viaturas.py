@@ -12,6 +12,8 @@ api_viaturas_bp = Blueprint("api_viaturas", __name__)
 
 COMANDOS_VALIDOS = {"pause_lpr", "resume_lpr", "restart_lpr", "restart_argos"}
 
+PARAMS_ADMIN_CLIENTE = {"min_score", "memory_decay", "max_prediction_delay", "mmc", "report_static"}
+
 
 def _headers_pi():
     return {"X-API-Key": current_app.config.get("QG_API_KEY")}
@@ -19,6 +21,13 @@ def _headers_pi():
 
 def _admin_required_json():
     if not current_user.is_admin():
+        return jsonify({"erro": "acesso negado"}), 403
+    return None
+
+
+def _config_admin_required_json():
+    """Permite superadmin e admin_cliente acessar config (com params restritos)."""
+    if not (current_user.is_admin() or current_user.is_admin_cliente()):
         return jsonify({"erro": "acesso negado"}), 403
     return None
 
@@ -125,13 +134,25 @@ def salvar_config(viatura_id):
 @login_required
 def salvar_sync_config(viatura_id):
     """V-2: salva config E já enfileira sincronização em uma única ação."""
-    err = _admin_required_json()
+    err = _config_admin_required_json()
     if err:
         return err
     config = request.get_json(force=True, silent=True) or {}
+
+    # admin_cliente só pode alterar os 5 parâmetros operacionais
+    if not current_user.is_admin():
+        config = {k: v for k, v in config.items() if k in PARAMS_ADMIN_CLIENTE}
+
     viatura = Viatura.query.filter_by(viatura_id=viatura_id).first()
     if not viatura:
         return jsonify({"erro": "viatura não encontrada"}), 404
+
+    # merge: preserva params superadmin, substitui apenas os permitidos
+    if not current_user.is_admin():
+        merged = viatura.get_config()
+        merged.update(config)
+        config = merged
+
     viatura.set_config(config)
     viatura.config_pendente = True
     from models import LogAuditoria

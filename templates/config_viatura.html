@@ -8,6 +8,7 @@
 
 {% block content %}
 
+{% if is_superadmin %}
 <!-- Modo Hotlist -->
 <div class="row justify-content-center mb-3">
   <div class="col-md-10">
@@ -38,6 +39,7 @@
     </div>
   </div>
 </div>
+{% endif %}
 
 <!-- Parâmetros LPR + Logs -->
 <div class="row justify-content-center">
@@ -95,7 +97,8 @@
 
         <form id="form-config">
 
-          <!-- ── Tabs ── -->
+          {% if is_superadmin %}
+          <!-- ── Tabs (superadmin) ── -->
           <ul class="nav nav-tabs" id="cfgTabs" role="tablist">
             <li class="nav-item">
               <a class="nav-link active" data-toggle="tab" href="#pane-reconhecimento" role="tab">
@@ -129,7 +132,7 @@
                 <div class="col-md-6">
 
                   <div class="form-group">
-                    <label><strong>regions</strong></label>
+                    <label><strong>regions</strong>{% if 'regions' not in cfg %}<span class="badge badge-secondary ml-1" style="font-size:.6rem;font-weight:400;">padrão: global</span>{% endif %}</label>
                     <input type="text" name="regions" class="form-control form-control-sm"
                            placeholder="ex: br" value="{{ cfg.get('regions', '') }}">
                     <small class="form-text text-muted">
@@ -140,7 +143,7 @@
                   </div>
 
                   <div class="form-group">
-                    <label><strong>min_score</strong></label>
+                    <label><strong>min_score</strong>{% if 'min_score' not in cfg %}<span class="badge badge-secondary ml-1" style="font-size:.6rem;font-weight:400;">padrão: 0.75</span>{% endif %}</label>
                     <input type="number" name="min_score" class="form-control form-control-sm"
                            min="0" max="1" step="0.05"
                            placeholder="ex: 0.75" value="{{ cfg.get('min_score', '') }}">
@@ -152,7 +155,7 @@
                   </div>
 
                   <div class="form-group">
-                    <label><strong>detection_rule</strong></label>
+                    <label><strong>detection_rule</strong>{% if 'detection_rule' not in cfg %}<span class="badge badge-secondary ml-1" style="font-size:.6rem;font-weight:400;">padrão: normal</span>{% endif %}</label>
                     <select name="detection_rule" class="form-control form-control-sm">
                       <option value=""       {{ 'selected' if not cfg.get('detection_rule') }}>(padrão do sistema)</option>
                       <option value="strict" {{ 'selected' if cfg.get('detection_rule') == 'strict' }}>strict — exige veículo detectado junto da placa</option>
@@ -204,7 +207,7 @@
                 <div class="col-md-6">
 
                   <div class="form-group">
-                    <label><strong>sample</strong></label>
+                    <label><strong>sample</strong>{% if 'sample' not in cfg %}<span class="badge badge-secondary ml-1" style="font-size:.6rem;font-weight:400;">padrão: 2</span>{% endif %}</label>
                     <input type="number" name="sample" class="form-control form-control-sm"
                            min="1" max="10"
                            placeholder="padrão: 2" value="{{ cfg.get('sample', '') }}">
@@ -216,7 +219,7 @@
                   </div>
 
                   <div class="form-group">
-                    <label><strong>max_prediction_delay</strong></label>
+                    <label><strong>max_prediction_delay</strong>{% if 'max_prediction_delay' not in cfg %}<span class="badge badge-secondary ml-1" style="font-size:.6rem;font-weight:400;">padrão: 6 s</span>{% endif %}</label>
                     <input type="number" name="max_prediction_delay" class="form-control form-control-sm"
                            min="1"
                            placeholder="padrão: 6" value="{{ cfg.get('max_prediction_delay', '') }}">
@@ -228,7 +231,7 @@
                   </div>
 
                   <div class="form-group">
-                    <label><strong>memory_decay</strong></label>
+                    <label><strong>memory_decay</strong>{% if 'memory_decay' not in cfg %}<span class="badge badge-secondary ml-1" style="font-size:.6rem;font-weight:400;">padrão: 300 s</span>{% endif %}</label>
                     <input type="number" name="memory_decay" class="form-control form-control-sm"
                            min="0"
                            placeholder="padrão: 300" value="{{ cfg.get('memory_decay', '') }}">
@@ -278,7 +281,7 @@
                 <div class="col-md-6">
 
                   <div class="form-group">
-                    <label class="d-block"><strong>mmc</strong> — Make, Model &amp; Color</label>
+                    <label class="d-block"><strong>mmc</strong> — Make, Model &amp; Color{% if 'mmc' not in cfg %}<span class="badge badge-secondary ml-1" style="font-size:.6rem;font-weight:400;">padrão: off</span>{% endif %}</label>
                     <div class="custom-control custom-switch">
                       <input type="checkbox" class="custom-control-input" id="cfg-mmc" name="mmc"
                              {{ 'checked' if cfg.get('mmc', False) }}>
@@ -291,7 +294,7 @@
                   </div>
 
                   <div class="form-group">
-                    <label class="d-block"><strong>report_static</strong></label>
+                    <label class="d-block"><strong>report_static</strong>{% if 'report_static' not in cfg %}<span class="badge badge-secondary ml-1" style="font-size:.6rem;font-weight:400;">padrão: off</span>{% endif %}</label>
                     <div class="custom-control custom-switch">
                       <input type="checkbox" class="custom-control-input" id="cfg-report-static" name="report_static"
                              {{ 'checked' if cfg.get('report_static', False) }}>
@@ -640,6 +643,92 @@
             </div>
 
           </div><!-- /tab-content -->
+
+          {% else %}
+          <!-- ── Vista simplificada — admin_cliente ── -->
+          <div class="callout callout-secondary mb-3" style="border-left-color:#636e72;">
+            <small>
+              <i class="fas fa-lock mr-1 text-muted"></i>
+              Você pode ajustar os <strong>parâmetros operacionais</strong> abaixo.
+              Configurações de infraestrutura (câmera, webhook, sistema) são gerenciadas pelo administrador do sistema.
+            </small>
+          </div>
+          <div class="row">
+            <div class="col-md-6">
+
+              <div class="form-group">
+                <label>
+                  <strong>min_score</strong> — Confiança mínima de leitura
+                  {% if 'min_score' not in cfg %}<span class="badge badge-secondary ml-1" style="font-size:.6rem;font-weight:400;">padrão: 0.75</span>{% endif %}
+                </label>
+                <input type="number" name="min_score" class="form-control form-control-sm"
+                       min="0" max="1" step="0.05"
+                       placeholder="padrão: 0.75" value="{{ cfg.get('min_score', '') }}">
+                <small class="form-text text-muted">
+                  Confiança mínima (0.0–1.0). Maior = menos falsos positivos, mas pode perder placas parcialmente visíveis. Recomendado: <code>0.70</code>–<code>0.85</code>.
+                </small>
+              </div>
+
+              <div class="form-group">
+                <label>
+                  <strong>memory_decay</strong> — Intervalo entre alertas do mesmo veículo
+                  {% if 'memory_decay' not in cfg %}<span class="badge badge-secondary ml-1" style="font-size:.6rem;font-weight:400;">padrão: 300 s</span>{% endif %}
+                </label>
+                <input type="number" name="memory_decay" class="form-control form-control-sm"
+                       min="0" placeholder="padrão: 300" value="{{ cfg.get('memory_decay', '') }}">
+                <small class="form-text text-muted">
+                  Segundos mínimos entre duas leituras do mesmo veículo. Padrão: <code>300 s</code> (5 min). Rondas móveis: <code>60 s</code>.
+                </small>
+              </div>
+
+              <div class="form-group">
+                <label>
+                  <strong>max_prediction_delay</strong> — Aguardar confirmação antes de reportar
+                  {% if 'max_prediction_delay' not in cfg %}<span class="badge badge-secondary ml-1" style="font-size:.6rem;font-weight:400;">padrão: 6 s</span>{% endif %}
+                </label>
+                <input type="number" name="max_prediction_delay" class="form-control form-control-sm"
+                       min="1" placeholder="padrão: 6" value="{{ cfg.get('max_prediction_delay', '') }}">
+                <small class="form-text text-muted">
+                  Segundos aguardando confirmação antes de reportar. Alta velocidade (&gt;80 km/h): use <code>2</code>–<code>3</code> s.
+                </small>
+              </div>
+
+            </div>
+            <div class="col-md-6">
+
+              <div class="form-group">
+                <label class="d-block">
+                  <strong>mmc</strong> — Identificar marca, modelo e cor
+                  {% if 'mmc' not in cfg %}<span class="badge badge-secondary ml-1" style="font-size:.6rem;font-weight:400;">padrão: off</span>{% endif %}
+                </label>
+                <div class="custom-control custom-switch">
+                  <input type="checkbox" class="custom-control-input" id="cfg-mmc" name="mmc"
+                         {{ 'checked' if cfg.get('mmc', False) }}>
+                  <label class="custom-control-label" for="cfg-mmc">Ativar identificação de marca/modelo/cor</label>
+                </div>
+                <small class="form-text text-muted">
+                  Aumenta uso de CPU. Necessário para visualizar marca/modelo/cor nas leituras.
+                </small>
+              </div>
+
+              <div class="form-group">
+                <label class="d-block">
+                  <strong>report_static</strong> — Reportar veículos parados
+                  {% if 'report_static' not in cfg %}<span class="badge badge-secondary ml-1" style="font-size:.6rem;font-weight:400;">padrão: off</span>{% endif %}
+                </label>
+                <div class="custom-control custom-switch">
+                  <input type="checkbox" class="custom-control-input" id="cfg-report-static" name="report_static"
+                         {{ 'checked' if cfg.get('report_static', False) }}>
+                  <label class="custom-control-label" for="cfg-report-static">Reportar veículos estacionados</label>
+                </div>
+                <small class="form-text text-muted">
+                  Útil em câmeras fixas. Para viaturas em movimento, mantenha desativado.
+                </small>
+              </div>
+
+            </div>
+          </div>
+          {% endif %}
 
           <hr class="mt-2">
           <!-- V-2: botão único Salvar + Sincronizar, V-1: só visível em modo edição -->
