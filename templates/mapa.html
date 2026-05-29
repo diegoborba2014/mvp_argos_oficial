@@ -4,158 +4,358 @@
 {% block breadcrumb %}<li class="breadcrumb-item active">Mapa</li>{% endblock %}
 
 {% block extra_css %}
-<!-- P-1: Leaflet carregado apenas nas páginas que usam mapa -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
-  #mapa { height: calc(100vh - 220px); min-height: 500px; border-radius: 0 0 8px 8px; }
-  /* Popup escuro matching tema */
-  .argos-popup .leaflet-popup-content-wrapper {
-    background: var(--bg-card);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    box-shadow: 0 4px 16px rgba(0,0,0,.5);
-  }
-  .argos-popup .leaflet-popup-tip {
-    background: var(--bg-card);
-  }
-  .argos-popup .leaflet-popup-content {
-    margin: 12px 14px;
-    font-family: var(--font-ui);
-    font-size: .82rem;
-    line-height: 1.6;
-  }
-  .argos-popup strong { color: var(--teal); }
-  .argos-popup .placa-popup {
-    font-family: var(--font-mono);
-    background: rgba(0,0,0,.35);
-    padding: 1px 5px;
-    border-radius: 3px;
-  }
-  /* Pulse para marcadores online */
-  @keyframes pulse-map {
-    0%   { box-shadow: 0 0 0 0 rgba(0,200,220,.6); }
-    70%  { box-shadow: 0 0 0 10px rgba(0,200,220,0); }
-    100% { box-shadow: 0 0 0 0 rgba(0,200,220,0); }
-  }
-  @keyframes pulse-alerta {
-    0%   { box-shadow: 0 0 0 0 rgba(192,57,43,.8); }
-    70%  { box-shadow: 0 0 0 14px rgba(192,57,43,0); }
-    100% { box-shadow: 0 0 0 0 rgba(192,57,43,0); }
-  }
-  .marker-online  { animation: pulse-map 2s infinite; }
-  .marker-alerta  { animation: pulse-alerta 1.2s infinite; }
+#mapa-container { height: calc(100vh - 200px); min-height: 520px; }
+#mapa { height: 100%; border-radius: 0 0 8px 8px; }
+
+/* Painel lateral */
+#painel-viaturas {
+  height: calc(100vh - 200px);
+  display: flex; flex-direction: column;
+  background: #1a1d26;
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 8px;
+  overflow: hidden;
+}
+#painel-header { padding: .6rem .75rem; background: #1a1d23; flex-shrink: 0; }
+#painel-busca { padding: .5rem .75rem; background: #1a1d26; flex-shrink: 0; }
+#lista-viaturas { flex: 1; overflow-y: auto; }
+
+.item-viatura {
+  padding: .55rem .75rem;
+  border-bottom: 1px solid rgba(255,255,255,.05);
+  cursor: pointer;
+  transition: background .15s;
+}
+.item-viatura:hover { background: rgba(0,200,220,.06); }
+.item-viatura.ativo  { background: rgba(0,200,220,.12); border-left: 3px solid #00c8dc; }
+
+/* Marcadores */
+@keyframes pulse-map    { 0%,100%{box-shadow:0 0 0 0 rgba(0,200,220,.6)} 70%{box-shadow:0 0 0 10px rgba(0,200,220,0)} }
+@keyframes pulse-offline{ 0%,100%{box-shadow:0 0 0 0 rgba(99,110,114,.4)} 70%{box-shadow:0 0 0 6px rgba(99,110,114,0)} }
+.mk-online  { animation: pulse-map 2s infinite; }
+.mk-offline { }
+
+/* Popup */
+.argos-popup .leaflet-popup-content-wrapper {
+  background: #1a1d26; color: #e0e0e0;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,.5);
+}
+.argos-popup .leaflet-popup-tip { background: #1a1d26; }
+.argos-popup .leaflet-popup-content { margin: 10px 12px; font-size: .82rem; line-height: 1.7; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="card shadow-sm" style="position:relative;">
-  <div class="card-header py-2 d-flex justify-content-between align-items-center" style="background:#1a1d23;color:#fff;">
-    <h3 class="card-title mb-0"><i class="fas fa-satellite-dish mr-2 text-success"></i>Posições em Tempo Real</h3>
-    <div>
-      <span class="badge badge-success" id="mapa-status">Carregando...</span>
-      <span class="ml-2 text-muted" style="font-size:.8rem;" id="mapa-ultima">—</span>
+<div class="row" style="margin:0 -7px;">
+
+  <!-- Painel lateral -->
+  <div class="col-md-3 pr-1 pl-2">
+    <div id="painel-viaturas">
+
+      <div id="painel-header">
+        <div class="d-flex justify-content-between align-items-center">
+          <strong style="font-size:.88rem;color:#e0e0e0;">
+            <i class="fas fa-car mr-1 text-info"></i>Viaturas
+          </strong>
+          <div style="display:flex;gap:.3rem;">
+            <button class="btn btn-xs btn-outline-info" onclick="centralizarTodas()" title="Centralizar todas no mapa">
+              <i class="fas fa-compress-arrows-alt"></i>
+            </button>
+            <span class="badge badge-secondary" id="badge-online" style="font-size:.7rem;">—</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="painel-busca">
+        <div class="input-group input-group-sm">
+          <div class="input-group-prepend">
+            <span class="input-group-text" style="background:#2a2d3a;border-color:#3a3d4a;color:#adb5bd;">
+              <i class="fas fa-search" style="font-size:.7rem;"></i>
+            </span>
+          </div>
+          <input type="text" id="busca-mapa" class="form-control form-control-sm"
+                 placeholder="Buscar viatura..."
+                 style="background:#1e2130;border-color:#3a3d4a;color:#e0e0e0;font-size:.8rem;">
+        </div>
+      </div>
+
+      <div id="lista-viaturas">
+        <div id="lista-placeholder" class="p-3 text-center text-muted" style="font-size:.8rem;">
+          <i class="fas fa-spinner fa-spin mr-1"></i>Carregando...
+        </div>
+      </div>
+
+      <div style="padding:.5rem .75rem;border-top:1px solid rgba(255,255,255,.05);flex-shrink:0;">
+        <div class="d-flex justify-content-between align-items-center">
+          <small class="text-muted" id="ultima-atualizacao">—</small>
+          <span class="badge badge-success" id="mapa-status" style="font-size:.65rem;">Conectado</span>
+        </div>
+      </div>
+
     </div>
   </div>
-  <div class="card-body p-0">
-    <div id="mapa"></div>
+
+  <!-- Mapa -->
+  <div class="col-md-9 pl-1 pr-2">
+    <div class="card shadow-sm" id="mapa-container" style="position:relative;">
+      <div id="mapa"></div>
+      <!-- Legenda -->
+      <div style="position:absolute;bottom:24px;right:10px;z-index:1000;background:rgba(26,29,38,.85);
+                  padding:8px 12px;border-radius:6px;font-size:.75rem;color:#adb5bd;border:1px solid rgba(255,255,255,.1);">
+        <div class="mb-1"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#00c8dc;margin-right:5px;"></span>Online</div>
+        <div class="mb-1"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#636e72;margin-right:5px;"></span>Offline</div>
+        <div><span style="display:inline-block;width:10px;height:2px;background:#00c8dc;margin-right:5px;vertical-align:middle;"></span>Trajetória</div>
+      </div>
+    </div>
   </div>
+
 </div>
 {% endblock %}
 
 {% block extra_js %}
-<!-- P-1: Leaflet carregado apenas nas páginas que usam mapa -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-const mapa = L.map('mapa', { zoomControl: true }).setView([-15.7801, -47.9292], 5);
-
-// CartoDB Dark Matter — tema escuro sem API key
+const mapa = L.map('mapa', { zoomControl: true }).setView([-15.78, -47.93], 5);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-  attribution: '© <a href="https://carto.com/">CARTO</a> © <a href="https://www.openstreetmap.org/copyright">OSM</a>',
-  subdomains: 'abcd',
-  maxZoom: 19,
+  attribution: '© OpenStreetMap © CARTO', subdomains: 'abcd', maxZoom: 19,
 }).addTo(mapa);
 
-function makeIcon(color, size, cssClass) {
+// Estado
+const _marcadores  = {};   // viatura_id → L.marker
+const _trajetos    = {};   // viatura_id → L.polylineDecorator/layer
+const _trajetoAtivo = {};  // viatura_id → bool
+let _dadosViaturas = [];
+let _viaturaFoco  = null;
+
+// ── Ícones ────────────────────────────────────────────────────────────────────
+function mkIcon(online) {
+  const c = online ? '#00c8dc' : '#636e72';
+  const sz = online ? 14 : 11;
   return L.divIcon({
-    html: `<div class="${cssClass}" style="background:${color};width:${size}px;height:${size}px;border-radius:50%;border:2px solid rgba(255,255,255,.6);"></div>`,
-    iconSize: [size, size], iconAnchor: [size/2, size/2],
-    className: '',
+    html: `<div class="mk-${online ? 'online' : 'offline'}"
+               style="background:${c};width:${sz}px;height:${sz}px;
+                      border-radius:50%;border:2px solid rgba(255,255,255,.5);"></div>`,
+    iconSize: [sz, sz], iconAnchor: [sz/2, sz/2], className: '',
   });
 }
-const iconOnline  = makeIcon('#00c8dc', 14, 'marker-online');
-const iconOffline = makeIcon('#636e72', 12, '');
-const iconAlerta  = makeIcon('#c0392b', 16, 'marker-alerta');
 
-const marcadores = {};
-const caminhosViatura = {};
-const marcadoresAlerta = [];
-
-function popupViatura(v) {
-  return `<strong>${v.viatura_id}</strong><br>
-    Status: <b style="color:${v.online ? 'var(--teal)' : 'var(--offline)'}">${v.online ? 'ONLINE' : 'OFFLINE'}</b><br>
-    CPU: ${v.cpu_temp_c ? v.cpu_temp_c.toFixed(1) + '°C' : '—'}<br>
-    LPR: ${v.lpr_health ? v.lpr_health.toFixed(0) + '%' : '—'}<br>
-    Buffer: ${v.buffer_pendente}<br>
-    <small style="color:var(--text-dim)">${v.ultima_atualizacao}</small>`;
+// ── Popup ─────────────────────────────────────────────────────────────────────
+function mkPopup(v) {
+  const statusColor = v.online ? '#00c8dc' : '#636e72';
+  return `<div style="min-width:160px;">
+    <div style="font-weight:700;color:${statusColor};font-size:.9rem;margin-bottom:4px;">
+      <i class="fas fa-car mr-1"></i>${escapeHtml(v.viatura_id)}
+      ${v.descricao ? `<div style="font-size:.72rem;color:#adb5bd;font-weight:400;">${escapeHtml(v.descricao)}</div>` : ''}
+    </div>
+    <div style="font-size:.78rem;line-height:1.8;color:#adb5bd;">
+      <div>Status: <b style="color:${statusColor}">${v.online ? 'ONLINE' : 'OFFLINE'}</b></div>
+      <div>CPU: <b style="color:${v.cpu_temp_c >= 80 ? '#dc3545' : v.cpu_temp_c >= 65 ? '#fd7e14' : '#28a745'}">${v.cpu_temp_c != null ? v.cpu_temp_c.toFixed(1) + '°C' : '—'}</b></div>
+      <div>LPR: <b>${v.lpr_health != null ? v.lpr_health.toFixed(0) + '%' : '—'}</b></div>
+      <div>Buffer: <b>${v.buffer_pendente || 0}</b></div>
+      <div style="font-size:.7rem;margin-top:4px;color:#666;">${escapeHtml(v.ultima_atualizacao)}</div>
+    </div>
+    <div style="margin-top:6px;">
+      <button onclick="toggleTrajeto('${escapeHtml(v.viatura_id)}')"
+              style="background:#00c8dc22;border:1px solid #00c8dc55;color:#00c8dc;font-size:.72rem;padding:2px 8px;border-radius:4px;cursor:pointer;">
+        <i class="fas fa-route mr-1"></i>Trajetória
+      </button>
+    </div>
+  </div>`;
 }
 
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#x27;'}[c]));
+}
+
+// ── Trajetória ────────────────────────────────────────────────────────────────
+function toggleTrajeto(viaturaId) {
+  if (_trajetoAtivo[viaturaId]) {
+    ocultarTrajeto(viaturaId);
+  } else {
+    carregarTrajeto(viaturaId);
+  }
+}
+
+function ocultarTrajeto(viaturaId) {
+  if (_trajetos[viaturaId]) {
+    _trajetos[viaturaId].forEach(l => mapa.removeLayer(l));
+    delete _trajetos[viaturaId];
+  }
+  _trajetoAtivo[viaturaId] = false;
+  atualizarItemLista(viaturaId);
+}
+
+function carregarTrajeto(viaturaId) {
+  fetch(`/api/mapa/trajeto/${viaturaId}`)
+    .then(r => r.json())
+    .then(pts => {
+      if (_trajetos[viaturaId]) {
+        _trajetos[viaturaId].forEach(l => mapa.removeLayer(l));
+      }
+      _trajetos[viaturaId] = [];
+      _trajetoAtivo[viaturaId] = true;
+
+      if (pts.length < 2) {
+        _trajetoAtivo[viaturaId] = false;
+        atualizarItemLista(viaturaId);
+        return;
+      }
+
+      const maxIdade = Math.max(...pts.map(p => p.idade_min || 0));
+      // Segmentos com degradação de cor (recente = teal brilhante, antigo = cinza)
+      for (let i = 0; i < pts.length - 1; i++) {
+        const t = i / (pts.length - 1);
+        const r = Math.round(0 + t * 99);
+        const g = Math.round(200 - t * 136);
+        const b = Math.round(220 - t * 106);
+        const alpha = Math.max(0.25, 1 - t * 0.75);
+        const seg = L.polyline(
+          [[pts[i].lat, pts[i].lon], [pts[i+1].lat, pts[i+1].lon]],
+          { color: `rgba(${r},${g},${b},${alpha})`, weight: 3, smoothFactor: 1 }
+        ).addTo(mapa);
+        // Tooltip no ponto com horário
+        if (pts[i].ts) seg.bindTooltip(pts[i].ts, { sticky: true, direction: 'top' });
+        _trajetos[viaturaId].push(seg);
+      }
+
+      // Marcador de início da trajetória
+      const primeiro = pts[0];
+      const mkInicio = L.circleMarker([primeiro.lat, primeiro.lon], {
+        radius: 5, color: '#636e72', fillColor: '#636e72', fillOpacity: 1, weight: 1,
+      }).bindTooltip(`Início: ${primeiro.ts}`, { direction: 'top' }).addTo(mapa);
+      _trajetos[viaturaId].push(mkInicio);
+
+      atualizarItemLista(viaturaId);
+    })
+    .catch(() => { _trajetoAtivo[viaturaId] = false; });
+}
+
+// ── Painel lateral ────────────────────────────────────────────────────────────
+function renderizarLista(viaturas) {
+  const busca = document.getElementById('busca-mapa').value.toLowerCase().trim();
+  const filtradas = busca ? viaturas.filter(v =>
+    v.viatura_id.toLowerCase().includes(busca) || v.descricao.toLowerCase().includes(busca)
+  ) : viaturas;
+
+  const lista = document.getElementById('lista-viaturas');
+  const online = viaturas.filter(v => v.online).length;
+  document.getElementById('badge-online').textContent = `${online}/${viaturas.length} online`;
+
+  if (filtradas.length === 0) {
+    lista.innerHTML = '<div class="p-3 text-center text-muted" style="font-size:.8rem;">Nenhuma viatura encontrada.</div>';
+    return;
+  }
+
+  lista.innerHTML = filtradas.map(v => {
+    const ativo = _viaturaFoco === v.viatura_id ? 'ativo' : '';
+    const trajAtivo = _trajetoAtivo[v.viatura_id];
+    const cpuCor = v.cpu_temp_c >= 80 ? '#dc3545' : v.cpu_temp_c >= 65 ? '#fd7e14' : '#28a745';
+    return `
+    <div class="item-viatura ${ativo}" id="item-${CSS.escape(v.viatura_id)}"
+         onclick="focarViatura('${escapeHtml(v.viatura_id)}')">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <span style="font-size:.82rem;font-weight:600;color:#e0e0e0;">
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;
+                         background:${v.online ? '#00c8dc' : '#636e72'};margin-right:5px;"></span>
+            ${escapeHtml(v.viatura_id)}
+          </span>
+          ${v.descricao ? `<div style="font-size:.7rem;color:#adb5bd;margin-left:13px;">${escapeHtml(v.descricao)}</div>` : ''}
+        </div>
+        <span class="badge badge-${v.online ? 'success' : 'secondary'}" style="font-size:.6rem;">
+          ${v.online ? 'ON' : 'OFF'}
+        </span>
+      </div>
+      <div class="mt-1 d-flex" style="gap:.5rem;font-size:.72rem;color:#adb5bd;margin-left:13px;">
+        ${v.cpu_temp_c != null ? `<span style="color:${cpuCor};"><i class="fas fa-thermometer-half mr-1"></i>${v.cpu_temp_c.toFixed(0)}°</span>` : ''}
+        ${v.lpr_health != null ? `<span><i class="fas fa-microchip mr-1"></i>${v.lpr_health.toFixed(0)}%</span>` : ''}
+        <span style="margin-left:auto;color:${trajAtivo ? '#00c8dc' : '#555'};" title="${trajAtivo ? 'Ocultar trajetória' : 'Mostrar trajetória'}"
+              onclick="event.stopPropagation();toggleTrajeto('${escapeHtml(v.viatura_id)}')">
+          <i class="fas fa-route"></i>
+        </span>
+      </div>
+      <div style="font-size:.68rem;color:#555;margin-left:13px;">${escapeHtml(v.ultima_atualizacao)}</div>
+    </div>`;
+  }).join('');
+}
+
+function atualizarItemLista(viaturaId) {
+  renderizarLista(_dadosViaturas);
+}
+
+function focarViatura(viaturaId) {
+  _viaturaFoco = viaturaId;
+  const m = _marcadores[viaturaId];
+  if (m) {
+    mapa.setView(m.getLatLng(), 15, { animate: true });
+    m.openPopup();
+  }
+  if (!_trajetoAtivo[viaturaId]) {
+    carregarTrajeto(viaturaId);
+  }
+  renderizarLista(_dadosViaturas);
+}
+
+function centralizarTodas() {
+  const pts = Object.values(_marcadores).map(m => m.getLatLng());
+  if (pts.length > 0) {
+    try { mapa.fitBounds(L.latLngBounds(pts).pad(0.2), { animate: true }); } catch(e) {}
+  }
+}
+
+// ── Atualização de dados ──────────────────────────────────────────────────────
 function atualizarMapa() {
   fetch('/api/mapa/viaturas')
     .then(r => r.json())
     .then(data => {
-      document.getElementById('mapa-status').textContent = `${data.viaturas.length} viaturas`;
-      document.getElementById('mapa-ultima').textContent = new Date().toLocaleTimeString('pt-BR');
+      _dadosViaturas = data.viaturas;
 
       data.viaturas.forEach(v => {
         if (!v.latitude || !v.longitude) return;
-        const icon = v.online ? iconOnline : iconOffline;
-        if (marcadores[v.viatura_id]) {
-          marcadores[v.viatura_id].setLatLng([v.latitude, v.longitude]);
-          marcadores[v.viatura_id].setIcon(icon);
-          marcadores[v.viatura_id].setPopupContent(popupViatura(v));
+        const icon = mkIcon(v.online);
+        if (_marcadores[v.viatura_id]) {
+          _marcadores[v.viatura_id].setLatLng([v.latitude, v.longitude]);
+          _marcadores[v.viatura_id].setIcon(icon);
+          _marcadores[v.viatura_id].setPopupContent(mkPopup(v));
         } else {
           const m = L.marker([v.latitude, v.longitude], { icon })
-            .bindPopup(popupViatura(v), { className: 'argos-popup' })
+            .bindPopup(mkPopup(v), { className: 'argos-popup', maxWidth: 220 })
             .addTo(mapa);
-          m.on('click', function () {
-            fetch(`/api/mapa/trajeto/${v.viatura_id}`)
-              .then(r => r.json())
-              .then(pts => {
-                if (caminhosViatura[v.viatura_id]) mapa.removeLayer(caminhosViatura[v.viatura_id]);
-                if (pts.length < 2) return;
-                caminhosViatura[v.viatura_id] = L.polyline(
-                  pts.map(p => [p.lat, p.lon]),
-                  { color: '#00c8dc', weight: 2, opacity: .6 }
-                ).addTo(mapa);
-              });
+          m.on('click', () => {
+            _viaturaFoco = v.viatura_id;
+            if (!_trajetoAtivo[v.viatura_id]) carregarTrajeto(v.viatura_id);
+            renderizarLista(_dadosViaturas);
           });
-          marcadores[v.viatura_id] = m;
+          _marcadores[v.viatura_id] = m;
         }
+        // Recarrega trajetória se estava ativa
+        if (_trajetoAtivo[v.viatura_id]) carregarTrajeto(v.viatura_id);
       });
 
-      marcadoresAlerta.forEach(m => mapa.removeLayer(m));
-      marcadoresAlerta.length = 0;
-      data.alertas.forEach(a => {
-        if (!a.latitude || !a.longitude) return;
-        const popup = `<strong style="color:var(--red)">⚠ ALERTA TÁTICO</strong><br>
-          <span class="placa-popup">${a.placa}</span><br>
-          ${a.viatura_id}<br>
-          <small style="color:var(--text-dim)">${a.recebido_em}</small>`;
-        marcadoresAlerta.push(
-          L.marker([a.latitude, a.longitude], { icon: iconAlerta })
-            .bindPopup(popup, { className: 'argos-popup' })
-            .addTo(mapa)
-        );
-      });
+      renderizarLista(data.viaturas);
+      document.getElementById('lista-placeholder').style.display = 'none';
+      document.getElementById('ultima-atualizacao').textContent =
+        'Atualizado ' + new Date().toLocaleTimeString('pt-BR');
     })
-    .catch(() => { document.getElementById('mapa-status').textContent = 'Erro'; });
+    .catch(() => {
+      document.getElementById('mapa-status').textContent = 'Erro';
+      document.getElementById('mapa-status').className = 'badge badge-danger';
+    });
 }
 
-atualizarMapa();
-setInterval(atualizarMapa, 60000);
+// Busca no painel
+document.getElementById('busca-mapa').addEventListener('input', () => renderizarLista(_dadosViaturas));
 
-// P-2: usa conexão SSE centralizada de base.html — sem EventSource próprio
+// SSE: atualiza ao receber heartbeat
 window.addEventListener('argos:heartbeat', atualizarMapa);
+window.addEventListener('argos:open',  () => { document.getElementById('mapa-status').textContent = 'Conectado'; document.getElementById('mapa-status').className = 'badge badge-success'; });
+window.addEventListener('argos:error', () => { document.getElementById('mapa-status').textContent = 'Reconectando...'; document.getElementById('mapa-status').className = 'badge badge-warning'; });
+
+// Init
+atualizarMapa();
 </script>
 {% endblock %}

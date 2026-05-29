@@ -287,7 +287,8 @@ def api_mapa_viaturas():
             "cpu_temp_c": hb.cpu_temp_c,
             "lpr_health": hb.lpr_health,
             "buffer_pendente": hb.buffer_pendente,
-            "ultima_atualizacao": hb.recebido_em.strftime("%d/%m/%Y %H:%M:%S"),
+            "ultima_atualizacao": (hb.recebido_em - timedelta(hours=3)).strftime("%d/%m %H:%M:%S"),
+            "descricao": v.descricao or "",
         })
 
     # Últimos alertas táticos recentes para marcadores vermelhos
@@ -366,10 +367,18 @@ def api_trajeto(viatura_id):
         .filter_by(viatura_id=viatura_id)
         .filter(Heartbeat.latitude.isnot(None))
         .order_by(Heartbeat.recebido_em.desc())
-        .limit(20)
+        .limit(40)
         .all()
     )
-    pontos = [{"lat": hb.latitude, "lon": hb.longitude} for hb in reversed(heartbeats)]
+    pontos = [
+        {
+            "lat": hb.latitude,
+            "lon": hb.longitude,
+            "ts": (hb.recebido_em - timedelta(hours=3)).strftime("%H:%M"),
+            "idade_min": round((_utcnow() - hb.recebido_em).total_seconds() / 60),
+        }
+        for hb in reversed(heartbeats)
+    ]
     return jsonify(pontos)
 
 
