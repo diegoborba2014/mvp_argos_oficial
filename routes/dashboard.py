@@ -201,13 +201,18 @@ def index():
     viaturas_db = _aplicar_filtro_viatura(Viatura.query.filter_by(ativa=True), Viatura.viatura_id).all()
     hbs = _ultimos_heartbeats([v.viatura_id for v in viaturas_db])
 
-    # Eventos ativos por viatura para o widget de saúde
+    # Eventos ativos por viatura
     ev_abertos = _aplicar_filtro_viatura(
         EventoSistema.query.filter_by(resolvido=False), EventoSistema.viatura_id
     ).all()
     ev_por_viatura = {}
     for ev in ev_abertos:
         ev_por_viatura.setdefault(ev.viatura_id, []).append(ev)
+
+    # Mapa cliente_id → nome (apenas superadmin precisa)
+    clientes_map = {}
+    if current_user.is_superadmin():
+        clientes_map = {c.id: c.nome for c in Cliente.query.all()}
 
     viaturas = []
     for v in viaturas_db:
@@ -222,6 +227,7 @@ def index():
             "eventos": evs,
             "tem_critico": any(e.severidade == "critico" for e in evs),
             "tem_aviso": any(e.severidade == "aviso" for e in evs),
+            "cliente_nome": clientes_map.get(v.cliente_id, "—") if v.cliente_id else "—",
         })
 
     q_alertas = _aplicar_filtro_viatura(
@@ -231,10 +237,40 @@ def index():
     alertas_hoje = q_alertas.count()
 
     q_leituras = _aplicar_filtro_viatura(
-        Deteccao.query.filter(Deteccao.recebido_em >= inicio_hoje),
+        Deteccao.query.filter(Deteccao.recebido_em >= inicio_hoje, Deteccao.score > 0),
         Deteccao.viatura_id,
     )
     leituras_hoje = q_leituras.count()
+
+    # Top 5 placas com alerta hoje
+    top_alertas_placas = [
+        {"placa": r.placa, "qtd": r.qtd}
+        for r in _aplicar_filtro_viatura(
+            db.session.query(Deteccao.placa, func.count(Deteccao.id).label("qtd"))
+            .filter(Deteccao.alerta_tatico == True, Deteccao.recebido_em >= inicio_hoje),
+            Deteccao.viatura_id,
+        ).group_by(Deteccao.placa).order_by(func.count(Deteccao.id).desc()).limit(5).all()
+    ]
+
+    # Top 5 placas sem alerta hoje (leituras normais)
+    top_normais_placas = [
+        {"placa": r.placa, "qtd": r.qtd}
+        for r in _aplicar_filtro_viatura(
+            db.session.query(Deteccao.placa, func.count(Deteccao.id).label("qtd"))
+            .filter(Deteccao.alerta_tatico == False, Deteccao.recebido_em >= inicio_hoje, Deteccao.score > 0),
+            Deteccao.viatura_id,
+        ).group_by(Deteccao.placa).order_by(func.count(Deteccao.id).desc()).limit(5).all()
+    ]
+
+    # Leituras por equipamento hoje
+    leituras_por_viatura = [
+        {"viatura_id": r.viatura_id, "qtd": r.qtd}
+        for r in _aplicar_filtro_viatura(
+            db.session.query(Deteccao.viatura_id, func.count(Deteccao.id).label("qtd"))
+            .filter(Deteccao.recebido_em >= inicio_hoje, Deteccao.score > 0),
+            Deteccao.viatura_id,
+        ).group_by(Deteccao.viatura_id).order_by(func.count(Deteccao.id).desc()).all()
+    ]
 
     ultimas_deteccoes = (
         _aplicar_filtro_viatura(Deteccao.query, Deteccao.viatura_id)
@@ -249,6 +285,9 @@ def index():
         alertas_hoje=alertas_hoje,
         leituras_hoje=leituras_hoje,
         ultimas_deteccoes=ultimas_deteccoes,
+        top_alertas_placas=top_alertas_placas,
+        top_normais_placas=top_normais_placas,
+        leituras_por_viatura=leituras_por_viatura,
     )
 
 

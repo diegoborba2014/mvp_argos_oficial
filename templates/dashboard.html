@@ -54,97 +54,158 @@
   </div>
 </div>
 
-<!-- Cards de viaturas -->
+<!-- Status da Frota + Atividade do Dia -->
 <div class="row mb-3">
-  {% for v in viaturas %}
-  {% set hb = v.heartbeat %}
-  <div class="col-sm-6 col-lg-4" id="card-viatura-{{ v.viatura_id | replace('-', '_') }}">
-    <div class="card shadow-sm {{ 'card-viatura-online' if v.online else 'card-viatura-offline' }}">
-      <div class="card-header d-flex justify-content-between align-items-center py-2">
-        <strong><i class="fas fa-car mr-1"></i> {{ v.viatura_id }}</strong>
-        <span class="badge badge-{{ 'success pulse-badge' if v.online else 'secondary' }}">
-          {{ 'ONLINE' if v.online else 'OFFLINE' }}
-        </span>
+
+  <!-- Tabela Status da Frota -->
+  <div class="col-md-7 mb-3 mb-md-0">
+    <div class="card shadow-sm h-100" style="background:#13151c;border:1px solid rgba(255,255,255,.07);">
+      <div class="card-header py-2 d-flex justify-content-between align-items-center" style="background:#1a1d23;color:#fff;">
+        <h3 class="card-title mb-0" style="font-size:.9rem;">
+          <i class="fas fa-satellite-dish mr-1 text-info"></i>Status da Frota
+        </h3>
+        <a href="{{ url_for('dashboard.saude_frota') }}" class="btn btn-xs btn-outline-secondary">
+          <i class="fas fa-heartbeat mr-1"></i>Saúde detalhada
+        </a>
       </div>
-      <div class="card-body py-2" style="font-size:.85rem;">
-        {% if hb %}
-        <div class="row">
-          <div class="col-6">
-            <div><i class="fas fa-thermometer-half mr-1"></i>
-              <span class="{{ 'temp-crit' if hb.cpu_temp_c and hb.cpu_temp_c >= 80 else ('temp-warn' if hb.cpu_temp_c and hb.cpu_temp_c >= 65 else 'temp-ok') }}">
-                {{ '%.1f°C' | format(hb.cpu_temp_c) if hb.cpu_temp_c else '—' }}
-              </span>
-            </div>
-            <div><i class="fas fa-microchip text-primary mr-1"></i>
-              LPR {{ '%.0f%%' | format(hb.lpr_health) if hb.lpr_health else '—' }}
-            </div>
-          </div>
-          <div class="col-6">
-            <div><i class="fas fa-inbox text-secondary mr-1"></i>
-              Buffer: {{ hb.buffer_pendente }}
-            </div>
-            <div><i class="fas fa-map-marker-alt text-danger mr-1"></i>
-              {% if hb.latitude %}
-                {{ '%.4f' | format(hb.latitude) }}, {{ '%.4f' | format(hb.longitude) }}
-              {% else %}
-                Sem GPS
+      <div class="card-body p-0" style="max-height:220px;overflow-y:auto;">
+        {% if viaturas %}
+        <table class="table table-sm mb-0" style="font-size:.78rem;">
+          <thead style="position:sticky;top:0;background:#1e2130;color:#adb5bd;">
+            <tr>
+              <th>Equipamento</th>
+              {% if current_user.is_superadmin() %}<th>Cliente</th>{% endif %}
+              <th style="width:80px;">Status</th>
+              <th style="width:60px;">LPR</th>
+              <th style="width:60px;">CPU</th>
+              <th style="width:55px;">Buffer</th>
+              <th>Atualizado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for v in viaturas %}
+            {% set hb = v.heartbeat %}
+            <tr style="border-left:3px solid {{ '#dc3545' if v.tem_critico else ('#f39c12' if v.tem_aviso else 'transparent') }};">
+              <td>
+                <strong style="color:{{ '#00c8dc' if v.online else '#6c757d' }};">{{ v.viatura_id }}</strong>
+                {% if v.descricao %}<br><small style="color:var(--text-muted);">{{ v.descricao }}</small>{% endif %}
+              </td>
+              {% if current_user.is_superadmin() %}
+              <td><small style="color:var(--text-dim);">{{ v.cliente_nome }}</small></td>
               {% endif %}
-            </div>
-          </div>
-        </div>
-        <div class="mt-1 text-muted" style="font-size:.75rem;">
-          Atualizado: {{ hb.recebido_em.strftime('%d/%m %H:%M:%S') }}
-        </div>
+              <td>
+                <span class="badge badge-{{ 'success' if v.online else 'secondary' }}" style="font-size:.62rem;">
+                  {{ 'ONLINE' if v.online else 'OFFLINE' }}
+                </span>
+              </td>
+              <td>
+                {% if hb and hb.lpr_health is not none %}
+                <span style="color:{{ '#00b894' if hb.lpr_health >= 80 else ('#fdcb6e' if hb.lpr_health >= 60 else '#e17055') }};">
+                  {{ '%.0f%%' | format(hb.lpr_health) }}
+                </span>
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+              <td>
+                {% if hb and hb.cpu_temp_c %}
+                <span style="color:{{ '#e17055' if hb.cpu_temp_c >= 80 else ('#fdcb6e' if hb.cpu_temp_c >= 65 else '#adb5bd') }};">
+                  {{ '%.0f°' | format(hb.cpu_temp_c) }}
+                </span>
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+              <td>
+                <span style="color:{{ '#fdcb6e' if hb and hb.buffer_pendente and hb.buffer_pendente > 20 else '#adb5bd' }};">
+                  {{ hb.buffer_pendente if hb else '—' }}
+                </span>
+              </td>
+              <td>
+                <small style="color:var(--text-muted);">
+                  {{ hb.recebido_em.strftime('%H:%M:%S') if hb else '—' }}
+                </small>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
         {% else %}
-        <span class="text-muted">Sem dados recebidos ainda.</span>
+        <div class="p-3 text-center text-muted" style="font-size:.82rem;">
+          <i class="fas fa-satellite-dish fa-lg mb-2 d-block text-secondary"></i>
+          Nenhuma viatura conectada.
+        </div>
         {% endif %}
       </div>
     </div>
   </div>
-  {% else %}
-  <div class="col-12">
-    <div class="callout callout-info">
-      <h5>Nenhuma viatura conectada ainda.</h5>
-      O sistema aguarda conexão das viaturas via <code>POST /api/argos/telemetry</code>.
-    </div>
-  </div>
-  {% endfor %}
-</div>
 
-<!-- Mini-widget Saúde da Frota -->
-{% if viaturas %}
-{% set n_online = viaturas | selectattr('online', 'equalto', true) | list | length %}
-{% set n_critico = viaturas | selectattr('tem_critico', 'equalto', true) | list | length %}
-{% set n_aviso = viaturas | selectattr('tem_aviso', 'equalto', true) | list | length %}
-<div class="row mb-3">
-  <div class="col-12">
-    <div class="card shadow-sm" style="background:#1a1d23;border:1px solid rgba(255,255,255,.07);">
-      <div class="card-body py-2 d-flex align-items-center justify-content-between flex-wrap" style="gap:.5rem;">
-        <div class="d-flex align-items-center">
-          <i class="fas fa-heartbeat text-warning mr-2"></i>
-          <span style="font-size:.88rem;color:#adb5bd;font-weight:600;">Saúde da Frota</span>
+  <!-- Atividade do Dia -->
+  <div class="col-md-5">
+    <div class="card shadow-sm h-100" style="background:#13151c;border:1px solid rgba(255,255,255,.07);">
+      <div class="card-header py-2" style="background:#1a1d23;color:#fff;">
+        <h3 class="card-title mb-0" style="font-size:.9rem;">
+          <i class="fas fa-chart-bar mr-1 text-warning"></i>Atividade de Hoje
+        </h3>
+      </div>
+      <div class="card-body py-2 px-3">
+
+        <!-- Dois rankings lado a lado -->
+        <div class="row mb-2">
+          <!-- Top 5 com alerta -->
+          <div class="col-6" style="border-right:1px solid rgba(255,255,255,.07);">
+            <div class="d-flex align-items-center mb-2" style="gap:.4rem;">
+              <i class="fas fa-exclamation-circle text-danger" style="font-size:.75rem;"></i>
+              <span style="font-size:.72rem;font-weight:600;color:#adb5bd;text-transform:uppercase;letter-spacing:.04em;">Top Alertas</span>
+            </div>
+            {% for p in top_alertas_placas %}
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <span class="placa-badge bg-danger" style="font-size:.65rem;padding:1px 6px;">{{ p.placa }}</span>
+              <span style="font-size:.7rem;color:#e17055;font-weight:700;">×{{ p.qtd }}</span>
+            </div>
+            {% else %}
+            <p style="font-size:.75rem;color:var(--text-muted);">Nenhum alerta hoje.</p>
+            {% endfor %}
+          </div>
+
+          <!-- Top 5 sem alerta -->
+          <div class="col-6">
+            <div class="d-flex align-items-center mb-2" style="gap:.4rem;">
+              <i class="fas fa-camera text-secondary" style="font-size:.75rem;"></i>
+              <span style="font-size:.72rem;font-weight:600;color:#adb5bd;text-transform:uppercase;letter-spacing:.04em;">Top Leituras</span>
+            </div>
+            {% for p in top_normais_placas %}
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <span class="placa-badge" style="font-size:.65rem;padding:1px 6px;">{{ p.placa }}</span>
+              <span style="font-size:.7rem;color:#adb5bd;font-weight:700;">×{{ p.qtd }}</span>
+            </div>
+            {% else %}
+            <p style="font-size:.75rem;color:var(--text-muted);">Nenhuma leitura hoje.</p>
+            {% endfor %}
+          </div>
         </div>
-        <div class="d-flex align-items-center" style="gap:1rem;font-size:.82rem;">
-          <span><i class="fas fa-circle text-success mr-1"></i>{{ n_online }} online</span>
-          <span><i class="fas fa-circle text-secondary mr-1"></i>{{ viaturas | length - n_online }} offline</span>
-          {% if n_critico > 0 %}
-          <span><i class="fas fa-exclamation-circle text-danger mr-1"></i>{{ n_critico }} c/ evento crítico</span>
-          {% endif %}
-          {% if n_aviso > 0 %}
-          <span><i class="fas fa-exclamation-triangle text-warning mr-1"></i>{{ n_aviso }} c/ aviso</span>
-          {% endif %}
-          {% if n_critico == 0 and n_aviso == 0 %}
-          <span class="text-success"><i class="fas fa-check-circle mr-1"></i>Todos saudáveis</span>
-          {% endif %}
+
+        <!-- Leituras por equipamento -->
+        <div style="border-top:1px solid rgba(255,255,255,.07);padding-top:.5rem;">
+          <div class="d-flex align-items-center mb-2" style="gap:.4rem;">
+            <i class="fas fa-car text-info" style="font-size:.72rem;"></i>
+            <span style="font-size:.72rem;font-weight:600;color:#adb5bd;text-transform:uppercase;letter-spacing:.04em;">Leituras por Equipamento</span>
+          </div>
+          {% set max_leit = leituras_por_viatura[0].qtd if leituras_por_viatura else 1 %}
+          {% for r in leituras_por_viatura %}
+          <div class="d-flex align-items-center mb-1" style="gap:.5rem;font-size:.75rem;">
+            <span style="min-width:100px;color:#adb5bd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ r.viatura_id }}">{{ r.viatura_id }}</span>
+            <div style="flex:1;height:5px;background:rgba(255,255,255,.08);border-radius:3px;">
+              <div style="width:{{ ((r.qtd / max_leit) * 100) | int }}%;height:5px;background:#00c8dc;border-radius:3px;"></div>
+            </div>
+            <span style="color:#adb5bd;min-width:28px;text-align:right;">{{ r.qtd }}</span>
+          </div>
+          {% else %}
+          <p style="font-size:.75rem;color:var(--text-muted);">Nenhuma leitura hoje.</p>
+          {% endfor %}
         </div>
-        <a href="{{ url_for('dashboard.saude_frota') }}" class="btn btn-xs btn-outline-warning">
-          <i class="fas fa-heartbeat mr-1"></i>Ver detalhes
-        </a>
+
       </div>
     </div>
   </div>
+
 </div>
-{% endif %}
 
 <!-- Feed ao Vivo + Mapa ao Vivo -->
 <div class="row">
