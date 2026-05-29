@@ -4,50 +4,126 @@
 {% block breadcrumb %}<li class="breadcrumb-item active">Viaturas</li>{% endblock %}
 
 {% block content %}
-<div class="row">
+
+<!-- V-4: Busca e filtro de viaturas -->
+<div class="row mb-3">
+  <div class="col-md-5">
+    <div class="input-group input-group-sm">
+      <div class="input-group-prepend">
+        <span class="input-group-text" style="background:#2a2d3a;border-color:#444;color:#adb5bd;">
+          <i class="fas fa-search"></i>
+        </span>
+      </div>
+      <input type="text" id="busca-viatura" class="form-control"
+             placeholder="Buscar viatura por ID ou descrição..."
+             style="background:#1a1d26;border-color:#444;color:#e0e0e0;">
+    </div>
+  </div>
+  <div class="col-md-7 d-flex align-items-center flex-wrap" style="gap:.4rem;">
+    <button class="btn btn-sm btn-outline-secondary btn-filtro active" data-filtro="todas">
+      <i class="fas fa-list mr-1"></i>Todas
+    </button>
+    <button class="btn btn-sm btn-outline-success btn-filtro" data-filtro="online">
+      <i class="fas fa-circle mr-1" style="font-size:.6rem;"></i>Online
+    </button>
+    <button class="btn btn-sm btn-outline-danger btn-filtro" data-filtro="offline">
+      <i class="fas fa-circle mr-1" style="font-size:.6rem;"></i>Offline
+    </button>
+    <small class="text-muted ml-1" id="viaturas-count"></small>
+  </div>
+</div>
+
+<div class="row" id="grid-viaturas">
   {% for v in viaturas %}
   {% set hb = v.ultimo_heartbeat() %}
-  <div class="col-md-6 col-lg-4">
+  <div class="col-md-6 col-lg-4 card-viatura-item"
+       data-id="{{ v.viatura_id | lower }}"
+       data-descricao="{{ v.descricao | lower }}"
+       data-status="{{ 'online' if v.online() else 'offline' }}">
     <div class="card shadow-sm mb-3 {{ 'card-viatura-online' if v.online() else 'card-viatura-offline' }}">
       <div class="card-header d-flex justify-content-between align-items-center py-2" style="background:#1a1d23;color:#fff;">
-        <strong><i class="fas fa-car mr-1"></i> {{ v.viatura_id }}</strong>
+        <div>
+          <strong><i class="fas fa-car mr-1"></i> {{ v.viatura_id }}</strong>
+          {% if v.descricao %}<div class="text-muted" style="font-size:.72rem;">{{ v.descricao }}</div>{% endif %}
+        </div>
         <span class="badge badge-{{ 'success' if v.online() else 'danger' }} badge-pill">
           {{ 'ONLINE' if v.online() else 'OFFLINE' }}
         </span>
       </div>
-      <div class="card-body py-2" style="font-size:.85rem;">
+      <div class="card-body py-2" style="font-size:.83rem;">
         {% if hb %}
         <table class="table table-sm table-borderless mb-0">
           <tr>
-            <td class="text-muted py-0">Última comunicação</td>
-            <td class="py-0">{{ hb.recebido_em | brt }}</td>
+            <td class="text-muted py-1" style="width:40%;">Comunicação</td>
+            <td class="py-1"><small>{{ hb.recebido_em | brt }}</small></td>
           </tr>
           <tr>
-            <td class="text-muted py-0">CPU Temp</td>
-            <td class="py-0">
-              <span style="color: {{ '#dc3545' if hb.cpu_temp_c and hb.cpu_temp_c >= 80 else ('#fd7e14' if hb.cpu_temp_c and hb.cpu_temp_c >= 70 else '#28a745') }}">
-                {{ '%.1f°C' | format(hb.cpu_temp_c) if hb.cpu_temp_c else '—' }}
-              </span>
+            <td class="text-muted py-1">
+              CPU
+              <i class="fas fa-info-circle ml-1" style="font-size:.65rem;color:#666;"
+                 title="Normal: <65°C | Atenção: 65-79°C | Crítico: ≥80°C"></i>
+            </td>
+            <td class="py-1">
+              {% if hb.cpu_temp_c %}
+                {% set t = hb.cpu_temp_c %}
+                <span style="color:{{ '#dc3545' if t >= 80 else ('#fd7e14' if t >= 65 else '#28a745') }};font-weight:600;">
+                  {{ '%.1f' | format(t) }}°C
+                  <i class="fas fa-{{ 'exclamation-triangle' if t >= 80 else ('exclamation' if t >= 65 else 'check') }}"
+                     style="font-size:.7rem;"></i>
+                </span>
+              {% else %}—{% endif %}
             </td>
           </tr>
           <tr>
-            <td class="text-muted py-0">LPR Health</td>
-            <td class="py-0">{{ '%.0f%%' | format(hb.lpr_health) if hb.lpr_health else '—' }}</td>
+            <td class="text-muted py-1">
+              LPR Health
+              <i class="fas fa-info-circle ml-1" style="font-size:.65rem;color:#666;"
+                 title="≥70% = normal | <70% = degradado | 0% = offline"></i>
+            </td>
+            <td class="py-1">
+              {% if hb.lpr_health is not none %}
+                {% set hp = (hb.lpr_health * 100) | int %}
+                {% set hcls = 'success' if hp >= 70 else ('warning' if hp > 0 else 'danger') %}
+                <div class="d-flex align-items-center">
+                  <div class="progress mr-1" style="height:5px;width:60px;background:#2a2d3a;flex-shrink:0;">
+                    <div class="progress-bar bg-{{ hcls }}" style="width:{{ hp }}%"></div>
+                  </div>
+                  <span class="text-{{ hcls }}" style="font-weight:600;">{{ hp }}%</span>
+                </div>
+              {% else %}<span class="text-muted">—</span>{% endif %}
+            </td>
           </tr>
           <tr>
-            <td class="text-muted py-0">Buffer pendente</td>
-            <td class="py-0">{{ hb.buffer_pendente }}</td>
+            <td class="text-muted py-1">
+              Buffer
+              <i class="fas fa-info-circle ml-1" style="font-size:.65rem;color:#666;"
+                 title="Leituras aguardando envio ao QG. 0 = ideal."></i>
+            </td>
+            <td class="py-1">
+              {% if hb.buffer_pendente and hb.buffer_pendente > 0 %}
+                <span class="badge badge-{{ 'danger' if hb.buffer_pendente > 50 else 'warning' }}"
+                      title="{{ hb.buffer_pendente }} leitura(s) armazenadas aguardando conexão 4G">
+                  {{ hb.buffer_pendente }} pendente(s)
+                </span>
+              {% else %}
+                <span class="text-success"><i class="fas fa-check mr-1"></i>Vazio</span>
+              {% endif %}
+            </td>
           </tr>
           <tr>
-            <td class="text-muted py-0">GPS</td>
-            <td class="py-0">
-              {% if hb.latitude %}{{ '%.4f' | format(hb.latitude) }}, {{ '%.4f' | format(hb.longitude) }}
-              {% else %}Sem fix{% endif %}
+            <td class="text-muted py-1">GPS</td>
+            <td class="py-1">
+              {% if hb.latitude %}
+                <i class="fas fa-map-marker-alt text-success mr-1"></i>
+                <small>{{ '%.4f' | format(hb.latitude) }}, {{ '%.4f' | format(hb.longitude) }}</small>
+              {% else %}
+                <span class="text-muted"><i class="fas fa-map-marker-alt mr-1"></i>Sem fix</span>
+              {% endif %}
             </td>
           </tr>
         </table>
         {% else %}
-        <p class="text-muted mb-0">Sem dados recebidos.</p>
+        <p class="text-muted mb-0"><i class="fas fa-satellite-dish mr-1"></i>Aguardando primeiro heartbeat.</p>
         {% endif %}
       </div>
       <div class="card-footer py-2 d-flex flex-wrap gap-1" style="background:#1a1d23;border-top:1px solid rgba(255,255,255,.08);">
@@ -109,17 +185,24 @@
   </div>
 </div>
 
-<!-- Modal histórico -->
+<!-- Modal histórico (V-6: legendas e limiares) -->
 <div class="modal fade" id="modal-historico" tabindex="-1">
   <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header" style="background:#1a1d23;color:#fff;">
-        <h5 class="modal-title"><i class="fas fa-chart-line mr-2"></i>Histórico 24h — <span id="modal-viatura-id"></span></h5>
+    <div class="modal-content" style="background:#1a1d26;border:1px solid rgba(255,255,255,.1);">
+      <div class="modal-header py-2" style="background:#1a1d23;color:#fff;border-color:rgba(255,255,255,.1);">
+        <h5 class="modal-title"><i class="fas fa-chart-line mr-2 text-info"></i>Histórico 24h — <span id="modal-viatura-id"></span></h5>
         <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
       </div>
       <div class="modal-body">
-        <div id="chart-temp" style="height:200px;"></div>
-        <div id="chart-health" style="height:200px;" class="mt-3"></div>
+        <div class="d-flex justify-content-end mb-1" style="gap:1rem;font-size:.75rem;color:#adb5bd;">
+          <span><i class="fas fa-circle text-success mr-1"></i>Normal</span>
+          <span><i class="fas fa-circle text-warning mr-1"></i>Atenção</span>
+          <span><i class="fas fa-circle text-danger mr-1"></i>Crítico</span>
+        </div>
+        <small class="text-muted d-block mb-1">Temperatura da CPU (°C) — normal &lt;65°C, atenção 65–79°C, crítico ≥80°C</small>
+        <div id="chart-temp" style="height:190px;"></div>
+        <small class="text-muted d-block mt-3 mb-1">LPR Health (%) — normal ≥70%, degradado &lt;70%, offline = 0%</small>
+        <div id="chart-health" style="height:190px;"></div>
       </div>
     </div>
   </div>
@@ -130,6 +213,41 @@
 <!-- P-1: ApexCharts carregado apenas nas páginas que usam gráficos -->
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script>
+// ── V-4: Busca e filtro de viaturas ──────────────────────────────────────────
+(function () {
+  const cards = Array.from(document.querySelectorAll('.card-viatura-item'));
+  const busca = document.getElementById('busca-viatura');
+  const count = document.getElementById('viaturas-count');
+  let filtroAtivo = 'todas';
+
+  function aplicar() {
+    const q = busca.value.toLowerCase().trim();
+    let vis = 0;
+    cards.forEach(c => {
+      const matchBusca = !q || c.dataset.id.includes(q) || c.dataset.descricao.includes(q);
+      const matchFiltro = filtroAtivo === 'todas' || c.dataset.status === filtroAtivo;
+      const show = matchBusca && matchFiltro;
+      c.style.display = show ? '' : 'none';
+      if (show) vis++;
+    });
+    count.textContent = `${vis} viatura(s)`;
+  }
+
+  busca.addEventListener('input', aplicar);
+
+  document.querySelectorAll('.btn-filtro').forEach(btn => {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.btn-filtro').forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      filtroAtivo = this.dataset.filtro;
+      aplicar();
+    });
+  });
+
+  aplicar();
+})();
+
+// ── Comandos ─────────────────────────────────────────────────────────────────
 const _LABELS_CMD = {
   'pause_lpr':     'Pausar LPR',
   'resume_lpr':    'Retomar LPR',
@@ -182,30 +300,38 @@ function abrirHistorico(viaturaId) {
       if (chartHealth) { chartHealth.destroy(); }
 
       chartTemp = new ApexCharts(document.getElementById('chart-temp'), {
-        chart: { type: 'line', height: 200, toolbar: { show: false }, animations: { enabled: false } },
-        series: [{ name: 'CPU °C', data: temps }],
-        xaxis: { categories: labels, labels: { style: { fontSize: '10px' } } },
-        yaxis: { min: 30, max: 90, title: { text: '°C' } },
+        chart: { type: 'line', height: 190, toolbar: { show: false }, animations: { enabled: false }, background: '#1a1d26' },
+        theme: { mode: 'dark' },
+        series: [{ name: 'CPU (°C)', data: temps }],
+        xaxis: { categories: labels, labels: { style: { fontSize: '9px' } }, tickAmount: 6 },
+        yaxis: { min: 30, max: 95, title: { text: '°C' }, labels: { formatter: v => v + '°' } },
         colors: ['#fd7e14'],
-        annotations: { yaxis: [{ y: 80, borderColor: '#dc3545', label: { text: 'Crítico 80°C' } }] },
+        annotations: { yaxis: [
+          { y: 80, borderColor: '#dc3545', label: { text: 'Crítico ≥80°C', style: { background: '#dc3545', color: '#fff', fontSize: '10px' } } },
+          { y: 65, borderColor: '#ffc107', label: { text: 'Atenção ≥65°C', style: { background: '#ffc107', color: '#000', fontSize: '10px' } } },
+        ]},
         stroke: { curve: 'smooth', width: 2 },
-        title: { text: 'Temperatura CPU', style: { fontSize: '12px' } },
+        tooltip: { theme: 'dark', y: { formatter: v => v != null ? v.toFixed(1) + '°C' : '—' } },
       });
       chartTemp.render();
 
       chartHealth = new ApexCharts(document.getElementById('chart-health'), {
-        chart: { type: 'area', height: 200, toolbar: { show: false }, animations: { enabled: false } },
-        series: [{ name: 'LPR Health %', data: healths }],
-        xaxis: { categories: labels, labels: { style: { fontSize: '10px' } } },
-        yaxis: { min: 0, max: 100, title: { text: '%' } },
-        colors: ['#28a745'],
+        chart: { type: 'area', height: 190, toolbar: { show: false }, animations: { enabled: false }, background: '#1a1d26' },
+        theme: { mode: 'dark' },
+        series: [{ name: 'LPR Health (%)', data: healths.map(v => v != null ? +(v * 100).toFixed(1) : null) }],
+        xaxis: { categories: labels, labels: { style: { fontSize: '9px' } }, tickAmount: 6 },
+        yaxis: { min: 0, max: 100, title: { text: '%' }, labels: { formatter: v => v + '%' } },
+        colors: ['#00c8dc'],
+        annotations: { yaxis: [
+          { y: 70, borderColor: '#ffc107', label: { text: 'Mín. saudável 70%', style: { background: '#ffc107', color: '#000', fontSize: '10px' } } },
+        ]},
         stroke: { curve: 'smooth', width: 2 },
-        fill: { opacity: 0.2 },
-        title: { text: 'LPR Health', style: { fontSize: '12px' } },
+        fill: { opacity: 0.15 },
+        tooltip: { theme: 'dark', y: { formatter: v => v != null ? v.toFixed(0) + '%' : '—' } },
       });
       chartHealth.render();
     })
-    .catch(() => alert('Erro ao carregar histórico da viatura.'));
+    .catch(() => _notificacao('<i class="fas fa-exclamation-triangle mr-2"></i>Erro ao carregar histórico.', 'danger'));
 }
 </script>
 {% endblock %}

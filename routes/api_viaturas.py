@@ -117,6 +117,33 @@ def salvar_config(viatura_id):
     return jsonify({"status": "salvo", "pendente": True}), 200
 
 
+@api_viaturas_bp.route("/api/viaturas/<viatura_id>/config/salvar_sync", methods=["POST"])
+@login_required
+def salvar_sync_config(viatura_id):
+    """V-2: salva config E já enfileira sincronização em uma única ação."""
+    err = _admin_required_json()
+    if err:
+        return err
+    config = request.get_json(force=True, silent=True) or {}
+    viatura = Viatura.query.filter_by(viatura_id=viatura_id).first()
+    if not viatura:
+        return jsonify({"erro": "viatura não encontrada"}), 404
+    viatura.set_config(config)
+    viatura.config_pendente = True
+    db.session.commit()
+    return jsonify({"status": "enfileirado"}), 200
+
+
+@api_viaturas_bp.route("/api/viaturas/<viatura_id>/config/sync_status", methods=["GET"])
+@login_required
+def config_sync_status(viatura_id):
+    """V-3: Pi confirmou a config? Retorna status do pendente."""
+    viatura = Viatura.query.filter_by(viatura_id=viatura_id).first()
+    if not viatura:
+        return jsonify({"erro": "viatura não encontrada"}), 404
+    return jsonify({"pendente": bool(viatura.config_pendente)}), 200
+
+
 @api_viaturas_bp.route("/api/viaturas/<viatura_id>/config/sync", methods=["POST"])
 @login_required
 def sincronizar_config(viatura_id):

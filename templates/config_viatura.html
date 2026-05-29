@@ -39,32 +39,57 @@
   </div>
 </div>
 
-<!-- Parâmetros LPR -->
+<!-- Parâmetros LPR + Logs -->
 <div class="row justify-content-center">
   <div class="col-md-10">
-    <div class="card shadow-sm">
+
+    <!-- Abas: Config | Logs -->
+    <ul class="nav nav-tabs mb-0" id="tabsConfig" style="border-bottom:none;">
+      <li class="nav-item">
+        <a class="nav-link active" data-toggle="tab" href="#pane-config-lpr"
+           style="background:#1a1d23;color:#adb5bd;border-color:rgba(255,255,255,.1) rgba(255,255,255,.1) transparent;">
+          <i class="fas fa-cog mr-1"></i>Configuração LPR
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" data-toggle="tab" href="#pane-logs"
+           style="background:#1a1d23;color:#adb5bd;border-color:rgba(255,255,255,.1) rgba(255,255,255,.1) transparent;">
+          <i class="fas fa-list-alt mr-1"></i>Logs do Equipamento
+          {% if eventos %}<span class="badge badge-secondary ml-1" style="font-size:.65rem;">{{ eventos | length }}</span>{% endif %}
+        </a>
+      </li>
+    </ul>
+
+    <div class="tab-content">
+    <!-- ══ ABA CONFIG ══ -->
+    <div class="tab-pane fade show active" id="pane-config-lpr">
+    <div class="card shadow-sm" style="border-top-left-radius:0;">
       <div class="card-header py-2 d-flex justify-content-between align-items-center" style="background:#1a1d23;color:#fff;">
         <h3 class="card-title mb-0">
           <i class="fas fa-cog mr-1"></i>Parâmetros LPR — {{ viatura_id }}
         </h3>
-        <span id="cfg-status" class="badge badge-{{ 'warning' if viatura.config_pendente else ('success' if cfg else 'secondary') }}">
-          {% if viatura.config_pendente %}
-            <i class="fas fa-clock mr-1"></i>Pendente de Sincronização
-          {% elif cfg %}
-            <i class="fas fa-check mr-1"></i>Sincronizado
-          {% else %}
-            Sem config salva
-          {% endif %}
-        </span>
+        <div class="d-flex align-items-center" style="gap:.5rem;">
+          <span id="cfg-status" class="badge badge-{{ 'warning' if viatura.config_pendente else ('success' if cfg else 'secondary') }}">
+            {% if viatura.config_pendente %}
+              <i class="fas fa-clock mr-1"></i>Aguardando Pi
+            {% elif cfg %}
+              <i class="fas fa-check mr-1"></i>Sincronizado
+            {% else %}
+              Sem config salva
+            {% endif %}
+          </span>
+          <!-- V-1: botão Editar — ativa modo edição -->
+          <button type="button" id="btn-editar-cfg" class="btn btn-sm btn-outline-info" onclick="ativarEdicao()">
+            <i class="fas fa-pencil-alt mr-1"></i>Editar
+          </button>
+        </div>
       </div>
       <div class="card-body">
 
-        <div class="callout callout-warning mb-3">
-          <h6><i class="fas fa-info-circle mr-1"></i>Como funciona</h6>
+        <div id="aviso-edicao" class="callout callout-info mb-3" style="display:none;">
           <small>
-            <strong>Salvar no QG</strong> armazena a configuração no banco do servidor.<br>
-            <strong>Sincronizar com Equipamento</strong> enfileira a config — o Pi baixa automaticamente via polling em até 60 s e reinicia o container LPR (~5 s de interrupção).<br>
-            O badge <span class="badge badge-warning">Pendente</span> desaparece quando o Pi confirmar a aplicação.
+            <i class="fas fa-info-circle mr-1"></i>
+            Modo edição ativo. Clique em <strong>Salvar e Sincronizar</strong> para salvar no QG e enviar ao equipamento automaticamente em até 60s. O container LPR reinicia (~5s de interrupção).
           </small>
         </div>
 
@@ -617,20 +642,88 @@
           </div><!-- /tab-content -->
 
           <hr class="mt-2">
-          <div class="d-flex flex-wrap" style="gap:.5rem;">
-            <button type="submit" class="btn btn-primary">
-              <i class="fas fa-save mr-1"></i>Salvar no QG
+          <!-- V-2: botão único Salvar + Sincronizar, V-1: só visível em modo edição -->
+          <div id="acoes-edicao" style="display:none;" class="d-flex align-items-center flex-wrap" style="gap:.5rem;">
+            <button type="submit" id="btn-salvar-sync" class="btn btn-success">
+              <i class="fas fa-satellite-dish mr-1"></i>Salvar e Sincronizar
             </button>
-            <button type="button" id="btn-sync" class="btn btn-danger" onclick="sincronizar()">
-              <i class="fas fa-sync mr-1"></i>Sincronizar com Equipamento
+            <button type="button" class="btn btn-outline-secondary ml-2" onclick="cancelarEdicao()">
+              <i class="fas fa-times mr-1"></i>Cancelar
             </button>
+            <!-- V-3: status de sincronização -->
+            <div id="sync-status" class="ml-3" style="display:none;font-size:.85rem;"></div>
           </div>
 
         </form>
-
-        <div id="cfg-resultado" class="mt-3" style="display:none;"></div>
       </div>
     </div>
+    </div><!-- /pane-config-lpr -->
+
+    <!-- ══ ABA LOGS (V-7) ══ -->
+    <div class="tab-pane fade" id="pane-logs">
+    <div class="card shadow-sm" style="border-top-left-radius:0;">
+      <div class="card-header py-2 d-flex justify-content-between align-items-center" style="background:#1a1d23;color:#fff;">
+        <h3 class="card-title mb-0">
+          <i class="fas fa-list-alt mr-1 text-info"></i>Histórico de Eventos — {{ viatura_id }}
+        </h3>
+        <small class="text-muted">Últimos {{ eventos | length }} evento(s)</small>
+      </div>
+      <div class="card-body p-0">
+        {% if eventos %}
+        <div style="max-height:500px;overflow-y:auto;">
+          <table class="table table-sm mb-0" style="font-size:.82rem;">
+            <thead style="background:#2c2f3a;color:#adb5bd;position:sticky;top:0;">
+              <tr>
+                <th style="width:155px;">Data/Hora</th>
+                <th style="width:100px;">Severidade</th>
+                <th>Tipo</th>
+                <th>Detalhe</th>
+                <th style="width:90px;">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for ev in eventos %}
+              {% set sc = {'critico': 'danger', 'aviso': 'warning', 'info': 'info'}.get(ev.severidade, 'secondary') %}
+              <tr style="{{ 'opacity:.6;' if ev.resolvido else '' }}">
+                <td><small>{{ ev.criado_em | brt }}</small></td>
+                <td>
+                  <span class="badge badge-{{ sc }}" style="font-size:.68rem;">
+                    {{ ev.severidade | upper }}
+                  </span>
+                </td>
+                <td>
+                  <code style="font-size:.78rem;color:#adb5bd;">{{ ev.tipo }}</code>
+                </td>
+                <td style="max-width:300px;">
+                  <small style="color:#adb5bd;">{{ ev.detalhe or '—' }}</small>
+                </td>
+                <td>
+                  {% if ev.resolvido %}
+                    <span class="text-success" style="font-size:.75rem;">
+                      <i class="fas fa-check mr-1"></i>Resolvido
+                    </span>
+                  {% else %}
+                    <span class="text-{{ sc }}" style="font-size:.75rem;">
+                      <i class="fas fa-circle mr-1"></i>Ativo
+                    </span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="p-4 text-center text-muted">
+          <i class="fas fa-check-circle fa-2x mb-2 text-success"></i>
+          <p class="mb-0">Nenhum evento registrado para esta viatura.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    </div><!-- /pane-logs -->
+
+    </div><!-- /tab-content -->
   </div>
 </div>
 {% endblock %}
@@ -638,24 +731,68 @@
 {% block extra_js %}
 <script>
 const VIATURA_ID = '{{ viatura_id }}';
+let _syncPollTimer = null;
+let _syncPollCount = 0;
 
-function mostrarResultado(tipo, msg) {
-  const el = document.getElementById('cfg-resultado');
-  el.style.display = '';
-  el.className = 'alert alert-' + tipo;
-  el.innerHTML = msg;
-  el.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+// ── V-1: modo leitura / edição ─────────────────────────────────────────────
+function ativarEdicao() {
+  document.querySelectorAll('#form-config input, #form-config select, #form-config textarea').forEach(el => el.disabled = false);
+  document.getElementById('acoes-edicao').style.display = 'flex';
+  document.getElementById('btn-editar-cfg').style.display = 'none';
+  document.getElementById('aviso-edicao').style.display = '';
 }
 
-function atualizarBadge(pendente, temConfig) {
+function cancelarEdicao() {
+  document.querySelectorAll('#form-config input, #form-config select, #form-config textarea').forEach(el => el.disabled = true);
+  document.getElementById('acoes-edicao').style.display = 'none';
+  document.getElementById('btn-editar-cfg').style.display = '';
+  document.getElementById('aviso-edicao').style.display = 'none';
+  document.getElementById('sync-status').style.display = 'none';
+}
+
+// Inicia em modo leitura
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('#form-config input, #form-config select, #form-config textarea').forEach(el => el.disabled = true);
+});
+
+function atualizarBadge(pendente) {
   const badge = document.getElementById('cfg-status');
   if (pendente) {
     badge.className = 'badge badge-warning';
-    badge.innerHTML = '<i class="fas fa-clock mr-1"></i>Pendente de Sincronização';
-  } else if (temConfig) {
+    badge.innerHTML = '<i class="fas fa-clock mr-1"></i>Aguardando Pi';
+  } else {
     badge.className = 'badge badge-success';
     badge.innerHTML = '<i class="fas fa-check mr-1"></i>Sincronizado';
   }
+}
+
+// ── V-3: polling de confirmação ────────────────────────────────────────────
+function iniciarPollingSync() {
+  const statusEl = document.getElementById('sync-status');
+  _syncPollCount = 0;
+  clearInterval(_syncPollTimer);
+  statusEl.style.display = '';
+  statusEl.innerHTML = '<i class="fas fa-spinner fa-spin mr-1 text-warning"></i>Aguardando confirmação do Pi...';
+
+  _syncPollTimer = setInterval(() => {
+    _syncPollCount++;
+    fetch(`/api/viaturas/${VIATURA_ID}/config/sync_status`)
+      .then(r => r.json())
+      .then(d => {
+        if (!d.pendente) {
+          clearInterval(_syncPollTimer);
+          atualizarBadge(false);
+          statusEl.innerHTML = '<i class="fas fa-check-circle mr-1 text-success"></i>Pi aplicou a configuração com sucesso!';
+          cancelarEdicao();
+        } else if (_syncPollCount >= 18) {
+          clearInterval(_syncPollTimer);
+          statusEl.innerHTML = '<i class="fas fa-exclamation-triangle mr-1 text-warning"></i>Pi ainda não confirmou. Verifique se está online.';
+        }
+      })
+      .catch(() => {
+        if (_syncPollCount >= 18) clearInterval(_syncPollTimer);
+      });
+  }, 5000);
 }
 
 function coletarConfig() {
@@ -698,25 +835,37 @@ function coletarConfig() {
   return config;
 }
 
+// ── V-2: Salvar e Sincronizar em uma ação ─────────────────────────────────
 document.getElementById('form-config').addEventListener('submit', function(e) {
   e.preventDefault();
   const config = coletarConfig();
+  const btn = document.getElementById('btn-salvar-sync');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Salvando...';
 
-  fetch(`/api/viaturas/${VIATURA_ID}/config`, {
+  fetch(`/api/viaturas/${VIATURA_ID}/config/salvar_sync`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken()},
     body: JSON.stringify(config),
   })
   .then(r => r.json())
   .then(d => {
-    if (d.status === 'salvo') {
-      atualizarBadge(true, true);
-      mostrarResultado('success', '<i class="fas fa-check mr-1"></i>Configuração salva no QG. Clique em <strong>Sincronizar com Equipamento</strong> para aplicar.');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-satellite-dish mr-1"></i>Salvar e Sincronizar';
+    if (d.status === 'enfileirado') {
+      atualizarBadge(true);
+      iniciarPollingSync();
     } else {
-      mostrarResultado('danger', d.erro || JSON.stringify(d));
+      document.getElementById('sync-status').style.display = '';
+      document.getElementById('sync-status').innerHTML = '<i class="fas fa-times-circle mr-1 text-danger"></i>' + (d.erro || 'Erro desconhecido');
     }
   })
-  .catch(() => mostrarResultado('danger', 'Erro de comunicação com o servidor.'));
+  .catch(() => {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-satellite-dish mr-1"></i>Salvar e Sincronizar';
+    document.getElementById('sync-status').style.display = '';
+    document.getElementById('sync-status').innerHTML = '<i class="fas fa-times-circle mr-1 text-danger"></i>Erro de comunicação com o servidor.';
+  });
 });
 
 function sincronizar() {
